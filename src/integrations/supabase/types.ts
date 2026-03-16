@@ -1243,6 +1243,7 @@ export type Database = {
         | "chef_ligne"
         | "operateur"
         | "gestionnaire_magasin"
+        | "bureau_methode"
       arret_type:
         | "panne"
         | "changement_serie"
@@ -1405,6 +1406,7 @@ export const Constants = {
         "chef_ligne",
         "operateur",
         "gestionnaire_magasin",
+        "bureau_methode",
       ],
       arret_type: [
         "panne",
