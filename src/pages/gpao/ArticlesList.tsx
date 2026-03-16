@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
 
 export default function ArticlesList() {
+  const { canCreate } = usePermissions();
   const [articles, setArticles] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
