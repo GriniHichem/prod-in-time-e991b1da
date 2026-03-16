@@ -1025,18 +1025,161 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_rotation: {
+        Row: {
+          created_at: string
+          date_shift: string
+          id: string
+          is_repos: boolean
+          shift_team_id: string
+          time_slot_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          date_shift: string
+          id?: string
+          is_repos?: boolean
+          shift_team_id: string
+          time_slot_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          date_shift?: string
+          id?: string
+          is_repos?: boolean
+          shift_team_id?: string
+          time_slot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_rotation_shift_team_id_fkey"
+            columns: ["shift_team_id"]
+            isOneToOne: false
+            referencedRelation: "shift_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_rotation_time_slot_id_fkey"
+            columns: ["time_slot_id"]
+            isOneToOne: false
+            referencedRelation: "shift_time_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          label?: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      shift_teams: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shift_time_slots: {
+        Row: {
+          code: string
+          created_at: string
+          heure_debut: string
+          heure_fin: string
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          heure_debut: string
+          heure_fin: string
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          heure_debut?: string
+          heure_fin?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shifts: {
         Row: {
           chef_ligne_id: string | null
           created_at: string
           date_shift: string
           heure_debut: string
+          heure_debut_reelle: string | null
           heure_fin: string
+          heure_fin_reelle: string | null
           id: string
           is_active: boolean
           line_id: string
+          observations: string | null
           of_id: string
+          shift_team_id: string | null
           shift_type: Database["public"]["Enums"]["shift_type"]
+          statut: string
           updated_at: string
         }
         Insert: {
@@ -1044,12 +1187,17 @@ export type Database = {
           created_at?: string
           date_shift: string
           heure_debut: string
+          heure_debut_reelle?: string | null
           heure_fin: string
+          heure_fin_reelle?: string | null
           id?: string
           is_active?: boolean
           line_id: string
+          observations?: string | null
           of_id: string
+          shift_team_id?: string | null
           shift_type: Database["public"]["Enums"]["shift_type"]
+          statut?: string
           updated_at?: string
         }
         Update: {
@@ -1057,12 +1205,17 @@ export type Database = {
           created_at?: string
           date_shift?: string
           heure_debut?: string
+          heure_debut_reelle?: string | null
           heure_fin?: string
+          heure_fin_reelle?: string | null
           id?: string
           is_active?: boolean
           line_id?: string
+          observations?: string | null
           of_id?: string
+          shift_team_id?: string | null
           shift_type?: Database["public"]["Enums"]["shift_type"]
+          statut?: string
           updated_at?: string
         }
         Relationships: [
@@ -1078,6 +1231,13 @@ export type Database = {
             columns: ["of_id"]
             isOneToOne: false
             referencedRelation: "ordres_fabrication"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shifts_shift_team_id_fkey"
+            columns: ["shift_team_id"]
+            isOneToOne: false
+            referencedRelation: "shift_teams"
             referencedColumns: ["id"]
           },
         ]
