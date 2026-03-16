@@ -19,6 +19,7 @@ import UsersAdmin from "@/pages/parametres/UsersAdmin";
 import FamillesAdmin from "@/pages/parametres/FamillesAdmin";
 import PannesAdmin from "@/pages/parametres/PannesAdmin";
 import RolesMatrix from "@/pages/parametres/RolesMatrix";
+import ShiftsAdmin from "@/pages/parametres/ShiftsAdmin";
 import GpaoDashboard from "@/pages/gpao/GpaoDashboard";
 import OfList from "@/pages/gpao/OfList";
 import OfDetail from "@/pages/gpao/OfDetail";
@@ -89,6 +90,7 @@ const App = () => (
               <Route path="/parametres/familles" element={<FamillesAdmin />} />
               <Route path="/parametres/pannes" element={<PannesAdmin />} />
               <Route path="/parametres/roles" element={<RolesMatrix />} />
+              <Route path="/parametres/shifts" element={<ShiftsAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
