@@ -88,6 +88,7 @@ const App = () => (
               <Route path="/parametres/users" element={<UsersAdmin />} />
               <Route path="/parametres/familles" element={<FamillesAdmin />} />
               <Route path="/parametres/pannes" element={<PannesAdmin />} />
+              <Route path="/parametres/roles" element={<RolesMatrix />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

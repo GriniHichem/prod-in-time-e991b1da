@@ -101,9 +101,11 @@ export default function RolesMatrix() {
 
   async function handleSave() {
     setSaving(true);
-    const rows = perms.map(({ id, ...rest }) => rest);
+    const rows = perms.map(({ id, ...rest }) => ({
+      ...rest,
+      role: rest.role as "admin" | "chef_ligne" | "gestionnaire_magasin" | "maintenancier" | "operateur" | "resp_maintenance" | "resp_production",
+    }));
     
-    // Delete all then re-insert (upsert on composite key)
     const { error: delErr } = await supabase.from("role_permissions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (delErr) {
       toast({ title: "Erreur", description: delErr.message, variant: "destructive" });
