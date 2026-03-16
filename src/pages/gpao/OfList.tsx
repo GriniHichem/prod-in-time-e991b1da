@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OfStatusBadge } from "./GpaoDashboard";
-import { Plus, Search, ClipboardList } from "lucide-react";
+import { Plus, Search, ClipboardList, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function OfList() {
   const [ofs, setOfs] = useState<any[]>([]);
@@ -24,6 +26,7 @@ export default function OfList() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canCreate } = usePermissions();
 
   const [newProductId, setNewProductId] = useState("");
   const [newLineId, setNewLineId] = useState("");
@@ -82,10 +85,25 @@ export default function OfList() {
           <h1 className="text-2xl font-bold">Ordres de Fabrication</h1>
           <p className="text-muted-foreground">{ofs.length} OF</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-12 px-6"><Plus className="h-4 w-4 mr-2" /> Nouvel OF</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered, [
+            { key: "numero", label: "N° OF" },
+            { key: "products.designation", label: "Produit" },
+            { key: "production_lines.code", label: "Ligne" },
+            { key: "quantite_prevue", label: "Qté prévue" },
+            { key: "quantite_produite", label: "Qté produite" },
+            { key: "quantite_rebut", label: "Rebuts" },
+            { key: "statut", label: "Statut" },
+            { key: "date_debut_prevue", label: "Date début" },
+            { key: "date_fin_prevue", label: "Date fin" },
+          ], "ordres_fabrication")}>
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          {canCreate("of") && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-12 px-6"><Plus className="h-4 w-4 mr-2" /> Nouvel OF</Button>
+              </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Nouvel ordre de fabrication</DialogTitle></DialogHeader>
             <div className="space-y-4">
@@ -121,6 +139,8 @@ export default function OfList() {
             </div>
           </DialogContent>
         </Dialog>
+          )}
+        </div>
       </div>
 
       <Card>

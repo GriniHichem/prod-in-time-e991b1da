@@ -4,9 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Package, AlertCircle } from "lucide-react";
+import { Plus, Search, Package, AlertCircle, Download } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function PdrList() {
+  const { canCreate } = usePermissions();
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
@@ -42,9 +45,24 @@ export default function PdrList() {
             )}
           </p>
         </div>
-        <Button className="h-12 px-6">
-          <Plus className="h-4 w-4 mr-2" /> Ajouter
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered, [
+            { key: "reference", label: "Référence" },
+            { key: "designation", label: "Désignation" },
+            { key: "stock_actuel", label: "Stock actuel" },
+            { key: "stock_min", label: "Stock min" },
+            { key: "prix_unitaire", label: "Prix unit." },
+            { key: "fournisseur", label: "Fournisseur" },
+            { key: "emplacement", label: "Emplacement" },
+          ], "pieces_rechange")}>
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          {canCreate("pdr") && (
+            <Button className="h-12 px-6">
+              <Plus className="h-4 w-4 mr-2" /> Ajouter
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>

@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { Plus, Search, Cog } from "lucide-react";
+import { Plus, Search, Cog, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function MachinesList() {
   const [machines, setMachines] = useState<any[]>([]);
@@ -16,6 +18,7 @@ export default function MachinesList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [familyFilter, setFamilyFilter] = useState<string>("all");
   const navigate = useNavigate();
+  const { canCreate } = usePermissions();
 
   useEffect(() => {
     const load = async () => {
@@ -43,9 +46,25 @@ export default function MachinesList() {
           <h1 className="text-2xl font-bold">Machines</h1>
           <p className="text-muted-foreground">Parc machine — {machines.length} équipements</p>
         </div>
-        <Button onClick={() => navigate("/machines/new")} className="h-12 px-6">
-          <Plus className="h-4 w-4 mr-2" /> Ajouter
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered, [
+            { key: "code", label: "Code" },
+            { key: "designation", label: "Désignation" },
+            { key: "machine_families.name", label: "Famille" },
+            { key: "criticite", label: "Criticité" },
+            { key: "statut", label: "Statut" },
+            { key: "localisation", label: "Localisation" },
+            { key: "marque", label: "Marque" },
+            { key: "modele", label: "Modèle" },
+          ], "machines")}>
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          {canCreate("machines") && (
+            <Button onClick={() => navigate("/machines/new")} className="h-12 px-6">
+              <Plus className="h-4 w-4 mr-2" /> Ajouter
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>

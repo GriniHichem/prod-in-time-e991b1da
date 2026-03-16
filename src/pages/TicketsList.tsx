@@ -6,13 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { Plus, Search, AlertTriangle } from "lucide-react";
+import { Plus, Search, AlertTriangle, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function TicketsList() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -25,6 +27,7 @@ export default function TicketsList() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canCreate } = usePermissions();
 
   // New ticket form state
   const [newMachineId, setNewMachineId] = useState("");
@@ -86,12 +89,25 @@ export default function TicketsList() {
           <h1 className="text-2xl font-bold">Tickets Maintenance</h1>
           <p className="text-muted-foreground">{tickets.length} tickets</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-12 px-6">
-              <Plus className="h-4 w-4 mr-2" /> Nouveau ticket
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered, [
+            { key: "numero", label: "N°" },
+            { key: "machines.designation", label: "Machine" },
+            { key: "priorite", label: "Priorité" },
+            { key: "statut", label: "Statut" },
+            { key: "description", label: "Description" },
+            { key: "heure_declaration", label: "Date", format: (v) => v ? new Date(v).toLocaleString("fr-FR") : "" },
+            { key: "temps_arret_minutes", label: "Temps arrêt (min)" },
+          ], "tickets")}>
+            <Download className="h-4 w-4 mr-1" /> CSV
+          </Button>
+          {canCreate("tickets") && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-12 px-6">
+                  <Plus className="h-4 w-4 mr-2" /> Nouveau ticket
+                </Button>
+              </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Nouveau ticket maintenance</DialogTitle>
@@ -144,6 +160,8 @@ export default function TicketsList() {
             </div>
           </DialogContent>
         </Dialog>
+          )}
+        </div>
       </div>
 
       <Card>
