@@ -9,6 +9,7 @@ import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 import MachinesList from "@/pages/MachinesList";
 import MachineDetail from "@/pages/MachineDetail";
+import MachineForm from "@/pages/MachineForm";
 import PdrList from "@/pages/PdrList";
 import TicketsList from "@/pages/TicketsList";
 import TicketDetail from "@/pages/TicketDetail";
@@ -61,7 +62,9 @@ const App = () => (
               {/* GMAO */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/machines" element={<MachinesList />} />
+              <Route path="/machines/new" element={<MachineForm />} />
               <Route path="/machines/:id" element={<MachineDetail />} />
+              <Route path="/machines/:id/edit" element={<MachineForm />} />
               <Route path="/pdr" element={<PdrList />} />
               <Route path="/tickets" element={<TicketsList />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />

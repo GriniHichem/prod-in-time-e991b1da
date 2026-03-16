@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { ArrowLeft, FileText, Package, Wrench, CalendarCheck } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Upload, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function MachineDetail() {
@@ -15,19 +15,23 @@ export default function MachineDetail() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [mRes, tRes, pdrRes, plansRes] = await Promise.all([
+      const [mRes, tRes, pdrRes, plansRes, docsRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("id", id).single(),
         supabase.from("tickets").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_pdr").select("*, pdr(*)").eq("machine_id", id),
         supabase.from("preventive_plans").select("*").eq("machine_id", id),
+        supabase.from("machine_documents").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
       ]);
       setMachine(mRes.data);
       setTickets(tRes.data || []);
       setPdrList(pdrRes.data || []);
+      setPlans(plansRes.data || []);
+      setDocuments(docsRes.data || []);
       setPlans(plansRes.data || []);
     };
     load();
@@ -41,7 +45,7 @@ export default function MachineDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/machines")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{machine.code} — {machine.designation}</h1>
           <div className="flex items-center gap-2 mt-1">
             <StatusBadge type="machine" value={machine.statut} />
@@ -51,6 +55,9 @@ export default function MachineDetail() {
             )}
           </div>
         </div>
+        <Button variant="outline" onClick={() => navigate(`/machines/${id}/edit`)} className="h-12 px-6">
+          <Edit className="h-4 w-4 mr-2" /> Modifier
+        </Button>
       </div>
 
       <Tabs defaultValue="info" className="space-y-4">
@@ -94,9 +101,28 @@ export default function MachineDetail() {
 
         <TabsContent value="documents">
           <Card>
-            <CardContent className="p-5 text-center text-muted-foreground">
-              <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              Aucun document attaché
+            <CardContent className="p-5">
+              {documents.length === 0 ? (
+                <div className="text-center text-muted-foreground py-4">
+                  <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  Aucun document — <button onClick={() => navigate(`/machines/${id}/edit`)} className="underline text-primary">ajouter des documents</button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {documents.map((doc) => (
+                    <a key={doc.id} href={doc.file_url} target="_blank" rel="noopener" className="rounded-lg border p-3 hover:border-primary/30 transition-colors">
+                      {doc.file_type === "image" ? (
+                        <img src={doc.file_url} alt={doc.name} className="h-20 w-full rounded object-cover mb-2" />
+                      ) : (
+                        <div className="h-20 w-full rounded bg-muted flex items-center justify-center mb-2">
+                          <FileText className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      <p className="text-xs truncate">{doc.name}</p>
+                    </a>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
