@@ -77,7 +77,9 @@ const App = () => (
               <Route path="/gpao/arrets" element={<StopsPage />} />
               {/* Admin */}
               <Route path="/parametres" element={<Parametres />} />
-              <Route path="/parametres/*" element={<Parametres />} />
+              <Route path="/parametres/users" element={<UsersAdmin />} />
+              <Route path="/parametres/familles" element={<FamillesAdmin />} />
+              <Route path="/parametres/pannes" element={<PannesAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
