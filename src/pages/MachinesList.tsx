@@ -18,6 +18,7 @@ export default function MachinesList() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [familyFilter, setFamilyFilter] = useState<string>("all");
   const navigate = useNavigate();
+  const { canCreate } = usePermissions();
 
   useEffect(() => {
     const load = async () => {
