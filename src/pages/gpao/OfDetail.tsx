@@ -46,7 +46,7 @@ export default function OfDetail() {
   const load = async () => {
     if (!id) return;
     const [ofRes, declRes, consRes, stopRes, tickRes, shiftsRes] = await Promise.all([
-      supabase.from("ordres_fabrication").select("*, products(code, designation, unite), production_lines(code, designation), recipes(name)").eq("id", id).single(),
+      supabase.from("ordres_fabrication").select("*, products(code, designation, unite), production_lines(code, designation), recipes(name), shift_modes(id, code, label)").eq("id", id).single(),
       supabase.from("production_declarations").select("*").eq("of_id", id).order("heure_production", { ascending: false }),
       supabase.from("consumptions").select("*, articles(code, designation, unite)").eq("of_id", id).order("created_at", { ascending: false }),
       supabase.from("production_stops").select("*, production_lines(designation)").eq("of_id", id).order("heure_debut", { ascending: false }),
