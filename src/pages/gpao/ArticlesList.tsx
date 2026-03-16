@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Package, Plus, AlertCircle } from "lucide-react";
+import { Search, Package, Plus, AlertCircle, Download } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function ArticlesList() {
   const [articles, setArticles] = useState<any[]>([]);
