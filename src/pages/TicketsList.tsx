@@ -27,6 +27,7 @@ export default function TicketsList() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canCreate } = usePermissions();
 
   // New ticket form state
   const [newMachineId, setNewMachineId] = useState("");
