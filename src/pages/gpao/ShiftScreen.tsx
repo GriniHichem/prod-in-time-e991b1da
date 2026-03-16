@@ -12,7 +12,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
-import { Plus, AlertTriangle, Clock, Ban, Check, Lock, Unlock, MessageSquare } from "lucide-react";
+import { Plus, AlertTriangle, Clock, Ban, Check, Lock, Unlock, MessageSquare, Play } from "lucide-react";
+
+function deriveShiftType(heureDebut: string): "matin" | "apres_midi" | "nuit" {
+  const h = parseInt(heureDebut.split(":")[0], 10);
+  if (h >= 5 && h < 13) return "matin";
+  if (h >= 13 && h < 21) return "apres_midi";
+  return "nuit";
+}
+
+function buildTimestamp(date: string, time: string): string {
+  // date = "2026-03-16", time = "06:00" or "06:00:00"
+  return `${date}T${time.length === 5 ? time + ":00" : time}`;
+}
 
 export default function ShiftScreen() {
   const { user, profile } = useAuth();
@@ -27,9 +39,14 @@ export default function ShiftScreen() {
   const [lines, setLines] = useState<any[]>([]);
   const [machines, setMachines] = useState<any[]>([]);
   const [declarations, setDeclarations] = useState<any[]>([]);
-  const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [shiftTeams, setShiftTeams] = useState<any[]>([]);
   const [toleranceHours, setToleranceHours] = useState(1);
+  const [modeSlots, setModeSlots] = useState<any[]>([]);
+
+  // Start shift form
+  const [startTeamId, setStartTeamId] = useState("");
+  const [startSlotId, setStartSlotId] = useState("");
+  const [startingShift, setStartingShift] = useState(false);
 
   // Per-hour declaration form
   const [selectedHourSlot, setSelectedHourSlot] = useState<number | null>(null);
@@ -49,12 +66,11 @@ export default function ShiftScreen() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const [ofsRes, linesRes, machinesRes, shiftsRes, slotsRes, teamsRes, settingsRes] = await Promise.all([
+    const [ofsRes, linesRes, machinesRes, shiftsRes, teamsRes, settingsRes] = await Promise.all([
       supabase.from("ordres_fabrication").select("*, products(code, designation), production_lines(id, code, designation, machine_id)").eq("statut", "en_cours" as any).order("numero"),
       supabase.from("production_lines").select("*").eq("is_active", true),
       supabase.from("machines").select("id, code, designation").eq("is_active", true).order("code"),
       supabase.from("shifts").select("*, shift_teams(name, code, color)").eq("date_shift", new Date().toISOString().slice(0, 10)).order("heure_debut", { ascending: false }),
-      supabase.from("shift_time_slots").select("*").eq("is_active", true).order("sort_order"),
       supabase.from("shift_teams").select("*").eq("is_active", true).order("code"),
       supabase.from("shift_settings").select("*"),
     ]);
@@ -62,24 +78,47 @@ export default function ShiftScreen() {
     setLines(linesRes.data || []);
     setMachines(machinesRes.data || []);
     setShifts(shiftsRes.data || []);
-    setTimeSlots(slotsRes.data || []);
     setShiftTeams(teamsRes.data || []);
 
     const tol = (settingsRes.data || []).find((s: any) => s.key === "tolerance_saisie_heures");
     if (tol) setToleranceHours(parseInt(tol.value) || 1);
 
-    if (ofsRes.data && ofsRes.data.length > 0) setSelectedOf(ofsRes.data[0]);
+    if (ofsRes.data && ofsRes.data.length > 0 && !selectedOf) setSelectedOf(ofsRes.data[0]);
 
-    // Find active shift
+    // Find active shift: prefer statut='en_cours', fallback to time window
     const now = new Date();
-    const active = (shiftsRes.data || []).find((s: any) => {
-      const start = new Date(s.heure_debut);
-      const end = new Date(s.heure_fin);
-      return now >= start && now <= end;
-    });
+    const todayShifts = shiftsRes.data || [];
+    let active = todayShifts.find((s: any) => s.statut === "en_cours");
+    if (!active) {
+      active = todayShifts.find((s: any) => {
+        const start = new Date(s.heure_debut);
+        const end = new Date(s.heure_fin);
+        return now >= start && now <= end;
+      });
+    }
     setActiveShift(active || null);
     if (active) setObservations(active.observations || "");
   }
+
+  // Load mode slots when selectedOf changes
+  useEffect(() => {
+    if (selectedOf?.shift_mode_id) {
+      supabase.from("shift_mode_slots")
+        .select("*")
+        .eq("shift_mode_id", selectedOf.shift_mode_id)
+        .order("sort_order")
+        .then(({ data }) => setModeSlots(data || []));
+    } else {
+      // Fallback: load default mode slots (3x8)
+      supabase.from("shift_modes").select("id").eq("is_default", true).single()
+        .then(({ data: mode }) => {
+          if (mode) {
+            supabase.from("shift_mode_slots").select("*").eq("shift_mode_id", mode.id).order("sort_order")
+              .then(({ data }) => setModeSlots(data || []));
+          }
+        });
+    }
+  }, [selectedOf?.shift_mode_id]);
 
   useEffect(() => {
     if (selectedOf && activeShift) {
@@ -91,6 +130,60 @@ export default function ShiftScreen() {
         .then(({ data }) => setDeclarations(data || []));
     }
   }, [selectedOf, activeShift]);
+
+  // --- Start Shift ---
+  const handleStartShift = async () => {
+    if (!startTeamId || !startSlotId || !selectedOf) {
+      toast({ title: "Erreur", description: "Sélectionnez une équipe et un créneau horaire", variant: "destructive" });
+      return;
+    }
+    const slot = modeSlots.find((s: any) => s.id === startSlotId);
+    if (!slot) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const heureDebut = buildTimestamp(today, slot.heure_debut);
+    let heureFin = buildTimestamp(today, slot.heure_fin);
+
+    // Handle overnight shifts (e.g. 22:00 -> 06:00)
+    if (slot.heure_fin <= slot.heure_debut) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      heureFin = buildTimestamp(tomorrow.toISOString().slice(0, 10), slot.heure_fin);
+    }
+
+    const shiftType = deriveShiftType(slot.heure_debut);
+    const lineId = selectedOf.line_id || selectedOf.production_lines?.id;
+
+    if (!lineId) {
+      toast({ title: "Erreur", description: "L'OF sélectionné n'a pas de ligne de production assignée", variant: "destructive" });
+      return;
+    }
+
+    setStartingShift(true);
+    const { error } = await supabase.from("shifts").insert({
+      date_shift: today,
+      heure_debut: heureDebut,
+      heure_fin: heureFin,
+      heure_debut_reelle: new Date().toISOString(),
+      shift_type: shiftType,
+      shift_team_id: startTeamId,
+      chef_ligne_id: user?.id,
+      of_id: selectedOf.id,
+      line_id: lineId,
+      statut: "en_cours",
+    });
+    setStartingShift(false);
+
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Shift démarré", description: `Créneau ${slot.label} — Bonne production !` });
+    setStartTeamId("");
+    setStartSlotId("");
+    loadData();
+  };
 
   // Generate hourly slots for the active shift
   const hourlySlots = useMemo(() => {
@@ -114,21 +207,17 @@ export default function ShiftScreen() {
     return slots;
   }, [activeShift]);
 
-  // Check if a given hour slot can be edited (tolerance logic)
   function canEditSlot(slot: { startTime: Date; endTime: Date }): boolean {
     if (!activeShift) return false;
     const now = new Date();
     const shiftEnd = new Date(activeShift.heure_fin);
-    // Can edit during the slot hour itself
     if (now >= slot.startTime && now < slot.endTime) return true;
-    // Can edit during the tolerance window after slot ends
     const toleranceEnd = new Date(slot.endTime);
     toleranceEnd.setHours(toleranceEnd.getHours() + toleranceHours);
     if (now >= slot.endTime && now < toleranceEnd && now <= shiftEnd) return true;
     return false;
   }
 
-  // Check if slot already has a declaration
   function getSlotDeclaration(slot: { startTime: Date; endTime: Date }) {
     return declarations.find((d) => {
       const h = new Date(d.heure_production);
@@ -147,10 +236,9 @@ export default function ShiftScreen() {
       return;
     }
 
-    // Use slot start as heure_production for consistency
     const { error: declError } = await supabase.from("production_declarations").insert({
       of_id: selectedOf.id,
-      shift_id: activeShift?.id || null,
+      shift_id: activeShift?.id,
       heure_production: slot.startTime.toISOString(),
       quantite_produite: parseFloat(declQte),
       quantite_rebut: parseFloat(declRebut) || 0,
@@ -163,7 +251,6 @@ export default function ShiftScreen() {
       return;
     }
 
-    // Update OF totals
     await supabase.from("ordres_fabrication").update({
       quantite_produite: (selectedOf.quantite_produite || 0) + parseFloat(declQte),
       quantite_rebut: (selectedOf.quantite_rebut || 0) + (parseFloat(declRebut) || 0),
@@ -172,7 +259,6 @@ export default function ShiftScreen() {
     toast({ title: "Production déclarée", description: `${declQte} pour ${slot.label}` });
     setDeclQte(""); setDeclRebut("0"); setDeclNotes(""); setSelectedHourSlot(null);
 
-    // Reload
     const { data: updatedOf } = await supabase.from("ordres_fabrication")
       .select("*, products(code, designation), production_lines(id, code, designation, machine_id)")
       .eq("id", selectedOf.id).single();
@@ -197,6 +283,7 @@ export default function ShiftScreen() {
       observations,
     } as any).eq("id", activeShift.id);
     toast({ title: "Shift clôturé" });
+    setActiveShift(null);
     loadData();
   };
 
@@ -324,7 +411,79 @@ export default function ShiftScreen() {
         </CardContent>
       </Card>
 
-      {selectedOf && (
+      {selectedOf && !activeShift && (
+        /* ===== START SHIFT FORM ===== */
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Play className="h-4 w-4" /> Démarrer un shift
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Aucun shift actif pour aujourd'hui. Sélectionnez votre équipe et le créneau horaire pour démarrer.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Équipe *</Label>
+                <Select value={startTeamId} onValueChange={setStartTeamId}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Choisir une équipe" /></SelectTrigger>
+                  <SelectContent>
+                    {shiftTeams.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <span className="inline-block w-3 h-3 rounded-full mr-2" style={{ backgroundColor: t.color }} />
+                        {t.name} ({t.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Créneau horaire *</Label>
+                <Select value={startSlotId} onValueChange={setStartSlotId}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Choisir un créneau" /></SelectTrigger>
+                  <SelectContent>
+                    {modeSlots.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.label} ({s.heure_debut} – {s.heure_fin})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>OF sélectionné</Label>
+                <Input value={`${selectedOf.numero} — ${selectedOf.products?.designation || ""}`} readOnly className="h-12 bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label>Ligne de production</Label>
+                <Input value={selectedOf.production_lines?.designation || "Non assignée"} readOnly className="h-12 bg-muted" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Chef de ligne (vous)</Label>
+              <Input value={`${profile?.first_name || ""} ${profile?.last_name || ""}`} readOnly className="h-12 bg-muted" />
+            </div>
+
+            <Button
+              onClick={handleStartShift}
+              disabled={!startTeamId || !startSlotId || startingShift}
+              className="w-full h-14 text-lg"
+            >
+              <Play className="h-5 w-5 mr-2" />
+              {startingShift ? "Démarrage..." : "Démarrer le shift"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedOf && activeShift && (
         <>
           {/* Progress */}
           <Card>
@@ -351,12 +510,7 @@ export default function ShiftScreen() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {!activeShift ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Ban className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Aucun shift actif — la saisie est désactivée</p>
-                </div>
-              ) : hourlySlots.length === 0 ? (
+              {hourlySlots.length === 0 ? (
                 <p className="text-center py-4 text-muted-foreground">Aucun créneau horaire calculé</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -413,7 +567,7 @@ export default function ShiftScreen() {
               )}
 
               {/* Declaration form for selected slot */}
-              {selectedHourSlot !== null && activeShift && (
+              {selectedHourSlot !== null && (
                 <div className="border-t pt-4 mt-4 space-y-3">
                   <p className="text-sm font-medium">
                     Saisie pour : <span className="text-primary">{hourlySlots[selectedHourSlot]?.label}</span>
@@ -441,31 +595,29 @@ export default function ShiftScreen() {
           </Card>
 
           {/* Observations / Clôture shift */}
-          {activeShift && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" /> Observations de fin de shift
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Textarea
-                  value={observations}
-                  onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Commentaires, incidents, consignes pour le shift suivant..."
-                  className="min-h-[80px]"
-                />
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleSaveObservations} className="flex-1">
-                    Enregistrer observations
-                  </Button>
-                  <Button variant="destructive" onClick={handleCloseShift}>
-                    Clôturer le shift
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Observations de fin de shift
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                placeholder="Commentaires, incidents, consignes pour le shift suivant..."
+                className="min-h-[80px]"
+              />
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={handleSaveObservations} className="flex-1">
+                  Enregistrer observations
+                </Button>
+                <Button variant="destructive" onClick={handleCloseShift}>
+                  Clôturer le shift
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
