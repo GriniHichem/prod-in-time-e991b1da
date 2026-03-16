@@ -89,7 +89,7 @@ export default function MachineForm() {
       localisation: form.localisation.trim() || null,
       criticite: form.criticite as any,
       statut: form.statut as any,
-      family_id: form.family_id || null,
+      family_id: form.family_id && form.family_id !== "__none__" ? form.family_id : null,
       date_mise_en_service: form.date_mise_en_service || null,
     };
 
@@ -211,7 +211,7 @@ export default function MachineForm() {
                 <Select value={form.family_id} onValueChange={(v) => handleChange("family_id", v)}>
                   <SelectTrigger className="h-12"><SelectValue placeholder="Aucune" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune</SelectItem>
+                    <SelectItem value="__none__">Aucune</SelectItem>
                     {families.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
