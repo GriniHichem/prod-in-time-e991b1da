@@ -394,6 +394,37 @@ export default function OfDetail() {
         </TabsContent>
       </Tabs>
 
+        {/* === HISTORIQUE MODE === */}
+        <TabsContent value="mode_history">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Ancien mode</TableHead>
+                    <TableHead>Nouveau mode</TableHead>
+                    <TableHead>Motif</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {modeHistory.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Aucun changement de mode</TableCell></TableRow>
+                  ) : modeHistory.map((h: any) => (
+                    <TableRow key={h.id}>
+                      <TableCell className="tabular-nums">{new Date(h.created_at).toLocaleString("fr-FR")}</TableCell>
+                      <TableCell>{h.old_mode?.label || "—"}</TableCell>
+                      <TableCell className="font-medium">{h.new_mode?.label || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{h.reason || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
       {/* Shift Detail Dialog */}
       <Dialog open={!!detailShift} onOpenChange={(open) => !open && setDetailShift(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -434,7 +465,6 @@ export default function OfDetail() {
                 </Card>
               )}
 
-              {/* Déclarations horaires */}
               <div>
                 <p className="text-sm font-medium mb-2">Déclarations horaires ({detailDeclarations.length})</p>
                 {detailDeclarations.length === 0 ? (
@@ -453,7 +483,6 @@ export default function OfDetail() {
                 )}
               </div>
 
-              {/* Consommations */}
               {detailConsumptions.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Consommations ({detailConsumptions.length})</p>
@@ -468,7 +497,6 @@ export default function OfDetail() {
                 </div>
               )}
 
-              {/* Tickets */}
               {detailTickets.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Tickets maintenance ({detailTickets.length})</p>
@@ -484,7 +512,6 @@ export default function OfDetail() {
                 </div>
               )}
 
-              {/* Arrêts */}
               {detailStops.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Arrêts ({detailStops.length})</p>
@@ -500,6 +527,34 @@ export default function OfDetail() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mode Change Dialog */}
+      <Dialog open={modeDialogOpen} onOpenChange={setModeDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Changer le type de créneau</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <p className="text-muted-foreground">Mode actuel : <span className="font-medium text-foreground">{(of as any).shift_modes?.label || "3x8"}</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label>Nouveau mode *</Label>
+              <Select value={newModeId} onValueChange={setNewModeId}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>
+                  {shiftModes.filter((m) => m.id !== of.shift_mode_id).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.label} — {m.description}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Motif du changement *</Label>
+              <Textarea value={modeChangeReason} onChange={(e) => setModeChangeReason(e.target.value)} placeholder="Expliquez la raison du changement..." className="min-h-[80px]" />
+            </div>
+            <Button onClick={handleChangeMode} className="w-full h-12">Confirmer le changement</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
