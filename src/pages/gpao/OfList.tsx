@@ -68,7 +68,8 @@ export default function OfList() {
       date_debut_prevue: newDateDebut || null,
       date_fin_prevue: newDateFin || null,
       created_by: user?.id,
-    });
+      shift_mode_id: newShiftModeId || null,
+    } as any);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     } else {
