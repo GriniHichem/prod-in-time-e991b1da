@@ -48,6 +48,7 @@ const gpaoItems = [
   { title: "Ordres de fab.", url: "/gpao/of", icon: ClipboardList },
   { title: "Produits", url: "/gpao/produits", icon: Boxes },
   { title: "Articles", url: "/gpao/articles", icon: Package },
+  { title: "Recettes", url: "/gpao/recettes", icon: BookOpen },
   { title: "Shift", url: "/gpao/shift", icon: Timer },
   { title: "Consommations", url: "/gpao/consommations", icon: Boxes },
   { title: "Arrêts", url: "/gpao/arrets", icon: AlertTriangle },

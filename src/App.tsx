@@ -81,6 +81,7 @@ const App = () => (
               <Route path="/gpao/shift" element={<ShiftScreen />} />
               <Route path="/gpao/consommations" element={<ConsumptionPage />} />
               <Route path="/gpao/arrets" element={<StopsPage />} />
+              <Route path="/gpao/recettes" element={<RecipesPage />} />
               {/* Admin */}
               <Route path="/parametres" element={<Parametres />} />
               <Route path="/parametres/users" element={<UsersAdmin />} />
