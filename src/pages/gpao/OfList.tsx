@@ -33,6 +33,8 @@ export default function OfList() {
   const [newQte, setNewQte] = useState("");
   const [newDateDebut, setNewDateDebut] = useState("");
   const [newDateFin, setNewDateFin] = useState("");
+  const [shiftModes, setShiftModes] = useState<any[]>([]);
+  const [newShiftModeId, setNewShiftModeId] = useState("");
 
   const loadOfs = async () => {
     const { data } = await supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false });
