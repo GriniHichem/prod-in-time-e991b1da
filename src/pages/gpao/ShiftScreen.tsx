@@ -300,8 +300,17 @@ export default function ShiftScreen() {
     }
   };
 
-  // --- Consumption ---
+  // --- Completion checks ---
   const allProductionDeclared = hourlySlots.length > 0 && hourlySlots.every((slot) => getSlotDeclaration(slot));
+
+  const consumptionsSaved = recipeLines.length > 0
+    ? recipeLines.every((rl: any) => {
+        const qte = consumptionEntries[rl.article_id];
+        return qte !== undefined && qte !== "" && parseFloat(qte) >= 0;
+      }) && existingConsumptions.length > 0
+    : existingConsumptions.length > 0;
+
+  const canCloseShift = allProductionDeclared && consumptionsSaved;
 
   const totalProduced = declarations.reduce((sum, d) => sum + (d.quantite_produite || 0), 0);
 
