@@ -133,6 +133,13 @@ export default function OfList() {
                 <Label>Quantité prévue (kg) *</Label>
                 <Input type="number" value={newQte} onChange={(e) => setNewQte(e.target.value)} className="h-12" placeholder="0" />
               </div>
+              <div className="space-y-2">
+                <Label>Type de créneau</Label>
+                <Select value={newShiftModeId} onValueChange={setNewShiftModeId}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="3 Shifts (défaut)" /></SelectTrigger>
+                  <SelectContent>{shiftModes.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Date début</Label>
