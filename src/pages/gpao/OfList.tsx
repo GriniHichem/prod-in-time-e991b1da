@@ -33,9 +33,11 @@ export default function OfList() {
   const [newQte, setNewQte] = useState("");
   const [newDateDebut, setNewDateDebut] = useState("");
   const [newDateFin, setNewDateFin] = useState("");
+  const [shiftModes, setShiftModes] = useState<any[]>([]);
+  const [newShiftModeId, setNewShiftModeId] = useState("");
 
   const loadOfs = async () => {
-    const { data } = await supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code), shift_modes(label, code)").order("created_at", { ascending: false });
     setOfs(data || []);
   };
 
@@ -44,6 +46,11 @@ export default function OfList() {
     supabase.from("products").select("*").eq("is_active", true).order("code").then(({ data }) => setProducts(data || []));
     supabase.from("production_lines").select("*").eq("is_active", true).order("code").then(({ data }) => setLines(data || []));
     supabase.from("recipes").select("*").eq("is_active", true).then(({ data }) => setRecipes(data || []));
+    supabase.from("shift_modes").select("*").eq("is_active", true).order("code").then(({ data }) => {
+      setShiftModes(data || []);
+      const def = (data || []).find((m: any) => m.is_default);
+      if (def) setNewShiftModeId(def.id);
+    });
   }, []);
 
   const handleCreate = async () => {
@@ -61,7 +68,8 @@ export default function OfList() {
       date_debut_prevue: newDateDebut || null,
       date_fin_prevue: newDateFin || null,
       created_by: user?.id,
-    });
+      shift_mode_id: newShiftModeId || null,
+    } as any);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     } else {
@@ -125,6 +133,13 @@ export default function OfList() {
                 <Label>Quantité prévue (kg) *</Label>
                 <Input type="number" value={newQte} onChange={(e) => setNewQte(e.target.value)} className="h-12" placeholder="0" />
               </div>
+              <div className="space-y-2">
+                <Label>Type de créneau</Label>
+                <Select value={newShiftModeId} onValueChange={setNewShiftModeId}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="3 Shifts (défaut)" /></SelectTrigger>
+                  <SelectContent>{shiftModes.map((m) => <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Date début</Label>
@@ -172,6 +187,7 @@ export default function OfList() {
                 <TableHead>Qté prévue</TableHead>
                 <TableHead>Qté produite</TableHead>
                 <TableHead>Rebuts</TableHead>
+                <TableHead>Mode</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="hidden md:table-cell">Dates</TableHead>
               </TableRow>
@@ -192,6 +208,7 @@ export default function OfList() {
                       <span className="text-xs text-muted-foreground ml-1">({progress}%)</span>
                     </TableCell>
                     <TableCell className="tabular-nums text-destructive">{of.quantite_rebut > 0 ? of.quantite_rebut : "—"}</TableCell>
+                    <TableCell className="text-xs">{(of as any).shift_modes?.label || "3x8"}</TableCell>
                     <TableCell><OfStatusBadge value={of.statut} /></TableCell>
                     <TableCell className="hidden md:table-cell text-xs tabular-nums text-muted-foreground">
                       {of.date_debut_prevue && new Date(of.date_debut_prevue).toLocaleDateString("fr-FR")}

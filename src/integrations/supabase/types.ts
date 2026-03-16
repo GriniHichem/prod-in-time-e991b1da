@@ -416,6 +416,58 @@ export type Database = {
           },
         ]
       }
+      of_mode_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_mode_id: string
+          of_id: string
+          old_mode_id: string | null
+          reason: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_mode_id: string
+          of_id: string
+          old_mode_id?: string | null
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_mode_id?: string
+          of_id?: string
+          old_mode_id?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "of_mode_history_new_mode_id_fkey"
+            columns: ["new_mode_id"]
+            isOneToOne: false
+            referencedRelation: "shift_modes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "of_mode_history_of_id_fkey"
+            columns: ["of_id"]
+            isOneToOne: false
+            referencedRelation: "ordres_fabrication"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "of_mode_history_old_mode_id_fkey"
+            columns: ["old_mode_id"]
+            isOneToOne: false
+            referencedRelation: "shift_modes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordres_fabrication: {
         Row: {
           created_at: string
@@ -433,6 +485,7 @@ export type Database = {
           quantite_produite: number
           quantite_rebut: number
           recipe_id: string | null
+          shift_mode_id: string | null
           statut: Database["public"]["Enums"]["of_statut"]
           unite: string
           updated_at: string
@@ -453,6 +506,7 @@ export type Database = {
           quantite_produite?: number
           quantite_rebut?: number
           recipe_id?: string | null
+          shift_mode_id?: string | null
           statut?: Database["public"]["Enums"]["of_statut"]
           unite?: string
           updated_at?: string
@@ -473,6 +527,7 @@ export type Database = {
           quantite_produite?: number
           quantite_rebut?: number
           recipe_id?: string | null
+          shift_mode_id?: string | null
           statut?: Database["public"]["Enums"]["of_statut"]
           unite?: string
           updated_at?: string
@@ -497,6 +552,13 @@ export type Database = {
             columns: ["recipe_id"]
             isOneToOne: false
             referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordres_fabrication_shift_mode_id_fkey"
+            columns: ["shift_mode_id"]
+            isOneToOne: false
+            referencedRelation: "shift_modes"
             referencedColumns: ["id"]
           },
         ]
@@ -1021,6 +1083,80 @@ export type Database = {
           id?: string
           module?: string
           role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shift_mode_slots: {
+        Row: {
+          created_at: string
+          heure_debut: string
+          heure_fin: string
+          id: string
+          label: string
+          shift_mode_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          heure_debut: string
+          heure_fin: string
+          id?: string
+          label: string
+          shift_mode_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          heure_debut?: string
+          heure_fin?: string
+          id?: string
+          label?: string
+          shift_mode_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_mode_slots_shift_mode_id_fkey"
+            columns: ["shift_mode_id"]
+            isOneToOne: false
+            referencedRelation: "shift_modes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_modes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          label: string
+          nb_shifts: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label: string
+          nb_shifts?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label?: string
+          nb_shifts?: number
           updated_at?: string
         }
         Relationships: []

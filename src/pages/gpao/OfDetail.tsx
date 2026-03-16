@@ -6,8 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { OfStatusBadge } from "./GpaoDashboard";
-import { ArrowLeft, Play, CheckCircle, BarChart3, Package, AlertTriangle, Clock, Users } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle, BarChart3, Package, AlertTriangle, Clock, Users, RefreshCw, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
@@ -25,6 +28,13 @@ export default function OfDetail() {
   const [stops, setStops] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [shiftHistory, setShiftHistory] = useState<any[]>([]);
+  const [shiftModes, setShiftModes] = useState<any[]>([]);
+  const [modeHistory, setModeHistory] = useState<any[]>([]);
+
+  // Mode change dialog
+  const [modeDialogOpen, setModeDialogOpen] = useState(false);
+  const [newModeId, setNewModeId] = useState("");
+  const [modeChangeReason, setModeChangeReason] = useState("");
 
   // Detail dialog
   const [detailShift, setDetailShift] = useState<any>(null);
@@ -36,7 +46,7 @@ export default function OfDetail() {
   const load = async () => {
     if (!id) return;
     const [ofRes, declRes, consRes, stopRes, tickRes, shiftsRes] = await Promise.all([
-      supabase.from("ordres_fabrication").select("*, products(code, designation, unite), production_lines(code, designation), recipes(name)").eq("id", id).single(),
+      supabase.from("ordres_fabrication").select("*, products(code, designation, unite), production_lines(code, designation), recipes(name), shift_modes(id, code, label)").eq("id", id).single(),
       supabase.from("production_declarations").select("*").eq("of_id", id).order("heure_production", { ascending: false }),
       supabase.from("consumptions").select("*, articles(code, designation, unite)").eq("of_id", id).order("created_at", { ascending: false }),
       supabase.from("production_stops").select("*, production_lines(designation)").eq("of_id", id).order("heure_debut", { ascending: false }),
@@ -49,6 +59,14 @@ export default function OfDetail() {
     setStops(stopRes.data || []);
     setTickets(tickRes.data || []);
     setShiftHistory(shiftsRes.data || []);
+
+    // Load shift modes and mode history
+    const [modesRes, modeHistRes] = await Promise.all([
+      supabase.from("shift_modes").select("*").eq("is_active", true).order("code"),
+      supabase.from("of_mode_history").select("*, old_mode:shift_modes!of_mode_history_old_mode_id_fkey(label, code), new_mode:shift_modes!of_mode_history_new_mode_id_fkey(label, code)").eq("of_id", id).order("created_at", { ascending: false }),
+    ]);
+    setShiftModes(modesRes.data || []);
+    setModeHistory(modeHistRes.data || []);
   };
 
   useEffect(() => { load(); }, [id]);
@@ -62,6 +80,28 @@ export default function OfDetail() {
   const handleFinishOf = async () => {
     await supabase.from("ordres_fabrication").update({ statut: "termine" as any, date_fin_reelle: new Date().toISOString() }).eq("id", id!);
     toast({ title: "OF terminé" });
+    load();
+  };
+
+  const handleChangeMode = async () => {
+    if (!newModeId || !modeChangeReason.trim()) {
+      toast({ title: "Erreur", description: "Mode et motif obligatoires", variant: "destructive" });
+      return;
+    }
+    // Insert history
+    await supabase.from("of_mode_history").insert({
+      of_id: id,
+      old_mode_id: of.shift_mode_id || null,
+      new_mode_id: newModeId,
+      changed_by: user?.id,
+      reason: modeChangeReason,
+    } as any);
+    // Update OF
+    await supabase.from("ordres_fabrication").update({ shift_mode_id: newModeId } as any).eq("id", id!);
+    toast({ title: "Type de créneau modifié" });
+    setModeDialogOpen(false);
+    setNewModeId("");
+    setModeChangeReason("");
     load();
   };
 
@@ -109,6 +149,7 @@ export default function OfDetail() {
           <h1 className="text-2xl font-bold">{of.numero}</h1>
           <div className="flex items-center gap-2 mt-1">
             <OfStatusBadge value={of.statut} />
+            <Badge variant="outline" className="text-xs">{(of as any).shift_modes?.label || "3x8"}</Badge>
             <span className="text-sm text-muted-foreground">{of.products?.designation}</span>
           </div>
         </div>
@@ -116,7 +157,12 @@ export default function OfDetail() {
           <Button onClick={handleStartOf} className="h-12 px-6"><Play className="h-4 w-4 mr-2" /> Démarrer</Button>
         )}
         {of.statut === "en_cours" && (
-          <Button onClick={handleFinishOf} variant="outline" className="h-12 px-6"><CheckCircle className="h-4 w-4 mr-2" /> Terminer</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setModeDialogOpen(true)} variant="outline" size="sm">
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Changer mode
+            </Button>
+            <Button onClick={handleFinishOf} variant="outline" className="h-12 px-6"><CheckCircle className="h-4 w-4 mr-2" /> Terminer</Button>
+          </div>
         )}
       </div>
 
@@ -135,10 +181,11 @@ export default function OfDetail() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           ["Ligne", of.production_lines?.designation || "—"],
           ["Recette", of.recipes?.name || "—"],
+          ["Mode", (of as any).shift_modes?.label || "3x8"],
           ["Début prévu", of.date_debut_prevue ? new Date(of.date_debut_prevue).toLocaleDateString("fr-FR") : "—"],
           ["Arrêts", totalStopMin > 0 ? `${totalStopMin} min` : "0 min"],
         ].map(([label, val]) => (
@@ -158,6 +205,7 @@ export default function OfDetail() {
           <TabsTrigger value="consumptions" className="h-9"><Package className="h-3.5 w-3.5 mr-1" /> Consommations</TabsTrigger>
           <TabsTrigger value="stops" className="h-9"><AlertTriangle className="h-3.5 w-3.5 mr-1" /> Arrêts</TabsTrigger>
           <TabsTrigger value="tickets" className="h-9">Tickets</TabsTrigger>
+          <TabsTrigger value="mode_history" className="h-9"><History className="h-3.5 w-3.5 mr-1" /> Historique Mode</TabsTrigger>
         </TabsList>
 
         {/* === HISTORIQUE SHIFTS === */}
@@ -344,6 +392,36 @@ export default function OfDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* === HISTORIQUE MODE === */}
+        <TabsContent value="mode_history">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Ancien mode</TableHead>
+                    <TableHead>Nouveau mode</TableHead>
+                    <TableHead>Motif</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {modeHistory.length === 0 ? (
+                    <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Aucun changement de mode</TableCell></TableRow>
+                  ) : modeHistory.map((h: any) => (
+                    <TableRow key={h.id}>
+                      <TableCell className="tabular-nums">{new Date(h.created_at).toLocaleString("fr-FR")}</TableCell>
+                      <TableCell>{h.old_mode?.label || "—"}</TableCell>
+                      <TableCell className="font-medium">{h.new_mode?.label || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{h.reason || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Shift Detail Dialog */}
@@ -386,7 +464,6 @@ export default function OfDetail() {
                 </Card>
               )}
 
-              {/* Déclarations horaires */}
               <div>
                 <p className="text-sm font-medium mb-2">Déclarations horaires ({detailDeclarations.length})</p>
                 {detailDeclarations.length === 0 ? (
@@ -405,7 +482,6 @@ export default function OfDetail() {
                 )}
               </div>
 
-              {/* Consommations */}
               {detailConsumptions.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Consommations ({detailConsumptions.length})</p>
@@ -420,7 +496,6 @@ export default function OfDetail() {
                 </div>
               )}
 
-              {/* Tickets */}
               {detailTickets.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Tickets maintenance ({detailTickets.length})</p>
@@ -436,7 +511,6 @@ export default function OfDetail() {
                 </div>
               )}
 
-              {/* Arrêts */}
               {detailStops.length > 0 && (
                 <div>
                   <p className="text-sm font-medium mb-2">Arrêts ({detailStops.length})</p>
@@ -452,6 +526,34 @@ export default function OfDetail() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mode Change Dialog */}
+      <Dialog open={modeDialogOpen} onOpenChange={setModeDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Changer le type de créneau</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <p className="text-muted-foreground">Mode actuel : <span className="font-medium text-foreground">{(of as any).shift_modes?.label || "3x8"}</span></p>
+            </div>
+            <div className="space-y-2">
+              <Label>Nouveau mode *</Label>
+              <Select value={newModeId} onValueChange={setNewModeId}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>
+                  {shiftModes.filter((m) => m.id !== of.shift_mode_id).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.label} — {m.description}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Motif du changement *</Label>
+              <Textarea value={modeChangeReason} onChange={(e) => setModeChangeReason(e.target.value)} placeholder="Expliquez la raison du changement..." className="min-h-[80px]" />
+            </div>
+            <Button onClick={handleChangeMode} className="w-full h-12">Confirmer le changement</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
