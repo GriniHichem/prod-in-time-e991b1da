@@ -26,6 +26,7 @@ import ArticlesList from "@/pages/gpao/ArticlesList";
 import ShiftScreen from "@/pages/gpao/ShiftScreen";
 import ConsumptionPage from "@/pages/gpao/ConsumptionPage";
 import StopsPage from "@/pages/gpao/StopsPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="/tickets" element={<TicketsList />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />
               <Route path="/preventif" element={<PreventifList />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
               {/* GPAO */}
               <Route path="/gpao" element={<GpaoDashboard />} />
               <Route path="/gpao/of" element={<OfList />} />
