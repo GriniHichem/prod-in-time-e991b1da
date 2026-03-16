@@ -31,6 +31,8 @@ export default function MachineDetail() {
       setTickets(tRes.data || []);
       setPdrList(pdrRes.data || []);
       setPlans(plansRes.data || []);
+      setDocuments(docsRes.data || []);
+      setPlans(plansRes.data || []);
     };
     load();
   }, [id]);
