@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -21,12 +21,12 @@ export default function TicketDetail() {
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
   const { canEdit, canDelete } = usePermissions();
+  const isMobile = useIsMobile();
   const [ticket, setTicket] = useState<any>(null);
   const [interventions, setInterventions] = useState<any[]>([]);
   const [causeRacine, setCauseRacine] = useState("");
   const [solution, setSolution] = useState("");
 
-  // PDR used in closure
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [selectedPdr, setSelectedPdr] = useState<{ pdr_id: string; quantite: number }[]>([]);
   const [newPdrId, setNewPdrId] = useState("");
@@ -60,19 +60,8 @@ export default function TicketDetail() {
 
   const handleTakeCharge = async () => {
     const now = new Date().toISOString();
-    await supabase.from("tickets").update({
-      statut: "pris_en_charge" as any,
-      assignee_id: user?.id,
-      heure_prise_en_charge: now,
-    }).eq("id", id!);
-
-    await supabase.from("interventions").insert({
-      ticket_id: id!,
-      technicien_id: user?.id!,
-      description: "Prise en charge",
-      statut: "en_cours" as any,
-    });
-
+    await supabase.from("tickets").update({ statut: "pris_en_charge" as any, assignee_id: user?.id, heure_prise_en_charge: now }).eq("id", id!);
+    await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any });
     toast({ title: "Ticket pris en charge" });
     loadTicket();
   };
@@ -80,17 +69,13 @@ export default function TicketDetail() {
   const addPdr = () => {
     if (!newPdrId) return;
     setSelectedPdr((prev) => {
-      const exists = prev.find((p) => p.pdr_id === newPdrId);
-      if (exists) return prev;
+      if (prev.find((p) => p.pdr_id === newPdrId)) return prev;
       return [...prev, { pdr_id: newPdrId, quantite: parseInt(newPdrQte) || 1 }];
     });
-    setNewPdrId("");
-    setNewPdrQte("1");
+    setNewPdrId(""); setNewPdrQte("1");
   };
 
-  const removePdr = (pdrId: string) => {
-    setSelectedPdr((prev) => prev.filter((p) => p.pdr_id !== pdrId));
-  };
+  const removePdr = (pdrId: string) => setSelectedPdr((prev) => prev.filter((p) => p.pdr_id !== pdrId));
 
   const handleResolve = async () => {
     if (!causeRacine || !solution) {
@@ -98,61 +83,31 @@ export default function TicketDetail() {
       return;
     }
     const now = new Date().toISOString();
-    // Auto-calculate times
-    const tempsArret = ticket?.heure_declaration
-      ? Math.round((new Date(now).getTime() - new Date(ticket.heure_declaration).getTime()) / 60000)
-      : null;
-    const tempsIntervention = ticket?.heure_prise_en_charge
-      ? Math.round((new Date(now).getTime() - new Date(ticket.heure_prise_en_charge).getTime()) / 60000)
-      : null;
+    const tempsArret = ticket?.heure_declaration ? Math.round((new Date(now).getTime() - new Date(ticket.heure_declaration).getTime()) / 60000) : null;
+    const tempsIntervention = ticket?.heure_prise_en_charge ? Math.round((new Date(now).getTime() - new Date(ticket.heure_prise_en_charge).getTime()) / 60000) : null;
 
     await supabase.from("tickets").update({
-      statut: "resolu" as any,
-      heure_resolution: now,
-      cause_racine: causeRacine,
-      solution: solution,
-      temps_arret_minutes: tempsArret,
-      temps_intervention_minutes: tempsIntervention,
+      statut: "resolu" as any, heure_resolution: now, cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention,
     }).eq("id", id!);
 
-    // Close intervention and save PDR used
     const activeIntervention = interventions.find((i) => i.statut === "en_cours");
     if (activeIntervention) {
-      await supabase.from("interventions")
-        .update({ statut: "terminee" as any, date_fin: now })
-        .eq("id", activeIntervention.id);
-
-      // Save PDR used
+      await supabase.from("interventions").update({ statut: "terminee" as any, date_fin: now }).eq("id", activeIntervention.id);
       if (selectedPdr.length > 0) {
-        const pdrRows = selectedPdr.map((p) => ({
-          intervention_id: activeIntervention.id,
-          pdr_id: p.pdr_id,
-          quantite: p.quantite,
-        }));
-        await supabase.from("intervention_pdr").insert(pdrRows);
-
-        // Decrease PDR stock
+        await supabase.from("intervention_pdr").insert(selectedPdr.map((p) => ({ intervention_id: activeIntervention.id, pdr_id: p.pdr_id, quantite: p.quantite })));
         for (const p of selectedPdr) {
           const pdrItem = pdrList.find((x) => x.id === p.pdr_id);
-          if (pdrItem) {
-            await supabase.from("pdr").update({
-              stock_actuel: Math.max(0, pdrItem.stock_actuel - p.quantite),
-            }).eq("id", p.pdr_id);
-          }
+          if (pdrItem) await supabase.from("pdr").update({ stock_actuel: Math.max(0, pdrItem.stock_actuel - p.quantite) }).eq("id", p.pdr_id);
         }
       }
     }
-
     toast({ title: "Ticket résolu" });
     setSelectedPdr([]);
     loadTicket();
   };
 
   const handleClose = async () => {
-    await supabase.from("tickets").update({
-      statut: "cloture" as any,
-      heure_cloture: new Date().toISOString(),
-    }).eq("id", id!);
+    await supabase.from("tickets").update({ statut: "cloture" as any, heure_cloture: new Date().toISOString() }).eq("id", id!);
     toast({ title: "Ticket clôturé" });
     loadTicket();
   };
@@ -163,24 +118,25 @@ export default function TicketDetail() {
   const canResolve = (ticket.statut === "pris_en_charge" || ticket.statut === "en_cours") && (ticket.assignee_id === user?.id || hasRole("admin"));
   const canCloseTicket = ticket.statut === "resolu" && (hasRole("resp_maintenance") || hasRole("admin"));
 
+  // Time helpers
+  const fmtDate = (d: string) => new Date(d).toLocaleString("fr-FR");
+
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/tickets")} className="h-10 w-10">
+    <div className={`space-y-4 ${isMobile ? "px-1" : "max-w-3xl"}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/tickets")} className="h-9 w-9 shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{ticket.numero}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <h1 className={`font-bold ${isMobile ? "text-lg" : "text-2xl"}`}>{ticket.numero}</h1>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <StatusBadge type="ticket" value={ticket.statut} />
             <StatusBadge type="priority" value={ticket.priorite} />
             {ticket.is_from_gpao && (
               <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:text-blue-300">
-                <Factory className="h-3 w-3 mr-1" /> Depuis GPAO
+                <Factory className="h-3 w-3 mr-0.5" /> GPAO
               </Badge>
-            )}
-            {ticket.panne_types?.name && (
-              <Badge variant="secondary" className="text-xs">{ticket.panne_types.name}</Badge>
             )}
           </div>
         </div>
@@ -188,130 +144,65 @@ export default function TicketDetail() {
 
       {/* Info card */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Informations</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Informations</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Machine</p>
-            <p className="text-sm font-medium">{ticket.machines?.code} — {ticket.machines?.designation}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Description</p>
-            <p className="text-sm">{ticket.description}</p>
-          </div>
-          {ticket.ordres_fabrication?.numero && (
-            <div>
-              <p className="text-xs text-muted-foreground">OF lié</p>
-              <p className="text-sm font-mono">{ticket.ordres_fabrication.numero}</p>
-            </div>
-          )}
-          {ticket.production_lines?.designation && (
-            <div>
-              <p className="text-xs text-muted-foreground">Ligne</p>
-              <p className="text-sm">{ticket.production_lines.code} — {ticket.production_lines.designation}</p>
-            </div>
-          )}
-          <div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Déclaration</p>
-            <p className="text-sm tabular-nums">{new Date(ticket.heure_declaration).toLocaleString("fr-FR")}</p>
-          </div>
-          {ticket.heure_prise_en_charge && (
-            <div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Prise en charge</p>
-              <p className="text-sm tabular-nums">{new Date(ticket.heure_prise_en_charge).toLocaleString("fr-FR")}</p>
-            </div>
-          )}
-          {ticket.heure_resolution && (
-            <div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><Wrench className="h-3 w-3" /> Résolution</p>
-              <p className="text-sm tabular-nums">{new Date(ticket.heure_resolution).toLocaleString("fr-FR")}</p>
-            </div>
-          )}
-          {ticket.heure_cloture && (
-            <div>
-              <p className="text-xs text-muted-foreground">Clôture</p>
-              <p className="text-sm tabular-nums">{new Date(ticket.heure_cloture).toLocaleString("fr-FR")}</p>
-            </div>
-          )}
-          {ticket.temps_arret_minutes != null && (
-            <div>
-              <p className="text-xs text-muted-foreground">Temps d'arrêt</p>
-              <p className="text-sm font-bold tabular-nums text-destructive">{ticket.temps_arret_minutes} min</p>
-            </div>
-          )}
-          {ticket.temps_intervention_minutes != null && (
-            <div>
-              <p className="text-xs text-muted-foreground">Temps d'intervention</p>
-              <p className="text-sm font-bold tabular-nums">{ticket.temps_intervention_minutes} min</p>
-            </div>
-          )}
-          {ticket.cause_racine && (
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">Cause racine</p>
-              <p className="text-sm">{ticket.cause_racine}</p>
-            </div>
-          )}
-          {ticket.solution && (
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">Solution</p>
-              <p className="text-sm">{ticket.solution}</p>
-            </div>
-          )}
+        <CardContent className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+          <InfoItem label="Machine" value={`${ticket.machines?.code} — ${ticket.machines?.designation}`} />
+          <InfoItem label="Description" value={ticket.description} />
+          {ticket.ordres_fabrication?.numero && <InfoItem label="OF lié" value={ticket.ordres_fabrication.numero} mono />}
+          {ticket.production_lines?.designation && <InfoItem label="Ligne" value={`${ticket.production_lines.code} — ${ticket.production_lines.designation}`} />}
+          <InfoItem label="Déclaration" value={fmtDate(ticket.heure_declaration)} icon={<Clock className="h-3 w-3" />} mono />
+          {ticket.heure_prise_en_charge && <InfoItem label="Prise en charge" value={fmtDate(ticket.heure_prise_en_charge)} icon={<User className="h-3 w-3" />} mono />}
+          {ticket.heure_resolution && <InfoItem label="Résolution" value={fmtDate(ticket.heure_resolution)} icon={<Wrench className="h-3 w-3" />} mono />}
+          {ticket.temps_arret_minutes != null && <InfoItem label="Temps d'arrêt" value={`${ticket.temps_arret_minutes} min`} highlight />}
+          {ticket.temps_intervention_minutes != null && <InfoItem label="Temps intervention" value={`${ticket.temps_intervention_minutes} min`} mono />}
+          {ticket.cause_racine && <InfoItem label="Cause racine" value={ticket.cause_racine} full />}
+          {ticket.solution && <InfoItem label="Solution" value={ticket.solution} full />}
         </CardContent>
       </Card>
 
       {/* Actions */}
       {canTakeCharge && canEdit("tickets") && (
-        <Card>
-          <CardContent className="p-5">
-            <Button onClick={handleTakeCharge} className="w-full h-12 text-base">
-              <Wrench className="h-4 w-4 mr-2" /> Prendre en charge
-            </Button>
-          </CardContent>
-        </Card>
+        <Button onClick={handleTakeCharge} className="w-full h-12">
+          <Wrench className="h-4 w-4 mr-2" /> Prendre en charge
+        </Button>
       )}
 
       {canResolve && canEdit("tickets") && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Résolution & Clôture</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Cause racine *</Label>
-              <Textarea value={causeRacine} onChange={(e) => setCauseRacine(e.target.value)} placeholder="Cause du problème..." />
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Résolution</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Cause racine *</Label>
+              <Textarea value={causeRacine} onChange={(e) => setCauseRacine(e.target.value)} placeholder="Cause du problème..." className={isMobile ? "min-h-[60px]" : ""} />
             </div>
-            <div className="space-y-2">
-              <Label>Solution *</Label>
-              <Textarea value={solution} onChange={(e) => setSolution(e.target.value)} placeholder="Action corrective effectuée..." />
+            <div className="space-y-1">
+              <Label className="text-xs">Solution *</Label>
+              <Textarea value={solution} onChange={(e) => setSolution(e.target.value)} placeholder="Action corrective..." className={isMobile ? "min-h-[60px]" : ""} />
             </div>
 
-            {/* PDR used */}
+            {/* PDR */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Package className="h-3.5 w-3.5" /> Pièces utilisées (optionnel)
-              </Label>
-              <div className="flex gap-2">
+              <Label className="text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Pièces utilisées</Label>
+              <div className={`flex gap-2 ${isMobile ? "flex-col" : ""}`}>
                 <Select value={newPdrId} onValueChange={setNewPdrId}>
                   <SelectTrigger className="h-10 flex-1"><SelectValue placeholder="Sélectionner une pièce" /></SelectTrigger>
-                  <SelectContent>
-                    {pdrList.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.reference} — {p.designation} (stock: {p.stock_actuel})</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectContent>{pdrList.map((p) => <SelectItem key={p.id} value={p.id}>{p.reference} — {p.designation} ({p.stock_actuel})</SelectItem>)}</SelectContent>
                 </Select>
-                <Input type="number" value={newPdrQte} onChange={(e) => setNewPdrQte(e.target.value)} className="h-10 w-20" min="1" placeholder="Qté" />
-                <Button variant="outline" size="sm" className="h-10" onClick={addPdr} disabled={!newPdrId}>+</Button>
+                <div className="flex gap-2">
+                  <Input type="number" value={newPdrQte} onChange={(e) => setNewPdrQte(e.target.value)} className="h-10 w-16" min="1" placeholder="Qté" />
+                  <Button variant="outline" size="sm" className="h-10" onClick={addPdr} disabled={!newPdrId}>+</Button>
+                </div>
               </div>
               {selectedPdr.length > 0 && (
-                <div className="space-y-1 mt-2">
+                <div className="space-y-1">
                   {selectedPdr.map((sp) => {
                     const pdr = pdrList.find((p) => p.id === sp.pdr_id);
                     return (
                       <div key={sp.pdr_id} className="flex items-center justify-between text-sm py-1.5 px-3 rounded bg-muted/50">
-                        <span>{pdr?.reference} — {pdr?.designation}</span>
-                        <div className="flex items-center gap-2">
+                        <span className="truncate">{pdr?.reference} — {pdr?.designation}</span>
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="tabular-nums font-medium">×{sp.quantite}</span>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removePdr(sp.pdr_id)}>×</Button>
                         </div>
@@ -322,57 +213,44 @@ export default function TicketDetail() {
               )}
             </div>
 
-            <Button onClick={handleResolve} className="w-full h-12 text-base">Résoudre</Button>
+            <Button onClick={handleResolve} className="w-full h-12">Résoudre</Button>
           </CardContent>
         </Card>
       )}
 
       {canCloseTicket && (
-        <Card>
-          <CardContent className="p-5">
-            <Button onClick={handleClose} variant="outline" className="w-full h-12 text-base">
-              Clôturer le ticket
-            </Button>
-          </CardContent>
-        </Card>
+        <Button onClick={handleClose} variant="outline" className="w-full h-12">Clôturer le ticket</Button>
       )}
 
-      {/* Interventions timeline */}
+      {/* Interventions */}
       {interventions.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Historique interventions</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Historique interventions</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               {interventions.map((i) => (
-                <div key={i.id} className="p-3 rounded-lg border space-y-2">
-                  <div className="flex items-start gap-3">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
+                <div key={i.id} className="p-3 rounded-lg border space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{i.description}</p>
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {new Date(i.date_debut).toLocaleString("fr-FR")}
-                        {i.date_fin && ` → ${new Date(i.date_fin).toLocaleString("fr-FR")}`}
+                        {fmtDate(i.date_debut)}
+                        {i.date_fin && ` → ${fmtDate(i.date_fin)}`}
                       </p>
                       {i.date_fin && i.date_debut && (
-                        <p className="text-xs font-medium tabular-nums mt-0.5">
+                        <p className="text-xs font-medium tabular-nums">
                           Durée: {Math.round((new Date(i.date_fin).getTime() - new Date(i.date_debut).getTime()) / 60000)} min
                         </p>
                       )}
-                      <StatusBadge type="ticket" value={i.statut === "en_cours" ? "en_cours" : i.statut === "terminee" ? "resolu" : "cloture"} className="mt-1" />
+                      <StatusBadge type="ticket" value={i.statut === "en_cours" ? "en_cours" : i.statut === "terminee" ? "resolu" : "cloture"} className="mt-0.5" />
                     </div>
                   </div>
-                  {/* PDR used in this intervention */}
                   {i.intervention_pdr && i.intervention_pdr.length > 0 && (
-                    <div className="ml-5 pl-3 border-l-2 border-muted">
-                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                        <Package className="h-3 w-3" /> Pièces utilisées
-                      </p>
+                    <div className="ml-4 pl-3 border-l-2 border-muted">
+                      <p className="text-xs text-muted-foreground mb-0.5 flex items-center gap-1"><Package className="h-3 w-3" /> Pièces</p>
                       {i.intervention_pdr.map((ip: any) => (
-                        <p key={ip.id} className="text-xs">
-                          {ip.pdr?.reference} — {ip.pdr?.designation} <span className="tabular-nums font-medium">×{ip.quantite}</span>
-                        </p>
+                        <p key={ip.id} className="text-xs">{ip.pdr?.reference} — {ip.pdr?.designation} <span className="tabular-nums font-medium">×{ip.quantite}</span></p>
                       ))}
                     </div>
                   )}
@@ -382,6 +260,15 @@ export default function TicketDetail() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function InfoItem({ label, value, icon, mono, highlight, full }: { label: string; value: string; icon?: React.ReactNode; mono?: boolean; highlight?: boolean; full?: boolean }) {
+  return (
+    <div className={full ? "col-span-full" : ""}>
+      <p className="text-xs text-muted-foreground flex items-center gap-1">{icon}{label}</p>
+      <p className={`text-sm ${mono ? "tabular-nums" : ""} ${highlight ? "font-bold text-destructive tabular-nums" : ""}`}>{value}</p>
     </div>
   );
 }
