@@ -45,7 +45,7 @@ export default function MachineDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/machines")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">{machine.code} — {machine.designation}</h1>
           <div className="flex items-center gap-2 mt-1">
             <StatusBadge type="machine" value={machine.statut} />
@@ -55,6 +55,9 @@ export default function MachineDetail() {
             )}
           </div>
         </div>
+        <Button variant="outline" onClick={() => navigate(`/machines/${id}/edit`)} className="h-12 px-6">
+          <Edit className="h-4 w-4 mr-2" /> Modifier
+        </Button>
       </div>
 
       <Tabs defaultValue="info" className="space-y-4">
