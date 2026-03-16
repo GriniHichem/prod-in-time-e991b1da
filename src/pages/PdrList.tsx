@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Package, AlertCircle } from "lucide-react";
+import { Plus, Search, Package, AlertCircle, Download } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { exportToCsv } from "@/lib/exportCsv";
 
 export default function PdrList() {
   const [pdrList, setPdrList] = useState<any[]>([]);
