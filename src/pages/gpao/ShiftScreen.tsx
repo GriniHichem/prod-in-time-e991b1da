@@ -210,37 +210,43 @@ export default function ShiftScreen() {
     loadData();
   };
 
-  // Generate hourly slots
+  // Generate hourly slots from shift start/end timestamps
+  // Uses getTime() arithmetic to avoid any timezone-related hour drift
   const hourlySlots = useMemo(() => {
     if (!activeShift) return [];
     const start = new Date(activeShift.heure_debut);
     const end = new Date(activeShift.heure_fin);
+    const ONE_HOUR = 3600000;
     const slots: { hour: number; startTime: Date; endTime: Date; label: string }[] = [];
-    let cursor = new Date(start);
-    while (cursor < end) {
-      const slotEnd = new Date(cursor);
-      slotEnd.setHours(slotEnd.getHours() + 1);
-      if (slotEnd > end) break;
+    let cursorMs = start.getTime();
+    const endMs = end.getTime();
+    while (cursorMs + ONE_HOUR <= endMs) {
+      const slotStart = new Date(cursorMs);
+      const slotEnd = new Date(cursorMs + ONE_HOUR);
+      const startH = slotStart.getHours().toString().padStart(2, "0");
+      const endH = slotEnd.getHours().toString().padStart(2, "0");
       slots.push({
-        hour: cursor.getHours(),
-        startTime: new Date(cursor),
-        endTime: new Date(slotEnd),
-        label: `${cursor.getHours().toString().padStart(2, "0")}h – ${slotEnd.getHours().toString().padStart(2, "0")}h`,
+        hour: slotStart.getHours(),
+        startTime: slotStart,
+        endTime: slotEnd,
+        label: `${startH}h – ${endH}h`,
       });
-      cursor = slotEnd;
+      cursorMs += ONE_HOUR;
     }
     return slots;
   }, [activeShift]);
 
+  // Rule: a slot is editable ONLY after it ends, for toleranceHours (default 1h).
+  // The current hour is NEVER editable — you can only enter data for the previous hour.
+  // Example (tolerance=1h): from 23h to 00h, only slot 22h–23h is open.
   function canEditSlot(slot: { startTime: Date; endTime: Date }): boolean {
     if (!activeShift) return false;
     const now = new Date();
-    const shiftEnd = new Date(activeShift.heure_fin);
-    if (now >= slot.startTime && now < slot.endTime) return true;
-    const toleranceEnd = new Date(slot.endTime);
-    toleranceEnd.setHours(toleranceEnd.getHours() + toleranceHours);
-    if (now >= slot.endTime && now < toleranceEnd && now <= shiftEnd) return true;
-    return false;
+    // Slot must be finished
+    if (now < slot.endTime) return false;
+    // Within tolerance window after slot ended
+    const toleranceEnd = new Date(slot.endTime.getTime() + toleranceHours * 3600000);
+    return now < toleranceEnd;
   }
 
   function getSlotDeclaration(slot: { startTime: Date; endTime: Date }) {
