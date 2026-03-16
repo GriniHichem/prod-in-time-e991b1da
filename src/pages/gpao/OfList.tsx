@@ -37,7 +37,7 @@ export default function OfList() {
   const [newShiftModeId, setNewShiftModeId] = useState("");
 
   const loadOfs = async () => {
-    const { data } = await supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code), shift_modes(label, code)").order("created_at", { ascending: false });
     setOfs(data || []);
   };
 
