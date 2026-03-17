@@ -101,7 +101,6 @@ export function DateRangeFilter({
                 mode="single"
                 selected={tempTo}
                 onSelect={setTempTo}
-                locale={fr}
                 disabled={(date) => tempFrom ? date < tempFrom : false}
                 className="p-0 pointer-events-auto"
               />
