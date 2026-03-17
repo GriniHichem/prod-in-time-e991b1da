@@ -63,6 +63,8 @@ export default function MachineForm() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const entityImages = useEntityImages("machine", isNew ? undefined : id);
+
   // Line assignments: [{line_id, priority}]
   const [lineAssignments, setLineAssignments] = useState<{ line_id: string; priority: number }[]>([]);
 
