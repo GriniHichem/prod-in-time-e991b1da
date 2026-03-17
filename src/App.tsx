@@ -39,6 +39,7 @@ import LinesList from "@/pages/LinesList";
 import LineSynoptic from "@/pages/LineSynoptic";
 import LineConfig from "@/pages/LineConfig";
 import NotFound from "@/pages/NotFound";
+import ResetPassword from "@/pages/ResetPassword";
 
 const queryClient = new QueryClient();
 

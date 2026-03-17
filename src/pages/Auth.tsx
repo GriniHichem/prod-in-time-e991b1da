@@ -119,14 +119,38 @@ export default function Auth() {
               {loading ? "Chargement..." : isLogin ? "Se connecter" : "Créer le compte"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:underline"
-            >
-              {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
-            </button>
+          <div className="mt-4 text-center space-y-2">
+            {isLogin && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!email) {
+                    toast({ title: "Entrez votre email", description: "Saisissez votre adresse email puis cliquez sur 'Mot de passe oublié'", variant: "destructive" });
+                    return;
+                  }
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password`,
+                  });
+                  if (error) {
+                    toast({ title: "Erreur", description: error.message, variant: "destructive" });
+                  } else {
+                    toast({ title: "Email envoyé", description: "Vérifiez votre boîte mail pour réinitialiser votre mot de passe." });
+                  }
+                }}
+                className="text-sm text-muted-foreground hover:text-primary hover:underline"
+              >
+                Mot de passe oublié ?
+              </button>
+            )}
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-sm text-primary hover:underline"
+              >
+                {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
