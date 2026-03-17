@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { KpiCard } from "@/components/gmao/KpiCard";
-import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Factory, Package, ClipboardList, TrendingUp, BarChart3, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { DateRangeFilter } from "@/components/analytics/DateRangeFilter";
+import { KpiCardComparison } from "@/components/analytics/KpiCardComparison";
+import { useDateFilter, filterByDateRange } from "@/hooks/useDateFilter";
 
 const ofStatusConfig: Record<string, { label: string; className: string }> = {
   planifie: { label: "Planifié", className: "bg-muted text-muted-foreground" },
@@ -26,14 +27,15 @@ export default function GpaoDashboard() {
   const [articles, setArticles] = useState<any[]>([]);
   const [stops, setStops] = useState<any[]>([]);
   const navigate = useNavigate();
+  const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
       const [ofRes, prodRes, artRes, stopRes] = await Promise.all([
-        supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false }).limit(10),
+        supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false }),
         supabase.from("products").select("*").eq("is_active", true),
         supabase.from("articles").select("*").eq("is_active", true),
-        supabase.from("production_stops").select("*, production_lines(designation)").order("heure_debut", { ascending: false }).limit(5),
+        supabase.from("production_stops").select("*, production_lines(designation)").order("heure_debut", { ascending: false }),
       ]);
       setOfs(ofRes.data || []);
       setProducts(prodRes.data || []);
@@ -43,24 +45,40 @@ export default function GpaoDashboard() {
     load();
   }, []);
 
-  const ofsEnCours = ofs.filter((o) => o.statut === "en_cours").length;
-  const totalProduit = ofs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
-  const totalRebut = ofs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
+  const fOfs = useMemo(() => filterByDateRange(ofs, df.range, (o) => o.created_at), [ofs, df.range]);
+  const fStops = useMemo(() => filterByDateRange(stops, df.range, (s) => s.heure_debut), [stops, df.range]);
+  const cOfs = useMemo(() => df.compareRange ? filterByDateRange(ofs, df.compareRange, (o) => o.created_at) : [], [ofs, df.compareRange]);
+
+  const ofsEnCours = fOfs.filter((o) => o.statut === "en_cours").length;
+  const totalProduit = fOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
+  const totalRebut = fOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
   const rendement = totalProduit > 0 ? Math.round(((totalProduit - totalRebut) / totalProduit) * 100) : 0;
   const lowStockArticles = articles.filter((a) => a.stock_actuel <= a.stock_min).length;
 
+  const prevProduit = cOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
+  const prevRebut = cOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
+  const prevRendement = prevProduit > 0 ? Math.round(((prevProduit - prevRebut) / prevProduit) * 100) : 0;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard GPAO</h1>
-        <p className="text-muted-foreground">Vue d'ensemble de la production</p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard GPAO</h1>
+          <p className="text-muted-foreground text-sm">Vue d'ensemble de la production</p>
+        </div>
+        <DateRangeFilter {...df} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard title="OF en cours" value={ofsEnCours} icon={Factory} subtitle={`${ofs.length} total`} />
-        <KpiCard title="Production totale" value={`${totalProduit.toLocaleString("fr-FR")} kg`} icon={BarChart3} />
-        <KpiCard title="Rendement" value={`${rendement}%`} icon={TrendingUp} trend={rendement >= 95 ? "up" : rendement >= 85 ? "neutral" : "down"} subtitle="Produit - rebuts" />
-        <KpiCard title="Produits" value={products.length} icon={Package} subtitle={lowStockArticles > 0 ? `${lowStockArticles} matières en alerte` : "Stock OK"} trend={lowStockArticles > 0 ? "down" : "up"} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCardComparison title="OF en cours" value={ofsEnCours} icon={Factory}
+          subtitle={`${fOfs.length} total`} currentNumeric={ofsEnCours}
+          previousValue={df.compareEnabled ? cOfs.filter((o) => o.statut === "en_cours").length : undefined} />
+        <KpiCardComparison title="Production totale" value={`${totalProduit.toLocaleString("fr-FR")} kg`} icon={BarChart3}
+          currentNumeric={totalProduit} previousValue={df.compareEnabled ? prevProduit : undefined} unit=" kg" />
+        <KpiCardComparison title="Rendement" value={`${rendement}%`} icon={TrendingUp}
+          subtitle="Produit - rebuts" currentNumeric={rendement} previousValue={df.compareEnabled ? prevRendement : undefined} unit="%" />
+        <KpiCardComparison title="Produits" value={products.length} icon={Package}
+          subtitle={lowStockArticles > 0 ? `${lowStockArticles} matières en alerte` : "Stock OK"} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -72,12 +90,13 @@ export default function GpaoDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {ofs.length === 0 ? (
+            {fOfs.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">Aucun OF</p>
             ) : (
               <div className="space-y-2">
-                {ofs.slice(0, 5).map((of) => (
-                  <div key={of.id} onClick={() => navigate(`/gpao/of/${of.id}`)} className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                {fOfs.slice(0, 5).map((of) => (
+                  <div key={of.id} onClick={() => navigate(`/gpao/of/${of.id}`)}
+                    className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{of.numero}</p>
                       <p className="text-xs text-muted-foreground truncate">{of.products?.designation}</p>
@@ -101,11 +120,11 @@ export default function GpaoDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {stops.length === 0 ? (
+            {fStops.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">Aucun arrêt</p>
             ) : (
               <div className="space-y-2">
-                {stops.map((s) => (
+                {fStops.slice(0, 5).map((s) => (
                   <div key={s.id} className="p-3 rounded-lg border">
                     <div className="flex justify-between items-start">
                       <div>
