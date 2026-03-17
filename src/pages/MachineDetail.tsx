@@ -5,9 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
+
+const ROLE_LABELS: Record<string, string> = {
+  alimentation: "Alimentation", transformation: "Transformation", dosage: "Dosage",
+  melange: "Mélange", convoyage: "Convoyage", conditionnement: "Conditionnement",
+  controle: "Contrôle", evacuation: "Évacuation", utilite: "Utilité", autre: "Autre",
+};
+const IMPACT_LABELS: Record<string, string> = {
+  arret_complet: "Arrêt complet", arret_partiel: "Arrêt partiel", degradation: "Dégradation", aucun: "Aucun",
+};
+const CRIT_MAINT_LABELS: Record<string, string> = {
+  faible: "Faible", moyenne: "Moyenne", elevee: "Élevée", critique: "Critique",
+};
+const DISPO_LABELS: Record<string, string> = {
+  disponible: "Disponible", partiel: "Partiel", indisponible: "Indisponible",
+};
+const PRIORITY_LABELS: Record<number, string> = { 1: "Principale", 2: "Secondaire", 3: "Tertiaire" };
 
 export default function MachineDetail() {
   const { id } = useParams();
@@ -19,24 +36,26 @@ export default function MachineDetail() {
   const [plans, setPlans] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [interventions, setInterventions] = useState<any[]>([]);
+  const [lineAssignments, setLineAssignments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [mRes, tRes, pdrRes, plansRes, docsRes] = await Promise.all([
+      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("id", id).single(),
         supabase.from("tickets").select("*, panne_types(name)").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_pdr").select("*, pdr(*)").eq("machine_id", id),
         supabase.from("preventive_plans").select("*").eq("machine_id", id),
         supabase.from("machine_documents").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
+        supabase.from("machine_line_assignments").select("*, production_lines(code, designation)").eq("machine_id", id).order("priority"),
       ]);
       setMachine(mRes.data);
       setTickets(tRes.data || []);
       setPdrList(pdrRes.data || []);
       setPlans(plansRes.data || []);
       setDocuments(docsRes.data || []);
+      setLineAssignments(laRes.data || []);
 
-      // Load interventions for all tickets of this machine
       if (tRes.data && tRes.data.length > 0) {
         const ticketIds = tRes.data.map((t: any) => t.id);
         const { data: intData } = await supabase
@@ -52,7 +71,6 @@ export default function MachineDetail() {
 
   if (!machine) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
 
-  // Compute maintenance cost
   const totalPdrUsed = interventions.reduce((sum, i) => {
     return sum + (i.intervention_pdr || []).reduce((s: number, ip: any) => s + (ip.quantite || 0), 0);
   }, 0);
@@ -65,12 +83,18 @@ export default function MachineDetail() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{machine.code} — {machine.designation}</h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <StatusBadge type="machine" value={machine.statut} />
             <StatusBadge type="criticite" value={machine.criticite} />
             {machine.machine_families?.name && (
               <span className="text-xs text-muted-foreground">• {machine.machine_families.name}</span>
             )}
+            {lineAssignments.length > 0 && lineAssignments.map((la: any) => (
+              <Badge key={la.id} variant={la.priority === 1 ? "default" : "outline"} className="text-xs">
+                <Factory className="h-3 w-3 mr-1" />
+                {la.production_lines?.code} ({PRIORITY_LABELS[la.priority]})
+              </Badge>
+            ))}
           </div>
         </div>
         {canEdit("machines") && (
@@ -101,25 +125,76 @@ export default function MachineDetail() {
         </TabsList>
 
         <TabsContent value="info">
-          <Card>
-            <CardContent className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
-              {[
-                ["Code", machine.code],
-                ["Désignation", machine.designation],
-                ["Marque", machine.marque],
-                ["Modèle", machine.modele],
-                ["N° Série", machine.numero_serie],
-                ["Localisation", machine.localisation],
-                ["Mise en service", machine.date_mise_en_service ? new Date(machine.date_mise_en_service).toLocaleDateString("fr-FR") : "—"],
-                ["Description", machine.description],
-              ].map(([label, value]) => (
-                <div key={label as string}>
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                  <p className="text-sm font-medium">{(value as string) || "—"}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Informations générales</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                {[
+                  ["Code", machine.code],
+                  ["Désignation", machine.designation],
+                  ["Marque", machine.marque],
+                  ["Modèle", machine.modele],
+                  ["N° Série", machine.numero_serie],
+                  ["Localisation", machine.localisation],
+                  ["Mise en service", machine.date_mise_en_service ? new Date(machine.date_mise_en_service).toLocaleDateString("fr-FR") : "—"],
+                  ["Description", machine.description],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-sm font-medium">{(value as string) || "—"}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Process & Maintenance</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Rôle fonctionnel</p>
+                  <p className="text-sm font-medium">{ROLE_LABELS[(machine as any).role_fonctionnel] || "—"}</p>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+                <div>
+                  <p className="text-xs text-muted-foreground">Impact ligne</p>
+                  <Badge variant={
+                    (machine as any).impact_ligne === "arret_complet" ? "destructive" :
+                    (machine as any).impact_ligne === "arret_partiel" ? "default" : "secondary"
+                  } className="text-xs mt-0.5">
+                    {IMPACT_LABELS[(machine as any).impact_ligne] || "—"}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Criticité maintenance</p>
+                  <Badge variant={
+                    (machine as any).criticite_maintenance === "critique" ? "destructive" :
+                    (machine as any).criticite_maintenance === "elevee" ? "default" : "secondary"
+                  } className="text-xs mt-0.5">
+                    {CRIT_MAINT_LABELS[(machine as any).criticite_maintenance] || "—"}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Disponibilité PDR</p>
+                  <Badge variant={
+                    (machine as any).disponibilite_pdr === "indisponible" ? "destructive" :
+                    (machine as any).disponibilite_pdr === "partiel" ? "default" : "secondary"
+                  } className="text-xs mt-0.5">
+                    {DISPO_LABELS[(machine as any).disponibilite_pdr] || "—"}
+                  </Badge>
+                </div>
+                {lineAssignments.length > 0 && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">Lignes de production</p>
+                    <div className="flex flex-wrap gap-1">
+                      {lineAssignments.map((la: any) => (
+                        <Badge key={la.id} variant={la.priority === 1 ? "default" : "outline"} className="text-xs">
+                          {la.production_lines?.code} — {la.production_lines?.designation} ({PRIORITY_LABELS[la.priority]})
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="documents">
@@ -188,7 +263,6 @@ export default function MachineDetail() {
           </Card>
         </TabsContent>
 
-        {/* NEW: Interventions timeline */}
         <TabsContent value="interventions">
           <Card>
             <CardHeader className="pb-3">
@@ -207,7 +281,6 @@ export default function MachineDetail() {
                 </div>
               ) : (
                 <div className="relative">
-                  {/* Timeline line */}
                   <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-border" />
                   <div className="space-y-4">
                     {interventions.map((i) => {
@@ -216,7 +289,6 @@ export default function MachineDetail() {
                         : null;
                       return (
                         <div key={i.id} className="relative pl-8">
-                          {/* Timeline dot */}
                           <div className={`absolute left-1.5 top-2 h-3 w-3 rounded-full border-2 border-background ${
                             i.statut === "en_cours" ? "bg-amber-500" : i.statut === "terminee" ? "bg-green-500" : "bg-muted-foreground"
                           }`} />
@@ -242,7 +314,6 @@ export default function MachineDetail() {
                                 <span className="font-medium text-foreground">Durée: {duration} min</span>
                               )}
                             </div>
-                            {/* PDR used */}
                             {i.intervention_pdr && i.intervention_pdr.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1">
                                 {i.intervention_pdr.map((ip: any) => (

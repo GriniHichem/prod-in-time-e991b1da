@@ -3,40 +3,59 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Plus, Search, Cog, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
+import { Badge } from "@/components/ui/badge";
 
 export default function MachinesList() {
   const [machines, setMachines] = useState<any[]>([]);
   const [families, setFamilies] = useState<any[]>([]);
+  const [lines, setLines] = useState<any[]>([]);
+  const [lineAssignments, setLineAssignments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [familyFilter, setFamilyFilter] = useState<string>("all");
+  const [lineFilter, setLineFilter] = useState<string>("all");
   const navigate = useNavigate();
   const { canCreate } = usePermissions();
 
   useEffect(() => {
     const load = async () => {
-      const [mRes, fRes] = await Promise.all([
+      const [mRes, fRes, lRes, laRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("is_active", true).order("code"),
         supabase.from("machine_families").select("*").eq("is_active", true).order("name"),
+        supabase.from("production_lines").select("*").eq("is_active", true).order("code"),
+        supabase.from("machine_line_assignments").select("*").order("priority"),
       ]);
       setMachines(mRes.data || []);
       setFamilies(fRes.data || []);
+      setLines(lRes.data || []);
+      setLineAssignments(laRes.data || []);
     };
     load();
   }, []);
+
+  const getMachineLines = (machineId: string) => {
+    return lineAssignments
+      .filter((a) => a.machine_id === machineId)
+      .sort((a, b) => a.priority - b.priority)
+      .map((a) => {
+        const line = lines.find((l) => l.id === a.line_id);
+        return { ...a, line };
+      });
+  };
 
   const filtered = machines.filter((m) => {
     const matchSearch = search === "" || m.code.toLowerCase().includes(search.toLowerCase()) || m.designation.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || m.statut === statusFilter;
     const matchFamily = familyFilter === "all" || m.family_id === familyFilter;
-    return matchSearch && matchStatus && matchFamily;
+    const matchLine = lineFilter === "all" || lineAssignments.some((a) => a.machine_id === m.id && a.line_id === lineFilter);
+    return matchSearch && matchStatus && matchFamily && matchLine;
   });
 
   return (
@@ -101,6 +120,17 @@ export default function MachinesList() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={lineFilter} onValueChange={setLineFilter}>
+              <SelectTrigger className="w-[180px] h-11">
+                <SelectValue placeholder="Ligne" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes lignes</SelectItem>
+                {lines.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>{l.code} — {l.designation}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -110,6 +140,7 @@ export default function MachinesList() {
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead className="hidden md:table-cell">Famille</TableHead>
+                <TableHead className="hidden lg:table-cell">Ligne(s)</TableHead>
                 <TableHead>Criticité</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="hidden md:table-cell">Localisation</TableHead>
@@ -118,28 +149,42 @@ export default function MachinesList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     <Cog className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     Aucune machine trouvée
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((m) => (
-                  <TableRow
-                    key={m.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/machines/${m.id}`)}
-                  >
-                    <TableCell className="font-mono font-medium">{m.code}</TableCell>
-                    <TableCell>{m.designation}</TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {m.machine_families?.name || "—"}
-                    </TableCell>
-                    <TableCell><StatusBadge type="criticite" value={m.criticite} /></TableCell>
-                    <TableCell><StatusBadge type="machine" value={m.statut} /></TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">{m.localisation || "—"}</TableCell>
-                  </TableRow>
-                ))
+                filtered.map((m) => {
+                  const mLines = getMachineLines(m.id);
+                  return (
+                    <TableRow
+                      key={m.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/machines/${m.id}`)}
+                    >
+                      <TableCell className="font-mono font-medium">{m.code}</TableCell>
+                      <TableCell>{m.designation}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        {m.machine_families?.name || "—"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {mLines.length === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : mLines.map((ml) => (
+                            <Badge key={ml.line_id} variant={ml.priority === 1 ? "default" : "outline"} className="text-xs">
+                              {ml.line?.code || "?"}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell><StatusBadge type="criticite" value={m.criticite} /></TableCell>
+                      <TableCell><StatusBadge type="machine" value={m.statut} /></TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{m.localisation || "—"}</TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
