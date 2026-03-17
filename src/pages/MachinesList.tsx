@@ -29,16 +29,18 @@ export default function MachinesList() {
 
   useEffect(() => {
     const load = async () => {
-      const [mRes, fRes, lRes, laRes] = await Promise.all([
+      const [mRes, fRes, lRes, laRes, imgRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("is_active", true).order("code"),
         supabase.from("machine_families").select("*").eq("is_active", true).order("name"),
         supabase.from("production_lines").select("*").eq("is_active", true).order("code"),
         supabase.from("machine_line_assignments").select("*").order("priority"),
+        supabase.from("entity_images").select("*").eq("entity_type", "machine").eq("is_primary", true),
       ]);
       setMachines(mRes.data || []);
       setFamilies(fRes.data || []);
       setLines(lRes.data || []);
       setLineAssignments(laRes.data || []);
+      setEntityImages(imgRes.data || []);
     };
     load();
   }, []);
