@@ -456,6 +456,3 @@ export default function MachineDetail() {
     </div>
   );
 }
-    </div>
-  );
-}
