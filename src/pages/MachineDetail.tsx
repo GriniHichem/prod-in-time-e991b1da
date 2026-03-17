@@ -86,6 +86,9 @@ export default function MachineDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/machines")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        {entityImages.primaryImage && (
+          <EntityThumbnail imageUrl={entityImages.primaryImage.image_url} alt={machine.designation} size="lg" rounded="lg" />
+        )}
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{machine.code} — {machine.designation}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">

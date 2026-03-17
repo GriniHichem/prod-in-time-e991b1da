@@ -162,12 +162,16 @@ export default function MachinesList() {
               ) : (
                 filtered.map((m) => {
                   const mLines = getMachineLines(m.id);
+                  const img = entityImages.find((i: any) => i.entity_id === m.id);
                   return (
                     <TableRow
                       key={m.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => navigate(`/machines/${m.id}`)}
                     >
+                      <TableCell className="w-10 pr-0">
+                        <EntityThumbnail imageUrl={img?.image_url} alt={m.designation} size="sm" rounded="md" />
+                      </TableCell>
                       <TableCell className="font-mono font-medium">{m.code}</TableCell>
                       <TableCell>{m.designation}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">
