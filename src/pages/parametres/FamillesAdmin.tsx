@@ -107,7 +107,7 @@ export default function FamillesAdmin() {
                 <Select value={parentId} onValueChange={setParentId}>
                   <SelectTrigger className="h-12"><SelectValue placeholder="Aucune (racine)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune (racine)</SelectItem>
+                    <SelectItem value="__none__">Aucune (racine)</SelectItem>
                     {families.filter((f) => f.id !== editId).map((f) => (
                       <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
                     ))}
