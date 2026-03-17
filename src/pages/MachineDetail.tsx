@@ -57,6 +57,7 @@ export default function MachineDetail() {
       setPlans(plansRes.data || []);
       setDocuments(docsRes.data || []);
       setLineAssignments(laRes.data || []);
+      setLinkedEquipments(eqRes.data || []);
 
       if (tRes.data && tRes.data.length > 0) {
         const ticketIds = tRes.data.map((t: any) => t.id);
