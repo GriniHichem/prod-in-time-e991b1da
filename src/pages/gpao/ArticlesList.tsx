@@ -80,8 +80,13 @@ export default function ArticlesList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground"><Package className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun article</TableCell></TableRow>
-              ) : filtered.map((a) => (
+              ) : filtered.map((a) => {
+                const img = entityImages.find((i: any) => i.entity_id === a.id);
+                return (
                 <TableRow key={a.id}>
+                  <TableCell className="w-10 pr-0">
+                    <EntityThumbnail imageUrl={img?.image_url} alt={a.designation} size="sm" rounded="md" />
+                  </TableCell>
                   <TableCell className="font-mono font-medium">{a.code}</TableCell>
                   <TableCell>{a.designation}</TableCell>
                   <TableCell className="tabular-nums">
