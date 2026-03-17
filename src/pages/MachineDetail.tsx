@@ -42,13 +42,14 @@ export default function MachineDetail() {
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes] = await Promise.all([
+      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes, eqRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("id", id).single(),
         supabase.from("tickets").select("*, panne_types(name)").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_pdr").select("*, pdr(*)").eq("machine_id", id),
         supabase.from("preventive_plans").select("*").eq("machine_id", id),
         supabase.from("machine_documents").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_line_assignments").select("*, production_lines(code, designation)").eq("machine_id", id).order("priority"),
+        supabase.from("equipements").select("*").eq("machine_id", id).order("code"),
       ]);
       setMachine(mRes.data);
       setTickets(tRes.data || []);
