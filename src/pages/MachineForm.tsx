@@ -9,8 +9,44 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Upload, Trash2, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Save, Upload, Trash2, FileText, Plus, X } from "lucide-react";
 import { Constants } from "@/integrations/supabase/types";
+import { Badge } from "@/components/ui/badge";
+
+const ROLE_OPTIONS = [
+  { value: "alimentation", label: "Alimentation" },
+  { value: "transformation", label: "Transformation" },
+  { value: "dosage", label: "Dosage" },
+  { value: "melange", label: "Mélange" },
+  { value: "convoyage", label: "Convoyage" },
+  { value: "conditionnement", label: "Conditionnement" },
+  { value: "controle", label: "Contrôle" },
+  { value: "evacuation", label: "Évacuation" },
+  { value: "utilite", label: "Utilité" },
+  { value: "autre", label: "Autre" },
+];
+
+const IMPACT_OPTIONS = [
+  { value: "arret_complet", label: "Arrêt complet" },
+  { value: "arret_partiel", label: "Arrêt partiel" },
+  { value: "degradation", label: "Dégradation" },
+  { value: "aucun", label: "Aucun" },
+];
+
+const CRITICITE_MAINT_OPTIONS = [
+  { value: "faible", label: "Faible" },
+  { value: "moyenne", label: "Moyenne" },
+  { value: "elevee", label: "Élevée" },
+  { value: "critique", label: "Critique" },
+];
+
+const DISPO_PDR_OPTIONS = [
+  { value: "disponible", label: "Disponible" },
+  { value: "partiel", label: "Partiellement" },
+  { value: "indisponible", label: "Indisponible" },
+];
+
+const PRIORITY_LABELS: Record<number, string> = { 1: "Principale", 2: "Secondaire", 3: "Tertiaire" };
 
 export default function MachineForm() {
   const { id } = useParams();
@@ -20,9 +56,13 @@ export default function MachineForm() {
   const { toast } = useToast();
 
   const [families, setFamilies] = useState<any[]>([]);
+  const [lines, setLines] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Line assignments: [{line_id, priority}]
+  const [lineAssignments, setLineAssignments] = useState<{ line_id: string; priority: number }[]>([]);
 
   const [form, setForm] = useState({
     code: "",
@@ -36,10 +76,20 @@ export default function MachineForm() {
     statut: "en_marche" as string,
     family_id: "",
     date_mise_en_service: "",
+    role_fonctionnel: "autre",
+    criticite_maintenance: "moyenne",
+    impact_ligne: "aucun",
+    disponibilite_pdr: "disponible",
   });
 
   useEffect(() => {
-    supabase.from("machine_families").select("*").eq("is_active", true).order("name").then(({ data }) => setFamilies(data || []));
+    Promise.all([
+      supabase.from("machine_families").select("*").eq("is_active", true).order("name"),
+      supabase.from("production_lines").select("*").eq("is_active", true).order("code"),
+    ]).then(([fRes, lRes]) => {
+      setFamilies(fRes.data || []);
+      setLines(lRes.data || []);
+    });
 
     if (!isNew && id) {
       supabase.from("machines").select("*").eq("id", id).single().then(({ data }) => {
@@ -56,8 +106,16 @@ export default function MachineForm() {
             statut: data.statut,
             family_id: data.family_id || "",
             date_mise_en_service: data.date_mise_en_service || "",
+            role_fonctionnel: (data as any).role_fonctionnel || "autre",
+            criticite_maintenance: (data as any).criticite_maintenance || "moyenne",
+            impact_ligne: (data as any).impact_ligne || "aucun",
+            disponibilite_pdr: (data as any).disponibilite_pdr || "disponible",
           });
         }
+      });
+      // Load line assignments
+      supabase.from("machine_line_assignments").select("*").eq("machine_id", id).order("priority").then(({ data }) => {
+        setLineAssignments((data || []).map((d: any) => ({ line_id: d.line_id, priority: d.priority })));
       });
       loadDocuments();
     }
@@ -79,7 +137,7 @@ export default function MachineForm() {
       return;
     }
     setSaving(true);
-    const payload = {
+    const payload: any = {
       code: form.code.trim(),
       designation: form.designation.trim(),
       description: form.description.trim() || null,
@@ -87,29 +145,48 @@ export default function MachineForm() {
       modele: form.modele.trim() || null,
       numero_serie: form.numero_serie.trim() || null,
       localisation: form.localisation.trim() || null,
-      criticite: form.criticite as any,
-      statut: form.statut as any,
+      criticite: form.criticite,
+      statut: form.statut,
       family_id: form.family_id && form.family_id !== "__none__" ? form.family_id : null,
       date_mise_en_service: form.date_mise_en_service || null,
+      role_fonctionnel: form.role_fonctionnel,
+      criticite_maintenance: form.criticite_maintenance,
+      impact_ligne: form.impact_ligne,
+      disponibilite_pdr: form.disponibilite_pdr,
     };
+
+    let machineId = id;
 
     if (isNew) {
       const { data, error } = await supabase.from("machines").insert(payload).select().single();
       if (error) {
         toast({ title: "Erreur", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Machine créée" });
-        navigate(`/machines/${data.id}`);
+        setSaving(false);
+        return;
       }
+      machineId = data.id;
+      toast({ title: "Machine créée" });
     } else {
       const { error } = await supabase.from("machines").update(payload).eq("id", id);
       if (error) {
         toast({ title: "Erreur", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Machine mise à jour" });
-        navigate(`/machines/${id}`);
+        setSaving(false);
+        return;
+      }
+      toast({ title: "Machine mise à jour" });
+    }
+
+    // Save line assignments
+    if (machineId && machineId !== "new") {
+      await supabase.from("machine_line_assignments").delete().eq("machine_id", machineId);
+      if (lineAssignments.length > 0) {
+        await supabase.from("machine_line_assignments").insert(
+          lineAssignments.map((a) => ({ machine_id: machineId!, line_id: a.line_id, priority: a.priority }))
+        );
       }
     }
+
+    navigate(isNew ? `/machines/${machineId}` : `/machines/${id}`);
     setSaving(false);
   };
 
@@ -119,18 +196,14 @@ export default function MachineForm() {
     setUploading(true);
 
     for (const file of Array.from(files)) {
-      const ext = file.name.split(".").pop();
       const filePath = `${id}/${Date.now()}-${file.name}`;
-
       const { error: uploadError } = await supabase.storage.from("machine-documents").upload(filePath, file);
       if (uploadError) {
         toast({ title: "Erreur upload", description: uploadError.message, variant: "destructive" });
         continue;
       }
-
       const { data: urlData } = supabase.storage.from("machine-documents").getPublicUrl(filePath);
       const fileType = file.type.startsWith("image/") ? "image" : "document";
-
       await supabase.from("machine_documents").insert({
         machine_id: id,
         name: file.name,
@@ -147,7 +220,6 @@ export default function MachineForm() {
   };
 
   const handleDeleteDoc = async (doc: any) => {
-    // Extract path from URL
     const url = new URL(doc.file_url);
     const pathParts = url.pathname.split("/storage/v1/object/public/machine-documents/");
     if (pathParts[1]) {
@@ -156,6 +228,30 @@ export default function MachineForm() {
     await supabase.from("machine_documents").delete().eq("id", doc.id);
     toast({ title: "Document supprimé" });
     loadDocuments();
+  };
+
+  // Line assignment helpers
+  const addLineAssignment = () => {
+    if (lineAssignments.length >= 3) return;
+    const nextPriority = lineAssignments.length + 1;
+    setLineAssignments((prev) => [...prev, { line_id: "", priority: nextPriority }]);
+  };
+
+  const removeLineAssignment = (idx: number) => {
+    setLineAssignments((prev) => {
+      const updated = prev.filter((_, i) => i !== idx);
+      // Re-index priorities
+      return updated.map((a, i) => ({ ...a, priority: i + 1 }));
+    });
+  };
+
+  const updateLineAssignment = (idx: number, lineId: string) => {
+    setLineAssignments((prev) => prev.map((a, i) => (i === idx ? { ...a, line_id: lineId } : a)));
+  };
+
+  const availableLinesFor = (idx: number) => {
+    const usedIds = lineAssignments.filter((_, i) => i !== idx).map((a) => a.line_id);
+    return lines.filter((l) => !usedIds.includes(l.id));
   };
 
   return (
@@ -224,7 +320,7 @@ export default function MachineForm() {
           </CardContent>
         </Card>
 
-        {/* Sidebar: status + criticality */}
+        {/* Sidebar */}
         <div className="space-y-4">
           <Card>
             <CardHeader><CardTitle>Statut & Criticité</CardTitle></CardHeader>
@@ -251,6 +347,84 @@ export default function MachineForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Maintenance & Process */}
+          <Card>
+            <CardHeader><CardTitle>Process & Maintenance</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Rôle fonctionnel</Label>
+                <Select value={form.role_fonctionnel} onValueChange={(v) => handleChange("role_fonctionnel", v)}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Impact sur la ligne</Label>
+                <Select value={form.impact_ligne} onValueChange={(v) => handleChange("impact_ligne", v)}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {IMPACT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Criticité maintenance</Label>
+                <Select value={form.criticite_maintenance} onValueChange={(v) => handleChange("criticite_maintenance", v)}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CRITICITE_MAINT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Disponibilité PDR</Label>
+                <Select value={form.disponibilite_pdr} onValueChange={(v) => handleChange("disponibilite_pdr", v)}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DISPO_PDR_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Line assignments */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Lignes de production</CardTitle>
+                {lineAssignments.length < 3 && (
+                  <Button variant="outline" size="sm" onClick={addLineAssignment}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Ajouter
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {lineAssignments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">Aucune ligne affectée</p>
+              ) : lineAssignments.map((a, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Badge variant="outline" className="shrink-0 text-xs">{PRIORITY_LABELS[a.priority]}</Badge>
+                  <Select value={a.line_id || "__none__"} onValueChange={(v) => updateLineAssignment(idx, v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="h-10 flex-1"><SelectValue placeholder="Choisir une ligne" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Choisir —</SelectItem>
+                      {availableLinesFor(idx).map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.code} — {l.designation}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeLineAssignment(idx)}>
+                    <X className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
