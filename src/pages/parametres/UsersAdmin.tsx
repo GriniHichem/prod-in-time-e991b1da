@@ -31,6 +31,7 @@ export default function UsersAdmin() {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selUserId, setSelUserId] = useState("");
