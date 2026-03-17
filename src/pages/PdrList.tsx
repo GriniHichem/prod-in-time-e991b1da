@@ -16,12 +16,15 @@ export default function PdrList() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase
-      .from("pdr")
-      .select("*")
-      .eq("is_active", true)
-      .order("reference")
-      .then(({ data }) => setPdrList(data || []));
+    const load = async () => {
+      const [pRes, imgRes] = await Promise.all([
+        supabase.from("pdr").select("*").eq("is_active", true).order("reference"),
+        supabase.from("entity_images").select("*").eq("entity_type", "pdr").eq("is_primary", true),
+      ]);
+      setPdrList(pRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = pdrList.filter(
