@@ -301,7 +301,7 @@ export default function GeneralSettings() {
           Envoyer un email test
         </Button>
         {hasChanges && (
-          <p className="text-sm text-amber-600 self-center">⚠️ Sauvegardez avant de tester</p>
+          <p className="text-sm text-destructive self-center">⚠️ Sauvegardez avant de tester</p>
         )}
       </div>
 
