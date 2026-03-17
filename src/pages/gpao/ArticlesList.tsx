@@ -12,10 +12,19 @@ import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 export default function ArticlesList() {
   const { canCreate } = usePermissions();
   const [articles, setArticles] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase.from("articles").select("*").eq("is_active", true).order("code").then(({ data }) => setArticles(data || []));
+    const load = async () => {
+      const [aRes, imgRes] = await Promise.all([
+        supabase.from("articles").select("*").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "article").eq("is_primary", true),
+      ]);
+      setArticles(aRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = articles.filter((a) => !search || a.code.toLowerCase().includes(search.toLowerCase()) || a.designation.toLowerCase().includes(search.toLowerCase()));
