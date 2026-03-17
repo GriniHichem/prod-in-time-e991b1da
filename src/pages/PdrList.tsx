@@ -88,6 +88,7 @@ export default function PdrList() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Référence</TableHead>
+                <TableHead>Désignation</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Stock min</TableHead>
                 <TableHead className="hidden md:table-cell">Prix unit.</TableHead>

@@ -48,6 +48,7 @@ export default function ProductsList() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Désignation</TableHead>
                 <TableHead>Unité</TableHead>
                 <TableHead>Description</TableHead>
               </TableRow>

@@ -70,6 +70,7 @@ export default function ArticlesList() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Désignation</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Stock min</TableHead>
                 <TableHead>Unité</TableHead>

@@ -108,6 +108,7 @@ export default function EquipmentsList() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Désignation</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="hidden md:table-cell">Machine</TableHead>
