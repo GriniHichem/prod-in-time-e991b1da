@@ -32,17 +32,20 @@ export default function EquipmentsList() {
   const [equipments, setEquipments] = useState<any[]>([]);
   const [lines, setLines] = useState<any[]>([]);
   const [entityImages, setEntityImages] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
   const [lineFilter, setLineFilter] = useState("__all__");
   const [typeFilter, setTypeFilter] = useState("__all__");
 
   useEffect(() => {
     const load = async () => {
-      const [eRes, lRes] = await Promise.all([
+      const [eRes, lRes, imgRes] = await Promise.all([
         supabase.from("equipements").select("*, machine_families(name), machines(code, designation), production_lines(code, designation)").order("code"),
         supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "equipement").eq("is_primary", true),
       ]);
       setEquipments(eRes.data || []);
       setLines(lRes.data || []);
+      setEntityImages(imgRes.data || []);
     };
     load();
   }, []);
