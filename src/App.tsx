@@ -31,6 +31,9 @@ import ConsumptionPage from "@/pages/gpao/ConsumptionPage";
 import StopsPage from "@/pages/gpao/StopsPage";
 import RecipesPage from "@/pages/gpao/RecipesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
+import EquipmentsList from "@/pages/EquipmentsList";
+import EquipmentDetail from "@/pages/EquipmentDetail";
+import EquipmentForm from "@/pages/EquipmentForm";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
