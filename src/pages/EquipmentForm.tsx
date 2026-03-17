@@ -182,6 +182,23 @@ export default function EquipmentForm() {
         <h1 className="text-2xl font-bold">{isEdit ? "Modifier" : "Nouvel"} équipement</h1>
       </div>
 
+      {/* Image uploader for existing equipments */}
+      {isEdit && id && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Photo de l'équipement</CardTitle></CardHeader>
+          <CardContent>
+            <EntityImageUploader
+              images={entityImages.images}
+              primaryImage={entityImages.primaryImage}
+              uploading={entityImages.uploading}
+              onUpload={entityImages.uploadImage}
+              onDelete={entityImages.deleteImage}
+              onSetPrimary={entityImages.setPrimary}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle className="text-base">Identification</CardTitle></CardHeader>

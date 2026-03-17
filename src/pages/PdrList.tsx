@@ -11,6 +11,7 @@ import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { useNavigate } from "react-router-dom";
 
 export default function PdrList() {
+  const navigate = useNavigate();
   const { canCreate } = usePermissions();
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [entityImages, setEntityImages] = useState<any[]>([]);
