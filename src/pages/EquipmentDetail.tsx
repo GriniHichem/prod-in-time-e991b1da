@@ -125,9 +125,8 @@ export default function EquipmentDetail() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Classification & Process</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <div>
