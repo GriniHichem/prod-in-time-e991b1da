@@ -7,19 +7,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Package, AlertCircle, Download } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 export default function PdrList() {
   const { canCreate } = usePermissions();
   const [pdrList, setPdrList] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase
-      .from("pdr")
-      .select("*")
-      .eq("is_active", true)
-      .order("reference")
-      .then(({ data }) => setPdrList(data || []));
+    const load = async () => {
+      const [pRes, imgRes] = await Promise.all([
+        supabase.from("pdr").select("*").eq("is_active", true).order("reference"),
+        supabase.from("entity_images").select("*").eq("entity_type", "pdr").eq("is_primary", true),
+      ]);
+      setPdrList(pRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = pdrList.filter(
@@ -81,6 +86,7 @@ export default function PdrList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Référence</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Stock</TableHead>
@@ -99,8 +105,13 @@ export default function PdrList() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((p) => (
+                filtered.map((p) => {
+                  const img = entityImages.find((i: any) => i.entity_id === p.id);
+                  return (
                   <TableRow key={p.id}>
+                    <TableCell className="w-10 pr-0">
+                      <EntityThumbnail imageUrl={img?.image_url} alt={p.designation} size="sm" rounded="md" />
+                    </TableCell>
                     <TableCell className="font-mono font-medium">{p.reference}</TableCell>
                     <TableCell>{p.designation}</TableCell>
                     <TableCell className="tabular-nums">
@@ -113,7 +124,8 @@ export default function PdrList() {
                     <TableCell className="hidden md:table-cell text-muted-foreground">{p.fournisseur || "—"}</TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{p.emplacement || "—"}</TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

@@ -150,6 +150,48 @@ export type Database = {
           },
         ]
       }
+      entity_images: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size: number
+          id: string
+          image_url: string
+          is_primary: boolean
+          sort_order: number
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          file_name?: string
+          file_size?: number
+          id?: string
+          image_url: string
+          is_primary?: boolean
+          sort_order?: number
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_size?: number
+          id?: string
+          image_url?: string
+          is_primary?: boolean
+          sort_order?: number
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       equipements: {
         Row: {
           code: string

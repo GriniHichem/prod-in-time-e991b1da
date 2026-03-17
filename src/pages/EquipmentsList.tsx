@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 const TYPE_LABELS: Record<string, string> = {
   capteur: "Capteur", actionneur: "Actionneur", convoyeur: "Convoyeur",
@@ -30,18 +31,21 @@ export default function EquipmentsList() {
   const { canCreate } = usePermissions();
   const [equipments, setEquipments] = useState<any[]>([]);
   const [lines, setLines] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [lineFilter, setLineFilter] = useState("__all__");
   const [typeFilter, setTypeFilter] = useState("__all__");
 
   useEffect(() => {
     const load = async () => {
-      const [eRes, lRes] = await Promise.all([
+      const [eRes, lRes, imgRes] = await Promise.all([
         supabase.from("equipements").select("*, machine_families(name), machines(code, designation), production_lines(code, designation)").order("code"),
         supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "equipement").eq("is_primary", true),
       ]);
       setEquipments(eRes.data || []);
       setLines(lRes.data || []);
+      setEntityImages(imgRes.data || []);
     };
     load();
   }, []);
@@ -102,6 +106,7 @@ export default function EquipmentsList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Type</TableHead>
@@ -118,8 +123,13 @@ export default function EquipmentsList() {
                     Aucun équipement trouvé
                   </TableCell>
                 </TableRow>
-              ) : filtered.map((e) => (
+              ) : filtered.map((e) => {
+                const img = entityImages.find((i: any) => i.entity_id === e.id);
+                return (
                 <TableRow key={e.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/equipements/${e.id}`)}>
+                  <TableCell className="w-10 pr-0">
+                    <EntityThumbnail imageUrl={img?.image_url} alt={e.designation} size="sm" rounded="md" />
+                  </TableCell>
                   <TableCell className="font-mono font-medium">{e.code}</TableCell>
                   <TableCell>{e.designation}</TableCell>
                   <TableCell>
@@ -140,7 +150,8 @@ export default function EquipmentsList() {
                     <StatusBadge type="criticite" value={e.criticite} />
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

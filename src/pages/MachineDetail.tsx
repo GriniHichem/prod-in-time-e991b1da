@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory, Component } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEntityImages } from "@/hooks/useEntityImages";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 const ROLE_LABELS: Record<string, string> = {
   alimentation: "Alimentation", transformation: "Transformation", dosage: "Dosage",
@@ -38,7 +40,7 @@ export default function MachineDetail() {
   const [interventions, setInterventions] = useState<any[]>([]);
   const [lineAssignments, setLineAssignments] = useState<any[]>([]);
   const [linkedEquipments, setLinkedEquipments] = useState<any[]>([]);
-
+  const entityImages = useEntityImages("machine", id);
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -84,6 +86,9 @@ export default function MachineDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/machines")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        {entityImages.primaryImage && (
+          <EntityThumbnail imageUrl={entityImages.primaryImage.image_url} alt={machine.designation} size="lg" rounded="lg" />
+        )}
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{machine.code} — {machine.designation}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">

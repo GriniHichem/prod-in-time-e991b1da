@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Shield, Trash2, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Constants } from "@/integrations/supabase/types";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
@@ -30,16 +31,21 @@ export default function UsersAdmin() {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selUserId, setSelUserId] = useState("");
   const [selRole, setSelRole] = useState("");
 
   const load = async () => {
-    const { data: p } = await supabase.from("profiles").select("*").order("last_name");
-    setProfiles(p || []);
-    const { data: r } = await supabase.from("user_roles").select("*");
-    setRoles(r || []);
+    const [pRes, rRes, imgRes] = await Promise.all([
+      supabase.from("profiles").select("*").order("last_name"),
+      supabase.from("user_roles").select("*"),
+      supabase.from("entity_images").select("*").eq("entity_type", "user").eq("is_primary", true),
+    ]);
+    setProfiles(pRes.data || []);
+    setRoles(rRes.data || []);
+    setEntityImages(imgRes.data || []);
   };
 
   useEffect(() => { load(); }, []);
@@ -140,6 +146,7 @@ export default function UsersAdmin() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Nom</TableHead>
                 <TableHead>Poste</TableHead>
                 <TableHead>Rôles</TableHead>
@@ -151,8 +158,12 @@ export default function UsersAdmin() {
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground"><Users className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun utilisateur</TableCell></TableRow>
               ) : filtered.map((p) => {
                 const userRoles = getUserRoles(p.user_id);
+                const img = entityImages.find((i: any) => i.entity_id === p.user_id);
                 return (
                   <TableRow key={p.id}>
+                    <TableCell className="w-10 pr-0">
+                      <EntityThumbnail imageUrl={img?.image_url} alt={`${p.first_name} ${p.last_name}`} size="sm" rounded="full" />
+                    </TableCell>
                     <TableCell className="font-medium">{p.first_name} {p.last_name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.poste || "—"}</TableCell>
                     <TableCell>

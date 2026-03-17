@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
 import { Badge } from "@/components/ui/badge";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 export default function MachinesList() {
   const [machines, setMachines] = useState<any[]>([]);
   const [families, setFamilies] = useState<any[]>([]);
   const [lines, setLines] = useState<any[]>([]);
   const [lineAssignments, setLineAssignments] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [familyFilter, setFamilyFilter] = useState<string>("all");
@@ -26,16 +28,18 @@ export default function MachinesList() {
 
   useEffect(() => {
     const load = async () => {
-      const [mRes, fRes, lRes, laRes] = await Promise.all([
+      const [mRes, fRes, lRes, laRes, imgRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("is_active", true).order("code"),
         supabase.from("machine_families").select("*").eq("is_active", true).order("name"),
         supabase.from("production_lines").select("*").eq("is_active", true).order("code"),
         supabase.from("machine_line_assignments").select("*").order("priority"),
+        supabase.from("entity_images").select("*").eq("entity_type", "machine").eq("is_primary", true),
       ]);
       setMachines(mRes.data || []);
       setFamilies(fRes.data || []);
       setLines(lRes.data || []);
       setLineAssignments(laRes.data || []);
+      setEntityImages(imgRes.data || []);
     };
     load();
   }, []);
@@ -137,6 +141,7 @@ export default function MachinesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead className="hidden md:table-cell">Famille</TableHead>
@@ -149,7 +154,7 @@ export default function MachinesList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     <Cog className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     Aucune machine trouvée
                   </TableCell>
@@ -157,12 +162,16 @@ export default function MachinesList() {
               ) : (
                 filtered.map((m) => {
                   const mLines = getMachineLines(m.id);
+                  const img = entityImages.find((i: any) => i.entity_id === m.id);
                   return (
                     <TableRow
                       key={m.id}
                       className="cursor-pointer hover:bg-muted/50"
                       onClick={() => navigate(`/machines/${m.id}`)}
                     >
+                      <TableCell className="w-10 pr-0">
+                        <EntityThumbnail imageUrl={img?.image_url} alt={m.designation} size="sm" rounded="md" />
+                      </TableCell>
                       <TableCell className="font-mono font-medium">{m.code}</TableCell>
                       <TableCell>{m.designation}</TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">

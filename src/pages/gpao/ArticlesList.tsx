@@ -7,14 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Search, Package, Plus, AlertCircle, Download } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 export default function ArticlesList() {
   const { canCreate } = usePermissions();
   const [articles, setArticles] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase.from("articles").select("*").eq("is_active", true).order("code").then(({ data }) => setArticles(data || []));
+    const load = async () => {
+      const [aRes, imgRes] = await Promise.all([
+        supabase.from("articles").select("*").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "article").eq("is_primary", true),
+      ]);
+      setArticles(aRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = articles.filter((a) => !search || a.code.toLowerCase().includes(search.toLowerCase()) || a.designation.toLowerCase().includes(search.toLowerCase()));
@@ -58,6 +68,7 @@ export default function ArticlesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Stock</TableHead>
@@ -70,8 +81,13 @@ export default function ArticlesList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground"><Package className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun article</TableCell></TableRow>
-              ) : filtered.map((a) => (
+              ) : filtered.map((a) => {
+                const img = entityImages.find((i: any) => i.entity_id === a.id);
+                return (
                 <TableRow key={a.id}>
+                  <TableCell className="w-10 pr-0">
+                    <EntityThumbnail imageUrl={img?.image_url} alt={a.designation} size="sm" rounded="md" />
+                  </TableCell>
                   <TableCell className="font-mono font-medium">{a.code}</TableCell>
                   <TableCell>{a.designation}</TableCell>
                   <TableCell className="tabular-nums">
@@ -84,7 +100,8 @@ export default function ArticlesList() {
                   <TableCell className="hidden md:table-cell tabular-nums">{a.prix_unitaire ? `${a.prix_unitaire} €` : "—"}</TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground">{a.fournisseur || "—"}</TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

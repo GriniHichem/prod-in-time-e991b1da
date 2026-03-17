@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Upload, Trash2, FileText, Plus, X } from "lucide-react";
 import { Constants } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
+import { useEntityImages } from "@/hooks/useEntityImages";
+import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 
 const ROLE_OPTIONS = [
   { value: "alimentation", label: "Alimentation" },
@@ -60,6 +62,8 @@ export default function MachineForm() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const entityImages = useEntityImages("machine", isNew ? undefined : id);
 
   // Line assignments: [{line_id, priority}]
   const [lineAssignments, setLineAssignments] = useState<{ line_id: string; priority: number }[]>([]);
@@ -267,6 +271,23 @@ export default function MachineForm() {
           <Save className="h-4 w-4 mr-2" /> {saving ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </div>
+
+      {/* Image uploader for existing machines */}
+      {!isNew && id && (
+        <Card>
+          <CardHeader><CardTitle>Photo de la machine</CardTitle></CardHeader>
+          <CardContent>
+            <EntityImageUploader
+              images={entityImages.images}
+              primaryImage={entityImages.primaryImage}
+              uploading={entityImages.uploading}
+              onUpload={entityImages.uploadImage}
+              onDelete={entityImages.deleteImage}
+              onSetPrimary={entityImages.setPrimary}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main form */}

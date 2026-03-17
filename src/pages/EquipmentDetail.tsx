@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { ArrowLeft, Edit, Cog, Factory } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEntityImages } from "@/hooks/useEntityImages";
+import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 
 const TYPE_LABELS: Record<string, string> = {
   capteur: "Capteur", actionneur: "Actionneur", convoyeur: "Convoyeur",
@@ -35,7 +37,7 @@ export default function EquipmentDetail() {
   const navigate = useNavigate();
   const { canEdit } = usePermissions();
   const [equip, setEquip] = useState<any>(null);
-
+  const entityImages = useEntityImages("equipement", id);
   useEffect(() => {
     if (!id) return;
     supabase
@@ -81,8 +83,23 @@ export default function EquipmentDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
+          <CardHeader><CardTitle className="text-base">Photo</CardTitle></CardHeader>
+          <CardContent>
+            <EntityImageUploader
+              images={entityImages.images}
+              primaryImage={entityImages.primaryImage}
+              uploading={entityImages.uploading}
+              onUpload={entityImages.uploadImage}
+              onDelete={entityImages.deleteImage}
+              onSetPrimary={entityImages.setPrimary}
+              canEdit={canEdit("machines")}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Informations générales</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             {[
@@ -109,7 +126,7 @@ export default function EquipmentDetail() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Classification & Process</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <div>

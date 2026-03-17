@@ -5,13 +5,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Package, Plus } from "lucide-react";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 export default function ProductsList() {
   const [products, setProducts] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase.from("products").select("*").eq("is_active", true).order("code").then(({ data }) => setProducts(data || []));
+    const load = async () => {
+      const [pRes, imgRes] = await Promise.all([
+        supabase.from("products").select("*").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "produit").eq("is_primary", true),
+      ]);
+      setProducts(pRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = products.filter((p) => !search || p.code.toLowerCase().includes(search.toLowerCase()) || p.designation.toLowerCase().includes(search.toLowerCase()));
@@ -36,6 +46,7 @@ export default function ProductsList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Unité</TableHead>
@@ -45,14 +56,20 @@ export default function ProductsList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground"><Package className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun produit</TableCell></TableRow>
-              ) : filtered.map((p) => (
+              ) : filtered.map((p) => {
+                const img = entityImages.find((i: any) => i.entity_id === p.id);
+                return (
                 <TableRow key={p.id}>
+                  <TableCell className="w-10 pr-0">
+                    <EntityThumbnail imageUrl={img?.image_url} alt={p.designation} size="sm" rounded="md" />
+                  </TableCell>
                   <TableCell className="font-mono font-medium">{p.code}</TableCell>
                   <TableCell>{p.designation}</TableCell>
                   <TableCell>{p.unite}</TableCell>
                   <TableCell className="text-muted-foreground">{p.description || "—"}</TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
