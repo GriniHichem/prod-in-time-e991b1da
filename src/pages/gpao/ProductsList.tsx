@@ -9,10 +9,19 @@ import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 
 export default function ProductsList() {
   const [products, setProducts] = useState<any[]>([]);
+  const [entityImages, setEntityImages] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase.from("products").select("*").eq("is_active", true).order("code").then(({ data }) => setProducts(data || []));
+    const load = async () => {
+      const [pRes, imgRes] = await Promise.all([
+        supabase.from("products").select("*").eq("is_active", true).order("code"),
+        supabase.from("entity_images").select("*").eq("entity_type", "produit").eq("is_primary", true),
+      ]);
+      setProducts(pRes.data || []);
+      setEntityImages(imgRes.data || []);
+    };
+    load();
   }, []);
 
   const filtered = products.filter((p) => !search || p.code.toLowerCase().includes(search.toLowerCase()) || p.designation.toLowerCase().includes(search.toLowerCase()));
