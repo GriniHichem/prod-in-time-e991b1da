@@ -141,7 +141,7 @@ export function DateRangeFilter({
       {/* Compare badge */}
       {compareEnabled && compareRange && (
         <Badge variant="outline" className="text-[10px] font-normal">
-          vs {format(compareRange.from, "dd/MM", { locale: fr })} – {format(compareRange.to, "dd/MM", { locale: fr })}
+          vs {format(compareRange.from, "dd/MM")} – {format(compareRange.to, "dd/MM")}
         </Badge>
       )}
     </div>
