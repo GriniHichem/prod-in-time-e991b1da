@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory, Component } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -37,17 +37,19 @@ export default function MachineDetail() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [interventions, setInterventions] = useState<any[]>([]);
   const [lineAssignments, setLineAssignments] = useState<any[]>([]);
+  const [linkedEquipments, setLinkedEquipments] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes] = await Promise.all([
+      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes, eqRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("id", id).single(),
         supabase.from("tickets").select("*, panne_types(name)").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_pdr").select("*, pdr(*)").eq("machine_id", id),
         supabase.from("preventive_plans").select("*").eq("machine_id", id),
         supabase.from("machine_documents").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_line_assignments").select("*, production_lines(code, designation)").eq("machine_id", id).order("priority"),
+        supabase.from("equipements").select("*").eq("machine_id", id).order("code"),
       ]);
       setMachine(mRes.data);
       setTickets(tRes.data || []);
@@ -55,6 +57,7 @@ export default function MachineDetail() {
       setPlans(plansRes.data || []);
       setDocuments(docsRes.data || []);
       setLineAssignments(laRes.data || []);
+      setLinkedEquipments(eqRes.data || []);
 
       if (tRes.data && tRes.data.length > 0) {
         const ticketIds = tRes.data.map((t: any) => t.id);
@@ -121,6 +124,9 @@ export default function MachineDetail() {
           </TabsTrigger>
           <TabsTrigger value="preventif" className="h-9">
             <CalendarCheck className="h-3.5 w-3.5 mr-1" /> Préventif
+          </TabsTrigger>
+          <TabsTrigger value="equipements" className="h-9">
+            <Component className="h-3.5 w-3.5 mr-1" /> Équipements ({linkedEquipments.length})
           </TabsTrigger>
         </TabsList>
 
@@ -403,6 +409,44 @@ export default function MachineDetail() {
                       </TableRow>
                     ))
                   )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="equipements">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Désignation</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {linkedEquipments.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <Component className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        Aucun équipement rattaché
+                      </TableCell>
+                    </TableRow>
+                  ) : linkedEquipments.map((eq: any) => (
+                    <TableRow key={eq.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/equipements/${eq.id}`)}>
+                      <TableCell className="font-mono font-medium">{eq.code}</TableCell>
+                      <TableCell>{eq.designation}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs capitalize">{eq.type?.replace("_", " ")}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={eq.statut === "en_service" ? "default" : eq.statut === "hors_service" ? "destructive" : "secondary"} className="text-xs">
+                          {eq.statut?.replace("_", " ")}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>

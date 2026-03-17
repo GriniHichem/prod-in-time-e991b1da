@@ -31,6 +31,9 @@ import ConsumptionPage from "@/pages/gpao/ConsumptionPage";
 import StopsPage from "@/pages/gpao/StopsPage";
 import RecipesPage from "@/pages/gpao/RecipesPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
+import EquipmentsList from "@/pages/EquipmentsList";
+import EquipmentDetail from "@/pages/EquipmentDetail";
+import EquipmentForm from "@/pages/EquipmentForm";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +78,10 @@ const App = () => (
               <Route path="/tickets/:id" element={<TicketDetail />} />
               <Route path="/preventif" element={<PreventifList />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/equipements" element={<EquipmentsList />} />
+              <Route path="/equipements/new" element={<EquipmentForm />} />
+              <Route path="/equipements/:id" element={<EquipmentDetail />} />
+              <Route path="/equipements/:id/edit" element={<EquipmentForm />} />
               {/* GPAO */}
               <Route path="/gpao" element={<GpaoDashboard />} />
               <Route path="/gpao/of" element={<OfList />} />
