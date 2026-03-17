@@ -34,6 +34,9 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import EquipmentsList from "@/pages/EquipmentsList";
 import EquipmentDetail from "@/pages/EquipmentDetail";
 import EquipmentForm from "@/pages/EquipmentForm";
+import LinesList from "@/pages/LinesList";
+import LineSynoptic from "@/pages/LineSynoptic";
+import LineConfig from "@/pages/LineConfig";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
