@@ -37,7 +37,7 @@ export default function EquipmentDetail() {
   const navigate = useNavigate();
   const { canEdit } = usePermissions();
   const [equip, setEquip] = useState<any>(null);
-
+  const entityImages = useEntityImages("equipement", id);
   useEffect(() => {
     if (!id) return;
     supabase
