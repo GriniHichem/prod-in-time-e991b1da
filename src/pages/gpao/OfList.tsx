@@ -213,6 +213,7 @@ export default function OfList() {
             <TableHeader>
               <TableRow>
                 <TableHead>N° OF</TableHead>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Produit</TableHead>
                 <TableHead>Ligne</TableHead>
                 <TableHead>Qté prévue</TableHead>
