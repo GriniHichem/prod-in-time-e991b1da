@@ -109,6 +109,9 @@ export default function OfList() {
     return matchSearch && matchStatus;
   });
 
+  const productIds = ofs.map((o) => o.product_id).filter(Boolean);
+  const productImageMap = useEntityPrimaryImages("produit", productIds);
+
   const availableProducts = getFilteredProducts();
 
   return (
