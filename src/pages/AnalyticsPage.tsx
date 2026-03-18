@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from "recharts";
-import { Clock, TrendingUp, AlertTriangle, Factory, Wrench, BarChart3, Activity, Gauge } from "lucide-react";
+import { Clock, TrendingUp, AlertTriangle, Factory, Wrench, BarChart3, Activity, Gauge, Package, FolderTree } from "lucide-react";
 import { DateRangeFilter } from "@/components/analytics/DateRangeFilter";
 import { KpiCardComparison } from "@/components/analytics/KpiCardComparison";
 import { TrendChart } from "@/components/analytics/TrendChart";
@@ -21,21 +21,25 @@ export default function AnalyticsPage() {
   const [consumptions, setConsumptions] = useState<any[]>([]);
   const [recipeLines, setRecipeLines] = useState<any[]>([]);
   const [lines, setLines] = useState<any[]>([]);
+  const [families, setFamilies] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
-      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes] = await Promise.all([
-        supabase.from("tickets").select("*, machines(code, designation)").order("heure_declaration", { ascending: false }),
+      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes, fRes, pRes] = await Promise.all([
+        supabase.from("tickets").select("*, machines(code, designation), ordres_fabrication(numero, products(code, designation))").order("heure_declaration", { ascending: false }),
         supabase.from("machines").select("*").eq("is_active", true),
-        supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false }),
+        supabase.from("ordres_fabrication").select("*, products(designation, code, family_id, poids_unitaire, product_families(name)), production_lines(designation, code)").order("created_at", { ascending: false }),
         supabase.from("production_declarations").select("*, shifts(shift_type, line_id, date_shift)"),
         supabase.from("production_stops").select("*, production_lines(designation, code)"),
-        supabase.from("consumptions").select("*, articles(code, designation), ordres_fabrication(numero)"),
+        supabase.from("consumptions").select("*, articles(code, designation, code_erp, family_id, product_families(name)), ordres_fabrication(numero)"),
         supabase.from("recipe_lines").select("*, articles(code, designation)"),
         supabase.from("production_lines").select("*").eq("is_active", true),
+        supabase.from("product_families").select("*").eq("is_active", true),
+        supabase.from("products").select("*, product_families(name)").eq("is_active", true),
       ]);
       setTickets(tRes.data || []);
       setMachines(mRes.data || []);
@@ -45,6 +49,8 @@ export default function AnalyticsPage() {
       setConsumptions(cRes.data || []);
       setRecipeLines(rlRes.data || []);
       setLines(lRes.data || []);
+      setFamilies(fRes.data || []);
+      setProducts(pRes.data || []);
       setLoading(false);
     };
     load();
@@ -59,7 +65,6 @@ export default function AnalyticsPage() {
 
   // Compare filtered
   const cTickets = useMemo(() => df.compareRange ? filterByDateRange(tickets, df.compareRange, (t) => t.heure_declaration) : [], [tickets, df.compareRange]);
-  const cStops = useMemo(() => df.compareRange ? filterByDateRange(stops, df.compareRange, (s) => s.heure_debut) : [], [stops, df.compareRange]);
   const cOfs = useMemo(() => df.compareRange ? filterByDateRange(ofs, df.compareRange, (o) => o.created_at) : [], [ofs, df.compareRange]);
 
   // KPIs
@@ -89,6 +94,13 @@ export default function AnalyticsPage() {
     const availability = mtbf > 0 && mttr > 0 ? Math.round((mtbf / (mtbf + mttr / 60)) * 100) : 100;
     return { mttr, mtbf, avgArret, availability, totalFailures, closedCount: closed.length };
   }, [cTickets, machines, df.compareRange]);
+
+  // Prod KPIs
+  const totalProduit = fOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
+  const totalRebut = fOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
+  const rendement = totalProduit > 0 ? Math.round(((totalProduit - totalRebut) / totalProduit) * 100) : 0;
+  const prevTotalProduit = cOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
+  const prevRendement = prevTotalProduit > 0 ? Math.round(((prevTotalProduit - cOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0)) / prevTotalProduit) * 100) : 0;
 
   // Charts data
   const ticketsByMachine = useMemo(() => {
@@ -136,13 +148,48 @@ export default function AnalyticsPage() {
     }));
   }, [fDeclarations]);
 
+  // Yield by family
+  const yieldByFamily = useMemo(() => {
+    const map: Record<string, { name: string; produced: number; scrap: number }> = {};
+    fOfs.forEach((of) => {
+      const famName = of.products?.product_families?.name || "Sans famille";
+      if (!map[famName]) map[famName] = { name: famName, produced: 0, scrap: 0 };
+      map[famName].produced += of.quantite_produite || 0;
+      map[famName].scrap += of.quantite_rebut || 0;
+    });
+    return Object.values(map).map((v) => ({
+      ...v, yield: v.produced > 0 ? Math.round(((v.produced - v.scrap) / v.produced) * 100) : 0,
+    })).sort((a, b) => b.produced - a.produced);
+  }, [fOfs]);
+
+  // Production by product (top 10)
+  const prodByProduct = useMemo(() => {
+    const map: Record<string, { name: string; produced: number; poids: number }> = {};
+    fOfs.forEach((of) => {
+      const label = of.products?.code || "?";
+      if (!map[label]) map[label] = { name: label, produced: 0, poids: Number(of.products?.poids_unitaire) || 0 };
+      map[label].produced += of.quantite_produite || 0;
+    });
+    return Object.values(map).sort((a, b) => b.produced - a.produced).slice(0, 10);
+  }, [fOfs]);
+
+  // Consumption by family
+  const consByFamily = useMemo(() => {
+    const map: Record<string, number> = {};
+    fConsumptions.forEach((c) => {
+      const famName = c.articles?.product_families?.name || "Sans famille";
+      map[famName] = (map[famName] || 0) + (c.quantite || 0);
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 })).sort((a, b) => b.value - a.value);
+  }, [fConsumptions]);
+
   const consumptionGaps = useMemo(() => {
     const ofCons: Record<string, Record<string, number>> = {};
     fConsumptions.forEach((c) => {
       if (!ofCons[c.of_id]) ofCons[c.of_id] = {};
       ofCons[c.of_id][c.article_id] = (ofCons[c.of_id][c.article_id] || 0) + c.quantite;
     });
-    const artGaps: Record<string, { expected: number; actual: number }> = {};
+    const artGaps: Record<string, { expected: number; actual: number; erp: string }> = {};
     fOfs.forEach((of) => {
       if (!of.recipe_id) return;
       const oc = ofCons[of.id] || {};
@@ -152,7 +199,7 @@ export default function AnalyticsPage() {
         const exp = rl.quantite * (ratio || 1);
         const act = oc[rl.article_id] || 0;
         const label = rl.articles?.code || rl.article_id.slice(0, 8);
-        if (!artGaps[label]) artGaps[label] = { expected: 0, actual: 0 };
+        if (!artGaps[label]) artGaps[label] = { expected: 0, actual: 0, erp: "" };
         artGaps[label].expected += exp;
         artGaps[label].actual += act;
       });
@@ -187,7 +234,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <KpiCardComparison title="MTBF" value={`${kpis.mtbf}h`} icon={Activity} subtitle="Temps moyen entre pannes"
           currentNumeric={kpis.mtbf} previousValue={prevKpis?.mtbf} unit="h" />
         <KpiCardComparison title="MTTR" value={`${kpis.mttr} min`} icon={Clock} subtitle="Temps moyen réparation"
@@ -198,6 +245,10 @@ export default function AnalyticsPage() {
           currentNumeric={kpis.avgArret} previousValue={prevKpis?.avgArret} unit=" min" invertTrend />
         <KpiCardComparison title="Total pannes" value={kpis.totalFailures} icon={Wrench} subtitle={`${kpis.closedCount} clôturés`}
           currentNumeric={kpis.totalFailures} previousValue={prevKpis?.totalFailures} invertTrend />
+        <KpiCardComparison title="Rendement" value={`${rendement}%`} icon={TrendingUp}
+          currentNumeric={rendement} previousValue={df.compareEnabled ? prevRendement : undefined} unit="%" />
+        <KpiCardComparison title="Produits actifs" value={products.length} icon={Package}
+          subtitle={`${families.length} famille(s)`} />
         <KpiCardComparison title="Lignes actives" value={lines.length} icon={Factory}
           subtitle={`${fOfs.filter((o) => o.statut === "en_cours").length} OF en cours`} />
       </div>
@@ -288,6 +339,43 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
+            {/* Yield by family */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><FolderTree className="h-4 w-4" /> Rendement par famille produit</CardTitle></CardHeader>
+              <CardContent>
+                {yieldByFamily.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée</p> : (
+                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                    <BarChart data={yieldByFamily} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="produced" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} name="Produit" />
+                      <Bar dataKey="scrap" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Rebut" />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Production by product top 10 */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Production par produit (Top 10)</CardTitle></CardHeader>
+              <CardContent>
+                {prodByProduct.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée</p> : (
+                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                    <BarChart data={prodByProduct} layout="vertical" margin={{ left: 60, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis type="number" className="text-xs" />
+                      <YAxis dataKey="name" type="category" className="text-xs" width={55} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="produced" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Produit (kg)" />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Répartition des arrêts</CardTitle></CardHeader>
               <CardContent>
@@ -329,28 +417,49 @@ export default function AnalyticsPage() {
 
         {/* Consumption */}
         <TabsContent value="consumption" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Écarts de consommation (Réel vs Prévu)</CardTitle></CardHeader>
-            <CardContent>
-              {consumptionGaps.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Aucun écart calculable</p>
-                </div>
-              ) : (
-                <ChartContainer config={chartConfig} className="h-[350px] w-full">
-                  <BarChart data={consumptionGaps} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="article" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="expected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} name="Prévu" />
-                    <Bar dataKey="actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Réel" />
-                  </BarChart>
-                </ChartContainer>
-              )}
-            </CardContent>
-          </Card>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Écarts de consommation (Réel vs Prévu)</CardTitle></CardHeader>
+              <CardContent>
+                {consumptionGaps.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Aucun écart calculable</p>
+                  </div>
+                ) : (
+                  <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                    <BarChart data={consumptionGaps} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="article" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="expected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} name="Prévu" />
+                      <Bar dataKey="actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Réel" />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Consumption by family */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><FolderTree className="h-4 w-4" /> Consommation par famille article</CardTitle></CardHeader>
+              <CardContent>
+                {consByFamily.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée</p> : (
+                  <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                    <BarChart data={consByFamily} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="value" fill="hsl(var(--info))" radius={[4, 4, 0, 0]} name="Consommation" />
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           {consumptionGaps.length > 0 && (
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Détail des écarts</CardTitle></CardHeader>

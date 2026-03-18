@@ -23,11 +23,14 @@ import RolesMatrix from "@/pages/parametres/RolesMatrix";
 import ShiftsAdmin from "@/pages/parametres/ShiftsAdmin";
 import LignesAdmin from "@/pages/parametres/LignesAdmin";
 import GeneralSettings from "@/pages/parametres/GeneralSettings";
+import ProductFamiliesAdmin from "@/pages/parametres/ProductFamiliesAdmin";
 import GpaoDashboard from "@/pages/gpao/GpaoDashboard";
 import OfList from "@/pages/gpao/OfList";
 import OfDetail from "@/pages/gpao/OfDetail";
 import ProductsList from "@/pages/gpao/ProductsList";
 import ArticlesList from "@/pages/gpao/ArticlesList";
+import ProductDetail from "@/pages/gpao/ProductDetail";
+import ArticleDetail from "@/pages/gpao/ArticleDetail";
 import ShiftScreen from "@/pages/gpao/ShiftScreen";
 import ConsumptionPage from "@/pages/gpao/ConsumptionPage";
 import StopsPage from "@/pages/gpao/StopsPage";
@@ -99,7 +102,9 @@ const App = () => (
               <Route path="/gpao/of" element={<OfList />} />
               <Route path="/gpao/of/:id" element={<OfDetail />} />
               <Route path="/gpao/produits" element={<ProductsList />} />
+              <Route path="/gpao/produits/:id" element={<ProductDetail />} />
               <Route path="/gpao/articles" element={<ArticlesList />} />
+              <Route path="/gpao/articles/:id" element={<ArticleDetail />} />
               <Route path="/gpao/shift" element={<ShiftScreen />} />
               <Route path="/gpao/consommations" element={<ConsumptionPage />} />
               <Route path="/gpao/arrets" element={<StopsPage />} />
@@ -112,6 +117,7 @@ const App = () => (
               <Route path="/parametres/roles" element={<RolesMatrix />} />
               <Route path="/parametres/shifts" element={<ShiftsAdmin />} />
               <Route path="/parametres/lignes" element={<LignesAdmin />} />
+              <Route path="/parametres/familles-produits" element={<ProductFamiliesAdmin />} />
               <Route path="/parametres/general" element={<GeneralSettings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

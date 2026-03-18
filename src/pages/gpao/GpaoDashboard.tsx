@@ -1,12 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Factory, Package, ClipboardList, TrendingUp, BarChart3, AlertTriangle } from "lucide-react";
+import { Factory, Package, ClipboardList, TrendingUp, BarChart3, AlertTriangle, FolderTree } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/analytics/DateRangeFilter";
 import { KpiCardComparison } from "@/components/analytics/KpiCardComparison";
 import { useDateFilter, filterByDateRange } from "@/hooks/useDateFilter";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const ofStatusConfig: Record<string, { label: string; className: string }> = {
   planifie: { label: "Planifié", className: "bg-muted text-muted-foreground" },
@@ -26,21 +28,24 @@ export default function GpaoDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [articles, setArticles] = useState<any[]>([]);
   const [stops, setStops] = useState<any[]>([]);
+  const [families, setFamilies] = useState<any[]>([]);
   const navigate = useNavigate();
   const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
-      const [ofRes, prodRes, artRes, stopRes] = await Promise.all([
-        supabase.from("ordres_fabrication").select("*, products(designation, code), production_lines(designation, code)").order("created_at", { ascending: false }),
-        supabase.from("products").select("*").eq("is_active", true),
-        supabase.from("articles").select("*").eq("is_active", true),
+      const [ofRes, prodRes, artRes, stopRes, famRes] = await Promise.all([
+        supabase.from("ordres_fabrication").select("*, products(designation, code, family_id, poids_unitaire), production_lines(designation, code)").order("created_at", { ascending: false }),
+        supabase.from("products").select("*, product_families(name)").eq("is_active", true),
+        supabase.from("articles").select("*, product_families(name)").eq("is_active", true),
         supabase.from("production_stops").select("*, production_lines(designation)").order("heure_debut", { ascending: false }),
+        supabase.from("product_families").select("*").eq("is_active", true),
       ]);
       setOfs(ofRes.data || []);
       setProducts(prodRes.data || []);
       setArticles(artRes.data || []);
       setStops(stopRes.data || []);
+      setFamilies(famRes.data || []);
     };
     load();
   }, []);
@@ -59,6 +64,46 @@ export default function GpaoDashboard() {
   const prevRebut = cOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
   const prevRendement = prevProduit > 0 ? Math.round(((prevProduit - prevRebut) / prevProduit) * 100) : 0;
 
+  // Production by family chart
+  const prodByFamily = useMemo(() => {
+    const map: Record<string, { name: string; produced: number; scrap: number }> = {};
+    fOfs.forEach((of) => {
+      const famId = of.products?.family_id;
+      const famName = famId ? families.find((f) => f.id === famId)?.name || "Autre" : "Sans famille";
+      if (!map[famName]) map[famName] = { name: famName, produced: 0, scrap: 0 };
+      map[famName].produced += of.quantite_produite || 0;
+      map[famName].scrap += of.quantite_rebut || 0;
+    });
+    return Object.values(map).sort((a, b) => b.produced - a.produced);
+  }, [fOfs, families]);
+
+  // Yield by product (top 5)
+  const yieldByProduct = useMemo(() => {
+    const map: Record<string, { name: string; produced: number; scrap: number }> = {};
+    fOfs.forEach((of) => {
+      const label = of.products?.code || "?";
+      if (!map[label]) map[label] = { name: label, produced: 0, scrap: 0 };
+      map[label].produced += of.quantite_produite || 0;
+      map[label].scrap += of.quantite_rebut || 0;
+    });
+    return Object.values(map)
+      .map((v) => ({ ...v, yield: v.produced > 0 ? Math.round(((v.produced - v.scrap) / v.produced) * 100) : 0 }))
+      .sort((a, b) => b.produced - a.produced).slice(0, 5);
+  }, [fOfs]);
+
+  // Average weight per OF
+  const avgPoidsOf = useMemo(() => {
+    const ofsWithPoids = fOfs.filter((o) => o.quantite_produite > 0 && o.products?.poids_unitaire > 0);
+    if (ofsWithPoids.length === 0) return 0;
+    const totalWeight = ofsWithPoids.reduce((s, o) => s + (o.quantite_produite * Number(o.products?.poids_unitaire || 0)), 0);
+    return Math.round(totalWeight / ofsWithPoids.length);
+  }, [fOfs]);
+
+  const chartConfig = {
+    produced: { label: "Produit (kg)", color: "hsl(var(--success))" },
+    scrap: { label: "Rebut (kg)", color: "hsl(var(--destructive))" },
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3">
@@ -69,7 +114,7 @@ export default function GpaoDashboard() {
         <DateRangeFilter {...df} />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCardComparison title="OF en cours" value={ofsEnCours} icon={Factory}
           subtitle={`${fOfs.length} total`} currentNumeric={ofsEnCours}
           previousValue={df.compareEnabled ? cOfs.filter((o) => o.statut === "en_cours").length : undefined} />
@@ -78,7 +123,11 @@ export default function GpaoDashboard() {
         <KpiCardComparison title="Rendement" value={`${rendement}%`} icon={TrendingUp}
           subtitle="Produit - rebuts" currentNumeric={rendement} previousValue={df.compareEnabled ? prevRendement : undefined} unit="%" />
         <KpiCardComparison title="Produits" value={products.length} icon={Package}
+          subtitle={`${families.length} famille(s)`} />
+        <KpiCardComparison title="Familles actives" value={families.length} icon={FolderTree}
           subtitle={lowStockArticles > 0 ? `${lowStockArticles} matières en alerte` : "Stock OK"} />
+        <KpiCardComparison title="Poids moy/OF" value={avgPoidsOf > 0 ? `${avgPoidsOf.toLocaleString("fr-FR")} kg` : "—"} icon={Package}
+          subtitle="Poids moyen par OF" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -137,6 +186,57 @@ export default function GpaoDashboard() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts: Production by family + Yield by product */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FolderTree className="h-4 w-4 text-primary" />
+              Production par famille
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {prodByFamily.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée</p>
+            ) : (
+              <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                <BarChart data={prodByFamily} margin={{ left: 20, right: 20, top: 5, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="name" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="produced" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} name="Produit" />
+                  <Bar dataKey="scrap" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} name="Rebut" />
+                </BarChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Rendement par produit (Top 5)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {yieldByProduct.map((p) => (
+                <div key={p.name} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium font-mono">{p.name}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{p.produced.toLocaleString("fr-FR")} kg</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-bold tabular-nums ${p.yield >= 95 ? "text-success" : p.yield >= 85 ? "text-warning" : "text-destructive"}`}>{p.yield}%</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{p.scrap.toLocaleString("fr-FR")} kg rebut</p>
+                  </div>
+                </div>
+              ))}
+              {yieldByProduct.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Aucune donnée</p>}
+            </div>
           </CardContent>
         </Card>
       </div>
