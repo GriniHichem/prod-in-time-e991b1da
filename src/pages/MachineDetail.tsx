@@ -116,6 +116,9 @@ export default function MachineDetail() {
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList className="h-11">
           <TabsTrigger value="info" className="h-9">Infos</TabsTrigger>
+          <TabsTrigger value="images" className="h-9">
+            <ImageIcon className="h-3.5 w-3.5 mr-1" /> Photos
+          </TabsTrigger>
           <TabsTrigger value="documents" className="h-9">
             <FileText className="h-3.5 w-3.5 mr-1" /> Documents
           </TabsTrigger>
