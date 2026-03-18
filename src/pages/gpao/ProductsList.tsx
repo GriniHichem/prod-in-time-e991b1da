@@ -31,8 +31,8 @@ export default function ProductsList() {
   const [code, setCode] = useState("");
   const [designation, setDesignation] = useState("");
   const [description, setDescription] = useState("");
-  const [unite, setUnite] = useState("kg");
-  const [uniteBase, setUniteBase] = useState("kg");
+  const [unite, setUnite] = useState("g");
+  const [uniteBase, setUniteBase] = useState("g");
   const [codeErp, setCodeErp] = useState("");
   const [poidsUnitaire, setPoidsUnitaire] = useState("");
   const [familyId, setFamilyId] = useState("");
@@ -51,7 +51,7 @@ export default function ProductsList() {
   useEffect(() => { load(); }, []);
 
   const resetForm = () => {
-    setCode(""); setDesignation(""); setDescription(""); setUnite("kg"); setUniteBase("kg");
+    setCode(""); setDesignation(""); setDescription(""); setUnite("g"); setUniteBase("g");
     setCodeErp(""); setPoidsUnitaire(""); setFamilyId("");
   };
 
@@ -67,7 +67,7 @@ export default function ProductsList() {
       unite,
       unite_base: uniteBase,
       code_erp: codeErp.trim() || null,
-      poids_unitaire: parseFloat(poidsUnitaire) || 0,
+      poids_unitaire: parseFloat(poidsUnitaire.replace(",", ".")) || 0,
       family_id: familyId || null,
     } as any);
     if (error) {
@@ -143,8 +143,8 @@ export default function ProductsList() {
                       <Input value={uniteBase} onChange={(e) => setUniteBase(e.target.value)} className="h-12" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Poids unit.</Label>
-                      <Input type="number" value={poidsUnitaire} onChange={(e) => setPoidsUnitaire(e.target.value)} className="h-12" placeholder="0" />
+                      <Label>Poids unit. (g)</Label>
+                      <Input value={poidsUnitaire} onChange={(e) => { const v = e.target.value; if (/^[0-9]*[,.]?[0-9]{0,4}$/.test(v) || v === "") setPoidsUnitaire(v); }} className="h-12" placeholder="0" inputMode="decimal" />
                     </div>
                   </div>
                   <div className="space-y-2">
