@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 export default function OfDetail() {
   const { id } = useParams();
