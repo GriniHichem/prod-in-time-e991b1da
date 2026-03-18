@@ -29,6 +29,8 @@ import OfList from "@/pages/gpao/OfList";
 import OfDetail from "@/pages/gpao/OfDetail";
 import ProductsList from "@/pages/gpao/ProductsList";
 import ArticlesList from "@/pages/gpao/ArticlesList";
+import ProductDetail from "@/pages/gpao/ProductDetail";
+import ArticleDetail from "@/pages/gpao/ArticleDetail";
 import ShiftScreen from "@/pages/gpao/ShiftScreen";
 import ConsumptionPage from "@/pages/gpao/ConsumptionPage";
 import StopsPage from "@/pages/gpao/StopsPage";
