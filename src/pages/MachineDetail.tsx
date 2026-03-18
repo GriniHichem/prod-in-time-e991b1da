@@ -212,6 +212,24 @@ export default function MachineDetail() {
           </div>
         </TabsContent>
 
+        <TabsContent value="images">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Photos de la machine</CardTitle></CardHeader>
+            <CardContent>
+              <EntityImageUploader
+                images={entityImages.images}
+                primaryImage={entityImages.primaryImage}
+                uploading={entityImages.uploading}
+                onUpload={entityImages.uploadImage}
+                onDelete={entityImages.deleteImage}
+                onSetPrimary={entityImages.setPrimary}
+                canEdit={canEdit("machines")}
+                maxSizeMb={entityImages.maxSizeMb}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="documents">
           <Card>
             <CardContent className="p-5">

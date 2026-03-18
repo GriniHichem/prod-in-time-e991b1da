@@ -93,6 +93,9 @@ export default function ArticleDetail() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/gpao/articles")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        {entityImages.primaryImage && (
+          <EntityThumbnail imageUrl={entityImages.primaryImage.image_url} alt={article.designation} size="lg" rounded="lg" enableLightbox />
+        )}
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{article.designation}</h1>
           <p className="text-muted-foreground font-mono">{article.code}</p>
