@@ -14,6 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 export default function OfList() {
   const [ofs, setOfs] = useState<any[]>([]);
@@ -106,6 +108,9 @@ export default function OfList() {
     const matchStatus = statusFilter === "all" || o.statut === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const productIds = ofs.map((o) => o.product_id).filter(Boolean);
+  const productImageMap = useEntityPrimaryImages("produit", productIds);
 
   const availableProducts = getFilteredProducts();
 
@@ -208,6 +213,7 @@ export default function OfList() {
             <TableHeader>
               <TableRow>
                 <TableHead>N° OF</TableHead>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Produit</TableHead>
                 <TableHead>Ligne</TableHead>
                 <TableHead>Qté prévue</TableHead>
@@ -226,6 +232,9 @@ export default function OfList() {
                 return (
                   <TableRow key={of.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/gpao/of/${of.id}`)}>
                     <TableCell className="font-mono font-medium">{of.numero}</TableCell>
+                    <TableCell className="w-10">
+                      <EntityThumbnail imageUrl={productImageMap[of.product_id]} alt={of.products?.designation} size="sm" rounded="md" />
+                    </TableCell>
                     <TableCell>{of.products?.designation || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{of.production_lines?.code || "—"}</TableCell>
                     <TableCell className="tabular-nums">{of.quantite_prevue?.toLocaleString("fr-FR")}</TableCell>

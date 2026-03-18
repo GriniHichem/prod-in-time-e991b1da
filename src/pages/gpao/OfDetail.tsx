@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 export default function OfDetail() {
   const { id } = useParams();
@@ -139,12 +141,23 @@ export default function OfDetail() {
   const formatTime = (ts: string | null) => ts ? new Date(ts).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—";
   const formatDate = (ts: string | null) => ts ? new Date(ts).toLocaleDateString("fr-FR") : "—";
 
+  const productImageMap = useEntityPrimaryImages("produit", of ? [of.product_id] : []);
+  const articleIds = consumptions.map((c) => c.article_id).filter(Boolean);
+  const articleImageMap = useEntityPrimaryImages("article", articleIds);
+
   return (
     <div className="space-y-4 max-w-5xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/gpao/of")} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        <EntityThumbnail
+          imageUrl={productImageMap[of.product_id]}
+          alt={of.products?.designation}
+          size="lg"
+          rounded="lg"
+          enableLightbox
+        />
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{of.numero}</h1>
           <div className="flex items-center gap-2 mt-1">
@@ -308,6 +321,7 @@ export default function OfDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10"></TableHead>
                     <TableHead>Article</TableHead>
                     <TableHead>Quantité</TableHead>
                     <TableHead>Unité</TableHead>
@@ -319,6 +333,9 @@ export default function OfDetail() {
                     <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Aucune consommation</TableCell></TableRow>
                   ) : consumptions.map((c) => (
                     <TableRow key={c.id}>
+                      <TableCell className="w-10">
+                        <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
+                      </TableCell>
                       <TableCell>{c.articles?.code} — {c.articles?.designation}</TableCell>
                       <TableCell className="tabular-nums font-medium">{c.quantite}</TableCell>
                       <TableCell>{c.unite}</TableCell>

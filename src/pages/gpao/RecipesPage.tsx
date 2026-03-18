@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, BookOpen, Trash2, Edit, ChevronDown, ChevronRight, Package, Copy, GitBranch } from "lucide-react";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 export default function RecipesPage() {
   const { hasRole } = useAuth();
@@ -58,6 +60,11 @@ export default function RecipesPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const productIds = products.map((p) => p.id);
+  const articleIds = articles.map((a) => a.id);
+  const productImageMap = useEntityPrimaryImages("produit", productIds);
+  const articleImageMap = useEntityPrimaryImages("article", articleIds);
 
   // Group recipes by product_id (recette mère = produit)
   const recipesByProduct = useMemo(() => {
@@ -295,7 +302,7 @@ export default function RecipesPage() {
                     {isProductExpanded
                       ? <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" />
                       : <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />}
-                    <BookOpen className="h-5 w-5 shrink-0 text-primary" />
+                    <EntityThumbnail imageUrl={productImageMap[prodId]} alt={group.product?.designation} size="md" rounded="lg" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold">{group.product?.code} — {group.product?.designation}</p>
                       <p className="text-sm text-muted-foreground">
@@ -377,6 +384,7 @@ export default function RecipesPage() {
                                     <Table>
                                       <TableHeader>
                                         <TableRow>
+                                          <TableHead className="w-10"></TableHead>
                                           <TableHead>Code</TableHead>
                                           <TableHead>Désignation</TableHead>
                                           <TableHead>Quantité</TableHead>
@@ -387,8 +395,11 @@ export default function RecipesPage() {
                                       <TableBody>
                                         {lines.map((l) => (
                                           <TableRow key={l.id}>
-                                            <TableCell className="font-mono text-xs">{l.articles?.code}</TableCell>
-                                            <TableCell className="text-sm">{l.articles?.designation}</TableCell>
+                                             <TableCell className="w-10">
+                                               <EntityThumbnail imageUrl={articleImageMap[l.article_id]} alt={l.articles?.designation} size="sm" rounded="md" />
+                                             </TableCell>
+                                             <TableCell className="font-mono text-xs">{l.articles?.code}</TableCell>
+                                             <TableCell className="text-sm">{l.articles?.designation}</TableCell>
                                             <TableCell className="tabular-nums font-medium">{l.quantite}</TableCell>
                                             <TableCell className="text-sm">{l.unite}</TableCell>
                                             {canManage && (

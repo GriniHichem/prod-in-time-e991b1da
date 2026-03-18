@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, Edit, History, ShieldAlert } from "lucide-react";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 export default function ConsumptionPage() {
   const { user, hasRole } = useAuth();
@@ -54,6 +56,9 @@ export default function ConsumptionPage() {
     if (filterOfId !== "all" && c.of_id !== filterOfId) return false;
     return true;
   });
+
+  const articleIds = consumptions.map((c) => c.article_id).filter(Boolean);
+  const articleImageMap = useEntityPrimaryImages("article", articleIds);
 
   const openEdit = (c: any) => {
     setEditItem(c);
@@ -163,7 +168,10 @@ export default function ConsumptionPage() {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-sm">{c.articles?.code} — {c.articles?.designation}</p>
+                  <div className="flex items-center gap-2">
+                    <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
+                    <p className="text-sm">{c.articles?.code} — {c.articles?.designation}</p>
+                  </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="tabular-nums font-medium">{c.quantite} {c.unite}</span>
                     <span className="text-muted-foreground tabular-nums">
@@ -180,6 +188,7 @@ export default function ConsumptionPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>OF</TableHead>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead>Article</TableHead>
                   <TableHead>Quantité</TableHead>
                   <TableHead>Unité</TableHead>
@@ -194,6 +203,9 @@ export default function ConsumptionPage() {
                 ) : filtered.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono">{c.ordres_fabrication?.numero}</TableCell>
+                    <TableCell className="w-10">
+                      <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
+                    </TableCell>
                     <TableCell>{c.articles?.code} — {c.articles?.designation}</TableCell>
                     <TableCell className="tabular-nums font-medium">{c.quantite}</TableCell>
                     <TableCell>{c.unite}</TableCell>
