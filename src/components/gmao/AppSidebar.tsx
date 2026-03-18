@@ -88,10 +88,10 @@ export function AppSidebar() {
           />
           {!collapsed && (
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-[13px] font-extrabold tracking-wider uppercase text-sidebar-primary">
+              <span className="text-[13px] font-extrabold tracking-wider uppercase text-sidebar-foreground">
                 PROD IN TIME
               </span>
-              <span className="text-[10px] font-medium tracking-wide text-sidebar-foreground/50 uppercase">
+              <span className="text-[10px] font-medium tracking-wide text-sidebar-foreground/40 uppercase">
                 GMAO · GPAO
               </span>
             </div>
