@@ -232,6 +232,9 @@ export default function OfList() {
                 return (
                   <TableRow key={of.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/gpao/of/${of.id}`)}>
                     <TableCell className="font-mono font-medium">{of.numero}</TableCell>
+                    <TableCell className="w-10">
+                      <EntityThumbnail imageUrl={productImageMap[of.product_id]} alt={of.products?.designation} size="sm" rounded="md" />
+                    </TableCell>
                     <TableCell>{of.products?.designation || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{of.production_lines?.code || "—"}</TableCell>
                     <TableCell className="tabular-nums">{of.quantite_prevue?.toLocaleString("fr-FR")}</TableCell>

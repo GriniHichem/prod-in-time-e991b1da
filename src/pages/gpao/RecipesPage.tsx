@@ -395,8 +395,11 @@ export default function RecipesPage() {
                                       <TableBody>
                                         {lines.map((l) => (
                                           <TableRow key={l.id}>
-                                            <TableCell className="font-mono text-xs">{l.articles?.code}</TableCell>
-                                            <TableCell className="text-sm">{l.articles?.designation}</TableCell>
+                                             <TableCell className="w-10">
+                                               <EntityThumbnail imageUrl={articleImageMap[l.article_id]} alt={l.articles?.designation} size="sm" rounded="md" />
+                                             </TableCell>
+                                             <TableCell className="font-mono text-xs">{l.articles?.code}</TableCell>
+                                             <TableCell className="text-sm">{l.articles?.designation}</TableCell>
                                             <TableCell className="tabular-nums font-medium">{l.quantite}</TableCell>
                                             <TableCell className="text-sm">{l.unite}</TableCell>
                                             {canManage && (

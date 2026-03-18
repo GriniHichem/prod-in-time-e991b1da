@@ -333,6 +333,9 @@ export default function OfDetail() {
                     <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Aucune consommation</TableCell></TableRow>
                   ) : consumptions.map((c) => (
                     <TableRow key={c.id}>
+                      <TableCell className="w-10">
+                        <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
+                      </TableCell>
                       <TableCell>{c.articles?.code} — {c.articles?.designation}</TableCell>
                       <TableCell className="tabular-nums font-medium">{c.quantite}</TableCell>
                       <TableCell>{c.unite}</TableCell>
