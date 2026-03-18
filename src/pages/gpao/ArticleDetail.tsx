@@ -181,6 +181,7 @@ export default function ArticleDetail() {
                 onUpload={entityImages.uploadImage}
                 onDelete={entityImages.deleteImage}
                 onSetPrimary={entityImages.setPrimary}
+                maxSizeMb={entityImages.maxSizeMb}
               />
             </CardContent>
           </Card>
