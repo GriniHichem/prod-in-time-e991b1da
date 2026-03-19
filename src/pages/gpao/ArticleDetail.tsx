@@ -108,6 +108,7 @@ export default function ArticleDetail() {
           <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
           <TabsTrigger value="packaging" className="h-9">Conditionnement</TabsTrigger>
           <TabsTrigger value="images" className="h-9">Images</TabsTrigger>
+          <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
