@@ -15,6 +15,7 @@ import { PackagingConfig } from "@/components/gpao/PackagingConfig";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
