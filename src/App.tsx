@@ -121,6 +121,7 @@ const App = () => (
               <Route path="/parametres/lignes" element={<LignesAdmin />} />
               <Route path="/parametres/familles-produits" element={<ProductFamiliesAdmin />} />
               <Route path="/parametres/images" element={<ImageSettings />} />
+              <Route path="/parametres/document-categories" element={<DocumentCategoriesAdmin />} />
               <Route path="/parametres/general" element={<GeneralSettings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

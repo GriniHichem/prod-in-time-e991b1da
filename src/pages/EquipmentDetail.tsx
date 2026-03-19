@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { ArrowLeft, Edit, Cog, Factory } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
 
 const TYPE_LABELS: Record<string, string> = {
   capteur: "Capteur", actionneur: "Actionneur", convoyeur: "Convoyeur",
@@ -87,89 +89,109 @@ export default function EquipmentDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader><CardTitle className="text-base">Photo</CardTitle></CardHeader>
-          <CardContent>
-            <EntityImageUploader
-              images={entityImages.images}
-              primaryImage={entityImages.primaryImage}
-              uploading={entityImages.uploading}
-              onUpload={entityImages.uploadImage}
-              onDelete={entityImages.deleteImage}
-              onSetPrimary={entityImages.setPrimary}
-              canEdit={canEdit("machines")}
-              maxSizeMb={entityImages.maxSizeMb}
-            />
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="info">
+        <TabsList className="h-11">
+          <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
+          <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
+          <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
+        </TabsList>
 
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Informations générales</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            {[
-              ["Code", equip.code],
-              ["Désignation", equip.designation],
-              ["Marque", equip.marque],
-              ["Modèle", equip.modele],
-              ["N° Série", equip.numero_serie],
-              ["Localisation", equip.localisation],
-              ["Mise en service", equip.date_mise_en_service ? new Date(equip.date_mise_en_service).toLocaleDateString("fr-FR") : "—"],
-              ["Famille", equip.machine_families?.name || "—"],
-            ].map(([label, value]) => (
-              <div key={label as string}>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium">{(value as string) || "—"}</p>
-              </div>
-            ))}
-            {equip.description && (
-              <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">Description</p>
-                <p className="text-sm">{equip.description}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <TabsContent value="info">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Informations générales</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                {[
+                  ["Code", equip.code],
+                  ["Désignation", equip.designation],
+                  ["Marque", equip.marque],
+                  ["Modèle", equip.modele],
+                  ["N° Série", equip.numero_serie],
+                  ["Localisation", equip.localisation],
+                  ["Mise en service", equip.date_mise_en_service ? new Date(equip.date_mise_en_service).toLocaleDateString("fr-FR") : "—"],
+                  ["Famille", equip.machine_families?.name || "—"],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-sm font-medium">{(value as string) || "—"}</p>
+                  </div>
+                ))}
+                {equip.description && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">Description</p>
+                    <p className="text-sm">{equip.description}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Classification & Process</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Type</p>
-              <Badge variant="outline" className="text-xs mt-0.5">{TYPE_LABELS[equip.type]}</Badge>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Rôle fonctionnel</p>
-              <p className="text-sm font-medium">{ROLE_LABELS[equip.role_fonctionnel] || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Criticité maintenance</p>
-              <Badge variant={
-                equip.criticite_maintenance === "critique" ? "destructive" :
-                equip.criticite_maintenance === "elevee" ? "default" : "secondary"
-              } className="text-xs mt-0.5">
-                {CRIT_MAINT_LABELS[equip.criticite_maintenance] || "—"}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Machine parente</p>
-              {equip.machines ? (
-                <Badge variant="secondary" className="text-xs cursor-pointer mt-0.5" onClick={() => navigate(`/machines/${equip.machine_id}`)}>
-                  {equip.machines.code} — {equip.machines.designation}
-                </Badge>
-              ) : <p className="text-sm text-muted-foreground">—</p>}
-            </div>
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">Ligne de production</p>
-              {equip.production_lines ? (
-                <Badge variant="secondary" className="text-xs mt-0.5">
-                  {equip.production_lines.code} — {equip.production_lines.designation}
-                </Badge>
-              ) : <p className="text-sm text-muted-foreground">—</p>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Classification & Process</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Type</p>
+                  <Badge variant="outline" className="text-xs mt-0.5">{TYPE_LABELS[equip.type]}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Rôle fonctionnel</p>
+                  <p className="text-sm font-medium">{ROLE_LABELS[equip.role_fonctionnel] || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Criticité maintenance</p>
+                  <Badge variant={
+                    equip.criticite_maintenance === "critique" ? "destructive" :
+                    equip.criticite_maintenance === "elevee" ? "default" : "secondary"
+                  } className="text-xs mt-0.5">
+                    {CRIT_MAINT_LABELS[equip.criticite_maintenance] || "—"}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Machine parente</p>
+                  {equip.machines ? (
+                    <Badge variant="secondary" className="text-xs cursor-pointer mt-0.5" onClick={() => navigate(`/machines/${equip.machine_id}`)}>
+                      {equip.machines.code} — {equip.machines.designation}
+                    </Badge>
+                  ) : <p className="text-sm text-muted-foreground">—</p>}
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground">Ligne de production</p>
+                  {equip.production_lines ? (
+                    <Badge variant="secondary" className="text-xs mt-0.5">
+                      {equip.production_lines.code} — {equip.production_lines.designation}
+                    </Badge>
+                  ) : <p className="text-sm text-muted-foreground">—</p>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="photos">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Photos</CardTitle></CardHeader>
+            <CardContent>
+              <EntityImageUploader
+                images={entityImages.images}
+                primaryImage={entityImages.primaryImage}
+                uploading={entityImages.uploading}
+                onUpload={entityImages.uploadImage}
+                onDelete={entityImages.deleteImage}
+                onSetPrimary={entityImages.setPrimary}
+                canEdit={canEdit("machines")}
+                maxSizeMb={entityImages.maxSizeMb}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardContent className="p-6">
+              <EntityDocumentManager entityType="equipement" entityId={id!} canEdit={canEdit("machines")} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -230,6 +230,14 @@ export default function ProductDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardContent className="p-6">
+              <EntityDocumentManager entityType="produit" entityId={id!} />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

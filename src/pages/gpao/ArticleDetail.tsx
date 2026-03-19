@@ -192,6 +192,14 @@ export default function ArticleDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardContent className="p-6">
+              <EntityDocumentManager entityType="article" entityId={id!} />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
