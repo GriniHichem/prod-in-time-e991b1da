@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory, Component, ImageIcon } from "lucide-react";
+import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
