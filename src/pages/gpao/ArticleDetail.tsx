@@ -14,6 +14,7 @@ import { PackagingConfig } from "@/components/gpao/PackagingConfig";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
 
 export default function ArticleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -107,6 +108,7 @@ export default function ArticleDetail() {
           <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
           <TabsTrigger value="packaging" className="h-9">Conditionnement</TabsTrigger>
           <TabsTrigger value="images" className="h-9">Images</TabsTrigger>
+          <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info">
@@ -187,6 +189,14 @@ export default function ArticleDetail() {
                 onSetPrimary={entityImages.setPrimary}
                 maxSizeMb={entityImages.maxSizeMb}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardContent className="p-6">
+              <EntityDocumentManager entityType="article" entityId={id!} />
             </CardContent>
           </Card>
         </TabsContent>
