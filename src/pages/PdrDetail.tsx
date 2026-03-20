@@ -35,7 +35,7 @@ export default function PdrDetail() {
   // Supplier dialog
   const [supplierDialog, setSupplierDialog] = useState(false);
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
-  const [supplierForm, setSupplierForm] = useState({ nom: "", reference_fournisseur: "", prix: 0, delai_jours: 0, contact: "", notes: "", is_principal: false });
+  const [supplierForm, setSupplierForm] = useState({ nom: "", reference_fournisseur: "", prix: null as number | null, delai_jours: 0, email: "", tel: "", adresse: "", url1: "", url2: "", notes: "", is_principal: false });
 
   // Movement dialog
   const [movementDialog, setMovementDialog] = useState(false);
