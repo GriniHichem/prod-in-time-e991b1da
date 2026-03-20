@@ -39,7 +39,7 @@ export default function PdrDetail() {
 
   // Movement dialog
   const [movementDialog, setMovementDialog] = useState(false);
-  const [mvtForm, setMvtForm] = useState({ type: "entree" as string, quantite: 0, prix_unitaire: 0, motif: "" });
+  const [mvtForm, setMvtForm] = useState({ type: "entree" as string, quantite: 0, prix_unitaire: 0, motif: "", ref_document_erp: "" });
 
   const loadAll = async () => {
     if (!id) return;
@@ -79,12 +79,13 @@ export default function PdrDetail() {
       stock_avant: stockAvant, stock_apres: stockApres,
       prix_unitaire: mvtForm.prix_unitaire || null, motif: mvtForm.motif || null,
       source_type: "manuel", user_id: user?.id,
+      ref_document_erp: mvtForm.ref_document_erp || null,
     });
 
     await supabase.from("pdr").update({ stock_actuel: stockApres, pmp: Math.round(newPmp * 100) / 100 }).eq("id", id);
     toast({ title: "Mouvement enregistré" });
     setMovementDialog(false);
-    setMvtForm({ type: "entree", quantite: 0, prix_unitaire: 0, motif: "" });
+    setMvtForm({ type: "entree", quantite: 0, prix_unitaire: 0, motif: "", ref_document_erp: "" });
     loadAll();
   };
 
@@ -315,7 +316,7 @@ export default function PdrDetail() {
               )}
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
@@ -324,12 +325,13 @@ export default function PdrDetail() {
                     <TableHead>Avant</TableHead>
                     <TableHead>Après</TableHead>
                     <TableHead>Prix unit.</TableHead>
+                    <TableHead>Réf doc. ERP</TableHead>
                     <TableHead>Motif</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {movements.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Aucun mouvement</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Aucun mouvement</TableCell></TableRow>
                   ) : movements.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="tabular-nums text-xs">{new Date(m.created_at).toLocaleString("fr-FR")}</TableCell>
@@ -342,6 +344,7 @@ export default function PdrDetail() {
                       <TableCell className="tabular-nums text-muted-foreground">{m.stock_avant}</TableCell>
                       <TableCell className="tabular-nums font-medium">{m.stock_apres}</TableCell>
                       <TableCell className="tabular-nums">{m.prix_unitaire ? `${m.prix_unitaire} DA` : "—"}</TableCell>
+                      <TableCell className="font-mono text-sm">{m.ref_document_erp || "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{m.motif || m.source_type || "—"}</TableCell>
                     </TableRow>
                   ))}
@@ -440,6 +443,16 @@ export default function PdrDetail() {
                   <Input type="number" step="0.01" value={mvtForm.prix_unitaire} onChange={(e) => setMvtForm((f) => ({ ...f, prix_unitaire: Number(e.target.value) }))} className="h-12" min="0" />
                 </div>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {mvtForm.type === "entree" ? "Réf bon d'entrée / réception (ERP)" :
+                 mvtForm.type === "sortie" ? "Réf bon de sortie (ERP)" :
+                 mvtForm.type === "inventaire" ? "Réf document d'inventaire (ERP)" :
+                 "Réf document (ERP)"}
+              </Label>
+              <Input value={mvtForm.ref_document_erp} onChange={(e) => setMvtForm((f) => ({ ...f, ref_document_erp: e.target.value }))} className="h-12"
+                placeholder={mvtForm.type === "entree" ? "Ex: BR-2026-001" : mvtForm.type === "sortie" ? "Ex: BS-2026-015" : mvtForm.type === "inventaire" ? "Ex: INV-2026-03" : "Référence..."} />
             </div>
             <div className="space-y-2">
               <Label>Motif</Label>
