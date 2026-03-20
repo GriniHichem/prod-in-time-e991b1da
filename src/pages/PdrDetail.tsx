@@ -31,6 +31,7 @@ export default function PdrDetail() {
   const [movements, setMovements] = useState<any[]>([]);
   const [linkedMachines, setLinkedMachines] = useState<any[]>([]);
   const [consumptionHistory, setConsumptionHistory] = useState<any[]>([]);
+  const [instances, setInstances] = useState<any[]>([]);
 
   // Supplier dialog
   const [supplierDialog, setSupplierDialog] = useState(false);
