@@ -43,7 +43,7 @@ export default function PdrFamiliesAdmin() {
   const [supplierFamilyId, setSupplierFamilyId] = useState<string | null>(null);
   const [supplierFamilyName, setSupplierFamilyName] = useState("");
   const [familySuppliers, setFamilySuppliers] = useState<any[]>([]);
-  const [supplierForm, setSupplierForm] = useState({ nom: "", reference_fournisseur: "", prix: 0, delai_jours: 0, contact: "", notes: "", is_principal: false });
+  const [supplierForm, setSupplierForm] = useState({ nom: "", reference_fournisseur: "", prix: null as number | null, delai_jours: 0, email: "", tel: "", adresse: "", url1: "", url2: "", notes: "", is_principal: false });
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
 
   const load = async () => {
