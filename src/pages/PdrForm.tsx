@@ -134,6 +134,8 @@ export default function PdrForm() {
       family_id: form.family_id && form.family_id !== "__none__" ? form.family_id : null,
       statut_pdr: form.statut_pdr,
       approvisionnement: form.approvisionnement,
+      duree_vie_min_jours: form.duree_vie_min_jours || null,
+      duree_vie_max_jours: form.duree_vie_max_jours || null,
     };
 
     let pdrId = id;
