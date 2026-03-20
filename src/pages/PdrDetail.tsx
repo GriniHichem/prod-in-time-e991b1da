@@ -155,6 +155,7 @@ export default function PdrDetail() {
         <TabsList className="h-11 flex-wrap">
           <TabsTrigger value="info" className="h-9">Infos</TabsTrigger>
           <TabsTrigger value="stock" className="h-9"><Package className="h-3.5 w-3.5 mr-1" />Stock</TabsTrigger>
+          <TabsTrigger value="instances" className="h-9"><Clock className="h-3.5 w-3.5 mr-1" />Instances</TabsTrigger>
           <TabsTrigger value="fournisseurs" className="h-9"><Truck className="h-3.5 w-3.5 mr-1" />Fournisseurs</TabsTrigger>
           <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Machines</TabsTrigger>
           <TabsTrigger value="mouvements" className="h-9"><History className="h-3.5 w-3.5 mr-1" />Mouvements</TabsTrigger>
