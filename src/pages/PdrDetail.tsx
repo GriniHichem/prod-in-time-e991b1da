@@ -316,7 +316,7 @@ export default function PdrDetail() {
               )}
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
@@ -325,12 +325,13 @@ export default function PdrDetail() {
                     <TableHead>Avant</TableHead>
                     <TableHead>Après</TableHead>
                     <TableHead>Prix unit.</TableHead>
+                    <TableHead>Réf doc. ERP</TableHead>
                     <TableHead>Motif</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {movements.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Aucun mouvement</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-6 text-muted-foreground">Aucun mouvement</TableCell></TableRow>
                   ) : movements.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="tabular-nums text-xs">{new Date(m.created_at).toLocaleString("fr-FR")}</TableCell>
@@ -343,6 +344,7 @@ export default function PdrDetail() {
                       <TableCell className="tabular-nums text-muted-foreground">{m.stock_avant}</TableCell>
                       <TableCell className="tabular-nums font-medium">{m.stock_apres}</TableCell>
                       <TableCell className="tabular-nums">{m.prix_unitaire ? `${m.prix_unitaire} DA` : "—"}</TableCell>
+                      <TableCell className="font-mono text-sm">{m.ref_document_erp || "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{m.motif || m.source_type || "—"}</TableCell>
                     </TableRow>
                   ))}
