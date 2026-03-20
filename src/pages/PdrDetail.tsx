@@ -101,7 +101,7 @@ export default function PdrDetail() {
     toast({ title: editingSupplierId ? "Fournisseur modifié" : "Fournisseur ajouté" });
     setSupplierDialog(false);
     setEditingSupplierId(null);
-    setSupplierForm({ nom: "", reference_fournisseur: "", prix: 0, delai_jours: 0, contact: "", notes: "", is_principal: false });
+    setSupplierForm({ nom: "", reference_fournisseur: "", prix: null, delai_jours: 0, email: "", tel: "", adresse: "", url1: "", url2: "", notes: "", is_principal: false });
     loadAll();
   };
 
