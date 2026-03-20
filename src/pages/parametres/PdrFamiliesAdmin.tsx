@@ -305,15 +305,31 @@ export default function PdrFamiliesAdmin() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Prix (DA)</Label>
-                    <Input type="number" value={supplierForm.prix} onChange={(e) => setSupplierForm(p => ({ ...p, prix: Number(e.target.value) }))} className="h-10" />
+                    <Input type="number" value={supplierForm.prix ?? ""} onChange={(e) => setSupplierForm(p => ({ ...p, prix: e.target.value ? Number(e.target.value) : null }))} className="h-10" placeholder="Optionnel" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Délai (jours)</Label>
                     <Input type="number" value={supplierForm.delai_jours} onChange={(e) => setSupplierForm(p => ({ ...p, delai_jours: Number(e.target.value) }))} className="h-10" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Contact</Label>
-                    <Input value={supplierForm.contact} onChange={(e) => setSupplierForm(p => ({ ...p, contact: e.target.value }))} className="h-10" />
+                    <Label className="text-xs">Email</Label>
+                    <Input type="email" value={supplierForm.email} onChange={(e) => setSupplierForm(p => ({ ...p, email: e.target.value }))} className="h-10" placeholder="email@example.com" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Téléphone</Label>
+                    <Input value={supplierForm.tel} onChange={(e) => setSupplierForm(p => ({ ...p, tel: e.target.value }))} className="h-10" placeholder="+213..." />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label className="text-xs">Adresse</Label>
+                    <Input value={supplierForm.adresse} onChange={(e) => setSupplierForm(p => ({ ...p, adresse: e.target.value }))} className="h-10" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">URL 1</Label>
+                    <Input value={supplierForm.url1} onChange={(e) => setSupplierForm(p => ({ ...p, url1: e.target.value }))} className="h-10" placeholder="https://..." />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">URL 2</Label>
+                    <Input value={supplierForm.url2} onChange={(e) => setSupplierForm(p => ({ ...p, url2: e.target.value }))} className="h-10" placeholder="https://..." />
                   </div>
                   <div className="flex items-end gap-2 pb-1">
                     <Checkbox checked={supplierForm.is_principal} onCheckedChange={(v) => setSupplierForm(p => ({ ...p, is_principal: !!v }))} />
