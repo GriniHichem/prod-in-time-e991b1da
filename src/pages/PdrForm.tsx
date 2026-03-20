@@ -70,6 +70,8 @@ export default function PdrForm() {
             family_id: (data as any).family_id || "",
             statut_pdr: (data as any).statut_pdr || "commune",
             approvisionnement: (data as any).approvisionnement || "local",
+            duree_vie_min_jours: (data as any).duree_vie_min_jours ?? null,
+            duree_vie_max_jours: (data as any).duree_vie_max_jours ?? null,
           });
         }
       });
