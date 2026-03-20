@@ -445,6 +445,16 @@ export default function PdrDetail() {
               )}
             </div>
             <div className="space-y-2">
+              <Label>
+                {mvtForm.type === "entree" ? "Réf bon d'entrée / réception (ERP)" :
+                 mvtForm.type === "sortie" ? "Réf bon de sortie (ERP)" :
+                 mvtForm.type === "inventaire" ? "Réf document d'inventaire (ERP)" :
+                 "Réf document (ERP)"}
+              </Label>
+              <Input value={mvtForm.ref_document_erp} onChange={(e) => setMvtForm((f) => ({ ...f, ref_document_erp: e.target.value }))} className="h-12"
+                placeholder={mvtForm.type === "entree" ? "Ex: BR-2026-001" : mvtForm.type === "sortie" ? "Ex: BS-2026-015" : mvtForm.type === "inventaire" ? "Ex: INV-2026-03" : "Référence..."} />
+            </div>
+            <div className="space-y-2">
               <Label>Motif</Label>
               <Textarea value={mvtForm.motif} onChange={(e) => setMvtForm((f) => ({ ...f, motif: e.target.value }))} rows={2} />
             </div>
