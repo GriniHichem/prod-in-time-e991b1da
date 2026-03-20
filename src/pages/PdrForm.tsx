@@ -39,6 +39,8 @@ export default function PdrForm() {
     prix_unitaire: 0, pmp: 0,
     family_id: "", statut_pdr: "commune",
     approvisionnement: "local",
+    duree_vie_min_jours: null as number | null,
+    duree_vie_max_jours: null as number | null,
   });
 
   useEffect(() => {
@@ -68,6 +70,8 @@ export default function PdrForm() {
             family_id: (data as any).family_id || "",
             statut_pdr: (data as any).statut_pdr || "commune",
             approvisionnement: (data as any).approvisionnement || "local",
+            duree_vie_min_jours: (data as any).duree_vie_min_jours ?? null,
+            duree_vie_max_jours: (data as any).duree_vie_max_jours ?? null,
           });
         }
       });
@@ -130,6 +134,8 @@ export default function PdrForm() {
       family_id: form.family_id && form.family_id !== "__none__" ? form.family_id : null,
       statut_pdr: form.statut_pdr,
       approvisionnement: form.approvisionnement,
+      duree_vie_min_jours: form.duree_vie_min_jours || null,
+      duree_vie_max_jours: form.duree_vie_max_jours || null,
     };
 
     let pdrId = id;
@@ -218,6 +224,14 @@ export default function PdrForm() {
               <div className="space-y-2">
                 <Label>Délai appro. (jours)</Label>
                 <Input type="number" value={form.delai_approvisionnement} onChange={(e) => handleChange("delai_approvisionnement", Number(e.target.value))} className="h-12" min="0" />
+              </div>
+              <div className="space-y-2">
+                <Label>Durée de vie min (jours)</Label>
+                <Input type="number" value={form.duree_vie_min_jours ?? ""} onChange={(e) => handleChange("duree_vie_min_jours", e.target.value ? Number(e.target.value) : null as any)} className="h-12" min="0" placeholder="Optionnel" />
+              </div>
+              <div className="space-y-2">
+                <Label>Durée de vie max / Dead age (jours)</Label>
+                <Input type="number" value={form.duree_vie_max_jours ?? ""} onChange={(e) => handleChange("duree_vie_max_jours", e.target.value ? Number(e.target.value) : null as any)} className="h-12" min="0" placeholder="Optionnel" />
               </div>
             </div>
             <div className="space-y-2">

@@ -15,6 +15,7 @@ import {
   Activity,
   BookOpen,
   Component,
+  HardHat,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -45,6 +46,7 @@ const gmaoItems = [
   { title: "Pièces (PDR)", url: "/pdr", icon: Package },
   { title: "Tickets", url: "/tickets", icon: AlertTriangle },
   { title: "Préventif", url: "/preventif", icon: CalendarCheck },
+  { title: "Mon Shift", url: "/maintenance/shift", icon: HardHat },
   { title: "Analyse & KPI", url: "/analytics", icon: Activity },
 ];
 

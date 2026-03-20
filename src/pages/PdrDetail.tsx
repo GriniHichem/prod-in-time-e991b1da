@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, AlertCircle, FileText, Package, Truck, History, BarChart3, Plus, Trash2, Wrench } from "lucide-react";
+import { ArrowLeft, Edit, AlertCircle, FileText, Package, Truck, History, BarChart3, Plus, Trash2, Wrench, Clock } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
@@ -31,6 +31,7 @@ export default function PdrDetail() {
   const [movements, setMovements] = useState<any[]>([]);
   const [linkedMachines, setLinkedMachines] = useState<any[]>([]);
   const [consumptionHistory, setConsumptionHistory] = useState<any[]>([]);
+  const [instances, setInstances] = useState<any[]>([]);
 
   // Supplier dialog
   const [supplierDialog, setSupplierDialog] = useState(false);
@@ -43,18 +44,20 @@ export default function PdrDetail() {
 
   const loadAll = async () => {
     if (!id) return;
-    const [pRes, sRes, mRes, mlRes, cRes] = await Promise.all([
+    const [pRes, sRes, mRes, mlRes, cRes, iRes] = await Promise.all([
       supabase.from("pdr").select("*, pdr_families(name, approvisionnement, statut_default)").eq("id", id).single(),
       supabase.from("pdr_suppliers").select("*").eq("pdr_id", id).order("is_principal", { ascending: false }),
       supabase.from("pdr_stock_movements").select("*").eq("pdr_id", id).order("created_at", { ascending: false }).limit(100),
       supabase.from("machine_pdr").select("*, machines(code, designation)").eq("pdr_id", id),
       supabase.from("intervention_pdr").select("*, interventions(ticket_id, date_debut, tickets(numero, machines(code)))").eq("pdr_id", id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("pdr_instances").select("*, machines(code, designation), equipements(code, designation)").eq("pdr_id", id).order("date_installation", { ascending: false }),
     ]);
     if (pRes.data) setPdr(pRes.data);
     setSuppliers(sRes.data || []);
     setMovements(mRes.data || []);
     setLinkedMachines(mlRes.data || []);
     setConsumptionHistory(cRes.data || []);
+    setInstances(iRes.data || []);
   };
 
   useEffect(() => { loadAll(); }, [id]);
@@ -152,6 +155,7 @@ export default function PdrDetail() {
         <TabsList className="h-11 flex-wrap">
           <TabsTrigger value="info" className="h-9">Infos</TabsTrigger>
           <TabsTrigger value="stock" className="h-9"><Package className="h-3.5 w-3.5 mr-1" />Stock</TabsTrigger>
+          <TabsTrigger value="instances" className="h-9"><Clock className="h-3.5 w-3.5 mr-1" />Instances</TabsTrigger>
           <TabsTrigger value="fournisseurs" className="h-9"><Truck className="h-3.5 w-3.5 mr-1" />Fournisseurs</TabsTrigger>
           <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Machines</TabsTrigger>
           <TabsTrigger value="mouvements" className="h-9"><History className="h-3.5 w-3.5 mr-1" />Mouvements</TabsTrigger>
@@ -175,6 +179,8 @@ export default function PdrDetail() {
                 ["Délai appro.", pdr.delai_approvisionnement ? `${pdr.delai_approvisionnement} jours` : "—"],
                 ["Prix unit.", pdr.prix_unitaire ? `${pdr.prix_unitaire} DA` : "—"],
                 ["PMP", pdr.pmp ? `${Number(pdr.pmp).toLocaleString("fr-FR")} DA` : "—"],
+                ["Durée vie min", (pdr as any).duree_vie_min_jours ? `${(pdr as any).duree_vie_min_jours} jours` : "—"],
+                ["Durée vie max (dead age)", (pdr as any).duree_vie_max_jours ? `${(pdr as any).duree_vie_max_jours} jours` : "—"],
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <p className="text-xs text-muted-foreground">{label}</p>
@@ -189,6 +195,78 @@ export default function PdrDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* INSTANCES */}
+        <TabsContent value="instances">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Pièces installées ({instances.filter((i: any) => i.statut === "active").length} actives)</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Statut</TableHead>
+                    <TableHead>Machine</TableHead>
+                    <TableHead>Installation</TableHead>
+                    <TableHead>Âge (jours)</TableHead>
+                    <TableHead>Remplacement</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {instances.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Aucune instance</TableCell></TableRow>
+                  ) : instances.map((inst: any) => {
+                    const ageJours = Math.floor((Date.now() - new Date(inst.date_installation).getTime()) / 86400000);
+                    const deadAge = (pdr as any).duree_vie_max_jours;
+                    const isExpired = inst.statut === "active" && deadAge && ageJours >= deadAge;
+                    const isWarning = inst.statut === "active" && (pdr as any).duree_vie_min_jours && ageJours >= (pdr as any).duree_vie_min_jours && !isExpired;
+                    return (
+                      <TableRow key={inst.id} className={isExpired ? "bg-destructive/5" : isWarning ? "bg-warning/5" : ""}>
+                        <TableCell>
+                          <Badge variant={inst.statut === "active" ? "default" : "secondary"} className="text-xs">
+                            {inst.statut === "active" ? "Active" : "Passive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {inst.machines?.code || inst.equipements?.code || "—"}
+                          {(inst.machines?.designation || inst.equipements?.designation) && (
+                            <span className="text-muted-foreground ml-1">{inst.machines?.designation || inst.equipements?.designation}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-xs">{new Date(inst.date_installation).toLocaleDateString("fr-FR")}</TableCell>
+                        <TableCell className={`tabular-nums font-medium ${isExpired ? "text-destructive" : isWarning ? "text-warning" : ""}`}>
+                          {inst.statut === "active" ? ageJours : "—"}
+                          {isExpired && <AlertCircle className="h-3.5 w-3.5 inline ml-1 text-destructive" />}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-xs text-muted-foreground">
+                          {inst.date_remplacement ? new Date(inst.date_remplacement).toLocaleDateString("fr-FR") : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{inst.notes || "—"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          {/* Dead age alert */}
+          {instances.some((i: any) => i.statut === "active" && (pdr as any).duree_vie_max_jours && Math.floor((Date.now() - new Date(i.date_installation).getTime()) / 86400000) >= (pdr as any).duree_vie_max_jours) && (
+            <Card className="mt-3 border-destructive">
+              <CardContent className="p-4 flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Pièce(s) ayant atteint la durée de vie maximale</p>
+                  <p className="text-xs text-muted-foreground">Un plan préventif de remplacement devrait être créé.</p>
+                </div>
+                <Button size="sm" variant="destructive" className="ml-auto" onClick={() => navigate(`/preventif/new?machine=${pdr.machines?.id || ""}&pdr=${id}`)}>
+                  Générer plan préventif
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* STOCK */}
