@@ -92,7 +92,7 @@ export default function PreventifList() {
       <Card>
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+             <TableHeader>
               <TableRow>
                 <TableHead>Plan</TableHead>
                 <TableHead>Machine</TableHead>
@@ -100,7 +100,6 @@ export default function PreventifList() {
                 <TableHead>Fréquence</TableHead>
                 <TableHead>Dernière exéc.</TableHead>
                 <TableHead>Prochaine éch.</TableHead>
-                <TableHead>Statut plan</TableHead>
                 <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
