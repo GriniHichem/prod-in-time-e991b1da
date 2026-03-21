@@ -43,6 +43,8 @@ export default function PreventifDetail() {
   const [execNotes, setExecNotes] = useState("");
   const [execPdrUsed, setExecPdrUsed] = useState<Record<string, boolean>>({});
   const [execLoading, setExecLoading] = useState(false);
+  const [execDureeMinutes, setExecDureeMinutes] = useState<number>(0);
+  const [execStartTime, setExecStartTime] = useState("");
 
   const loadAll = async () => {
     if (!id) return;
