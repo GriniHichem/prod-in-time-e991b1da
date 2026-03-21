@@ -42,6 +42,8 @@ export default function InterventionJournal() {
   const [filterLine, setFilterLine] = useState<string>("all");
   const [filterMachine, setFilterMachine] = useState<string>("all");
   const [filterUser, setFilterUser] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [search, setSearch] = useState("");
 
   const navigate = useNavigate();
