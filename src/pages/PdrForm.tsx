@@ -22,7 +22,7 @@ const STATUT_OPTIONS = [
 
 export default function PdrForm() {
   const { id } = useParams();
-  const isNew = id === "new";
+  const isNew = !id;
   const navigate = useNavigate();
   const { toast } = useToast();
   const [families, setFamilies] = useState<any[]>([]);
@@ -52,7 +52,7 @@ export default function PdrForm() {
       setMachines(mRes.data || []);
     });
 
-    if (!isNew && id) {
+    if (id) {
       supabase.from("pdr").select("*").eq("id", id).single().then(({ data }) => {
         if (data) {
           setForm({
@@ -113,6 +113,14 @@ export default function PdrForm() {
     }
     if (form.statut_pdr === "strategique" && linkedMachines.length === 0) {
       toast({ title: "PDR stratégique : au moins une machine doit être liée", variant: "destructive" });
+      return;
+    }
+    if (form.duree_vie_min_jours != null && form.duree_vie_max_jours != null && form.duree_vie_min_jours > form.duree_vie_max_jours) {
+      toast({ title: "Durée de vie min doit être ≤ durée de vie max", variant: "destructive" });
+      return;
+    }
+    if (Number(form.stock_min) > Number(form.stock_max) && Number(form.stock_max) > 0) {
+      toast({ title: "Stock min doit être ≤ stock max", variant: "destructive" });
       return;
     }
     setSaving(true);

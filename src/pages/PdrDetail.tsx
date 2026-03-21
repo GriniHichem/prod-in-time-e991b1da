@@ -65,9 +65,22 @@ export default function PdrDetail() {
   // Movement save
   const handleSaveMovement = async () => {
     if (mvtForm.quantite <= 0) { toast({ title: "Quantité invalide", variant: "destructive" }); return; }
+    if (mvtForm.type === "sortie" && mvtForm.quantite > pdr.stock_actuel) {
+      toast({ title: "Stock insuffisant", description: `Stock actuel: ${pdr.stock_actuel}`, variant: "destructive" }); return;
+    }
+    if ((mvtForm.type === "entree" || mvtForm.type === "sortie") && !mvtForm.ref_document_erp.trim()) {
+      toast({ title: "Réf document ERP obligatoire", variant: "destructive" }); return;
+    }
     const stockAvant = pdr.stock_actuel;
-    const delta = mvtForm.type === "entree" ? mvtForm.quantite : -mvtForm.quantite;
-    const stockApres = Math.max(0, stockAvant + delta);
+    let stockApres: number;
+    if (mvtForm.type === "inventaire") {
+      stockApres = mvtForm.quantite; // For inventory, quantity IS the new stock
+    } else if (mvtForm.type === "correction") {
+      stockApres = Math.max(0, stockAvant + mvtForm.quantite); // Correction can be + or -
+    } else {
+      const delta = mvtForm.type === "entree" ? mvtForm.quantite : -mvtForm.quantite;
+      stockApres = Math.max(0, stockAvant + delta);
+    }
 
     // PMP calculation for entries
     let newPmp = pdr.pmp || 0;
@@ -542,8 +555,13 @@ export default function PdrDetail() {
             </div>
             <p className="text-xs text-muted-foreground">
               Stock actuel: <span className="font-bold">{pdr.stock_actuel}</span> → Après: <span className="font-bold">
-                {mvtForm.type === "entree" ? pdr.stock_actuel + mvtForm.quantite : Math.max(0, pdr.stock_actuel - mvtForm.quantite)}
+                {mvtForm.type === "inventaire" ? mvtForm.quantite
+                  : mvtForm.type === "entree" ? pdr.stock_actuel + mvtForm.quantite
+                  : Math.max(0, pdr.stock_actuel - mvtForm.quantite)}
               </span>
+              {mvtForm.type === "sortie" && mvtForm.quantite > pdr.stock_actuel && (
+                <span className="text-destructive ml-2 font-medium">⚠ Stock insuffisant</span>
+              )}
             </p>
             <Button onClick={handleSaveMovement} className="w-full h-12">Enregistrer</Button>
           </div>
