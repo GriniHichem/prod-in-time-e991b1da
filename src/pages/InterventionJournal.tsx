@@ -1,11 +1,16 @@
 import { useEffect, useState, useMemo } from "react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
-import { CalendarCheck, Wrench, Search, Filter } from "lucide-react";
+import { CalendarCheck, Wrench, Search, Filter, CalendarIcon, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type JournalEntry = {
   id: string;
@@ -37,6 +42,8 @@ export default function InterventionJournal() {
   const [filterLine, setFilterLine] = useState<string>("all");
   const [filterMachine, setFilterMachine] = useState<string>("all");
   const [filterUser, setFilterUser] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [search, setSearch] = useState("");
 
   const navigate = useNavigate();
@@ -182,13 +189,22 @@ export default function InterventionJournal() {
       if (filterLine !== "all" && e.line_id !== filterLine) return false;
       if (filterMachine !== "all" && e.machine_id !== filterMachine) return false;
       if (filterUser !== "all" && e.user_id !== filterUser) return false;
+      if (dateFrom) {
+        const d = new Date(e.date);
+        if (d < dateFrom) return false;
+      }
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        if (new Date(e.date) > end) return false;
+      }
       if (search) {
         const s = search.toLowerCase();
         if (!e.title.toLowerCase().includes(s) && !e.description.toLowerCase().includes(s) && !e.machine_name.toLowerCase().includes(s) && !e.machine_code.toLowerCase().includes(s)) return false;
       }
       return true;
     });
-  }, [entries, filterType, filterLine, filterMachine, filterUser, search]);
+  }, [entries, filterType, filterLine, filterMachine, filterUser, dateFrom, dateTo, search]);
 
   const curativeCount = filtered.filter((e) => e.type === "curative").length;
   const preventiveCount = filtered.filter((e) => e.type === "preventive").length;
@@ -227,7 +243,7 @@ export default function InterventionJournal() {
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Filtres</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
             <div className="relative col-span-2 md:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -284,6 +300,38 @@ export default function InterventionJournal() {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Date Du */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("h-9 justify-start text-left font-normal text-xs", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                  {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Du"}
+                  {dateFrom && (
+                    <X className="ml-auto h-3 w-3 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setDateFrom(undefined); }} />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+
+            {/* Date Au */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("h-9 justify-start text-left font-normal text-xs", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                  {dateTo ? format(dateTo, "dd/MM/yyyy") : "Au"}
+                  {dateTo && (
+                    <X className="ml-auto h-3 w-3 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setDateTo(undefined); }} />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>
