@@ -138,6 +138,7 @@ const App = () => (
               <Route path="/parametres/document-permissions" element={<DocumentPermissionsAdmin />} />
               <Route path="/parametres/familles-pdr" element={<PdrFamiliesAdmin />} />
               <Route path="/parametres/general" element={<GeneralSettings />} />
+              <Route path="/parametres/pdr-stock-permissions" element={<PdrStockPermissionsAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
