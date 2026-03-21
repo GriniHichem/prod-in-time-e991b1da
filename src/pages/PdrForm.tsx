@@ -52,7 +52,7 @@ export default function PdrForm() {
       setMachines(mRes.data || []);
     });
 
-    if (!isNew && id) {
+    if (id) {
       supabase.from("pdr").select("*").eq("id", id).single().then(({ data }) => {
         if (data) {
           setForm({
