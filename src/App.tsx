@@ -104,6 +104,7 @@ const App = () => (
               <Route path="/preventif/:id" element={<PreventifDetail />} />
               <Route path="/preventif/:id/edit" element={<PreventifForm />} />
               <Route path="/maintenance/shift" element={<MaintenancierShiftView />} />
+              <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/equipements" element={<EquipmentsList />} />
               <Route path="/equipements/new" element={<EquipmentForm />} />
