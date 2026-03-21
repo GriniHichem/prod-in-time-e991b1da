@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Factory, Package, ClipboardList, TrendingUp, BarChart3, AlertTriangle, FolderTree } from "lucide-react";
+import { Factory, Package, ClipboardList, TrendingUp, BarChart3, AlertTriangle, FolderTree, ShieldAlert, Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/analytics/DateRangeFilter";
@@ -9,6 +9,7 @@ import { KpiCardComparison } from "@/components/analytics/KpiCardComparison";
 import { useDateFilter, filterByDateRange } from "@/hooks/useDateFilter";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Progress } from "@/components/ui/progress";
 
 const ofStatusConfig: Record<string, { label: string; className: string }> = {
   planifie: { label: "Planifié", className: "bg-muted text-muted-foreground" },
@@ -29,23 +30,26 @@ export default function GpaoDashboard() {
   const [articles, setArticles] = useState<any[]>([]);
   const [stops, setStops] = useState<any[]>([]);
   const [families, setFamilies] = useState<any[]>([]);
+  const [pdrList, setPdrList] = useState<any[]>([]);
   const navigate = useNavigate();
   const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
-      const [ofRes, prodRes, artRes, stopRes, famRes] = await Promise.all([
+      const [ofRes, prodRes, artRes, stopRes, famRes, pdrRes] = await Promise.all([
         supabase.from("ordres_fabrication").select("*, products(designation, code, family_id, poids_unitaire), production_lines(designation, code)").order("created_at", { ascending: false }),
         supabase.from("products").select("*, product_families(name)").eq("is_active", true),
         supabase.from("articles").select("*, product_families(name)").eq("is_active", true),
         supabase.from("production_stops").select("*, production_lines(designation)").order("heure_debut", { ascending: false }),
         supabase.from("product_families").select("*").eq("is_active", true),
+        supabase.from("pdr").select("*").eq("is_active", true),
       ]);
       setOfs(ofRes.data || []);
       setProducts(prodRes.data || []);
       setArticles(artRes.data || []);
       setStops(stopRes.data || []);
       setFamilies(famRes.data || []);
+      setPdrList(pdrRes.data || []);
     };
     load();
   }, []);
@@ -63,6 +67,11 @@ export default function GpaoDashboard() {
   const prevProduit = cOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
   const prevRebut = cOfs.reduce((s, o) => s + (o.quantite_rebut || 0), 0);
   const prevRendement = prevProduit > 0 ? Math.round(((prevProduit - prevRebut) / prevProduit) * 100) : 0;
+
+  // PDR KPIs for GPAO context
+  const pdrRupture = pdrList.filter((p) => p.stock_actuel === 0).length;
+  const pdrCritique = pdrList.filter((p) => p.stock_actuel > 0 && p.stock_actuel <= p.stock_min).length;
+  const valeurStock = pdrList.reduce((s, p) => s + (p.stock_actuel * (p.pmp || 0)), 0);
 
   // Production by family chart
   const prodByFamily = useMemo(() => {
@@ -99,6 +108,12 @@ export default function GpaoDashboard() {
     return Math.round(totalWeight / ofsWithPoids.length);
   }, [fOfs]);
 
+  // PDR alerts (top 5)
+  const pdrAlerts = pdrList
+    .filter((p) => p.stock_actuel <= p.stock_min)
+    .sort((a, b) => a.stock_actuel - b.stock_actuel)
+    .slice(0, 5);
+
   const chartConfig = {
     produced: { label: "Produit (kg)", color: "hsl(var(--success))" },
     scrap: { label: "Rebut (kg)", color: "hsl(var(--destructive))" },
@@ -114,6 +129,7 @@ export default function GpaoDashboard() {
         <DateRangeFilter {...df} />
       </div>
 
+      {/* Row 1: Production KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCardComparison title="OF en cours" value={ofsEnCours} icon={Factory}
           subtitle={`${fOfs.length} total`} currentNumeric={ofsEnCours}
@@ -124,11 +140,43 @@ export default function GpaoDashboard() {
           subtitle="Produit - rebuts" currentNumeric={rendement} previousValue={df.compareEnabled ? prevRendement : undefined} unit="%" />
         <KpiCardComparison title="Produits" value={products.length} icon={Package}
           subtitle={`${families.length} famille(s)`} />
-        <KpiCardComparison title="Familles actives" value={families.length} icon={FolderTree}
-          subtitle={lowStockArticles > 0 ? `${lowStockArticles} matières en alerte` : "Stock OK"} />
-        <KpiCardComparison title="Poids moy/OF" value={avgPoidsOf > 0 ? `${avgPoidsOf.toLocaleString("fr-FR")} kg` : "—"} icon={Package}
-          subtitle="Poids moyen par OF" />
+        <KpiCardComparison title="PDR stock" value={`${pdrRupture + pdrCritique}`} icon={ShieldAlert}
+          subtitle={`${pdrRupture} rupture · ${pdrCritique} critique`} />
+        <KpiCardComparison title="Valeur stock PDR" value={`${Math.round(valeurStock).toLocaleString("fr-FR")} DA`} icon={Wrench}
+          subtitle={`${pdrList.length} réf.`} />
       </div>
+
+      {/* Row 2: Articles & matières alertes */}
+      {(lowStockArticles > 0 || pdrAlerts.length > 0) && (
+        <div className="grid md:grid-cols-2 gap-3">
+          {lowStockArticles > 0 && (
+            <Card className="border-warning/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{lowStockArticles} matière(s) en alerte stock</p>
+                  <p className="text-xs text-muted-foreground">Stock actuel ≤ stock minimum</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {pdrAlerts.length > 0 && (
+            <Card className="border-destructive/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{pdrRupture + pdrCritique} PDR en alerte stock</p>
+                  <p className="text-xs text-muted-foreground">{pdrRupture} en rupture · {pdrCritique} en critique</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
@@ -190,7 +238,7 @@ export default function GpaoDashboard() {
         </Card>
       </div>
 
-      {/* Charts: Production by family + Yield by product */}
+      {/* Charts */}
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -240,6 +288,42 @@ export default function GpaoDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* PDR Alerts detail */}
+      {pdrAlerts.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="h-4 w-4 text-warning" />
+              PDR en alerte stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {pdrAlerts.map((p) => {
+                const isRupture = p.stock_actuel === 0;
+                const pct = p.stock_min > 0 ? Math.min(100, Math.round((p.stock_actuel / p.stock_min) * 100)) : 0;
+                return (
+                  <div key={p.id} onClick={() => navigate(`/pdr/${p.id}`)}
+                    className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${isRupture ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
+                    <div className="flex justify-between items-start mb-1.5">
+                      <p className="text-sm font-medium truncate font-mono">{p.reference}</p>
+                      <Badge variant={isRupture ? "destructive" : "outline"} className="text-[10px] shrink-0">
+                        {isRupture ? "RUPTURE" : "CRITIQUE"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mb-2">{p.designation}</p>
+                    <div className="flex items-center gap-2">
+                      <Progress value={pct} className="h-1.5 flex-1" />
+                      <span className="text-xs tabular-nums font-medium">{p.stock_actuel}/{p.stock_min}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
