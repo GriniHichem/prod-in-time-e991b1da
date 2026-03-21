@@ -91,6 +91,10 @@ export default function PreventifDetail() {
 
   const submitExecution = async () => {
     if (!user || !id) return;
+    if (execDureeMinutes <= 0) {
+      toast({ title: "Durée obligatoire", description: "Veuillez saisir la durée de l'intervention", variant: "destructive" });
+      return;
+    }
     setExecLoading(true);
     try {
       const pdrUsedList = planPdr
@@ -100,7 +104,11 @@ export default function PreventifDetail() {
       const { error } = await supabase.from("preventive_executions").insert({
         plan_id: id,
         executed_by: user.id,
-        notes: execNotes || null,
+        notes: [
+          execStartTime ? `Début: ${execStartTime}` : null,
+          `Durée: ${execDureeMinutes} min`,
+          execNotes || null,
+        ].filter(Boolean).join(" | "),
         pdr_used: pdrUsedList as any,
       });
 
