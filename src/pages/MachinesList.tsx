@@ -150,7 +150,6 @@ export default function MachinesList() {
                 <RotateCcw className="h-4 w-4 mr-1" /> Réinitialiser
               </Button>
             )}
-            </Select>
           </div>
         </CardHeader>
         <CardContent className="p-0">

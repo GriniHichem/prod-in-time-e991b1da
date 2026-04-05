@@ -252,11 +252,6 @@ export default function PreventifList() {
           >
             <RotateCcw className="h-4 w-4 mr-1" /> Réinitialiser
           </Button>
-        )}
-            <SelectItem value="all">Toutes fréquences</SelectItem>
-            {Object.entries(FREQ_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Line context summary */}
