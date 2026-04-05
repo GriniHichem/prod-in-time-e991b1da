@@ -10,12 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, Package, Factory } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Save, Package, Factory, Trash2 } from "lucide-react";
 import { PackagingConfig } from "@/components/gpao/PackagingConfig";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -27,7 +29,10 @@ export default function ProductDetail() {
   const [lineProducts, setLineProducts] = useState<any[]>([]);
   const [allLines, setAllLines] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const entityImages = useEntityImages("produit", id);
+  const { canDelete } = usePermissions();
   // Form
   const [code, setCode] = useState("");
   const [designation, setDesignation] = useState("");
@@ -86,6 +91,36 @@ export default function ProductDetail() {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    const [recRes, ofRes, lpRes] = await Promise.all([
+      supabase.from("recipes").select("id", { count: "exact", head: true }).eq("product_id", id!),
+      supabase.from("ordres_fabrication").select("id", { count: "exact", head: true }).eq("product_id", id!),
+      supabase.from("line_products").select("id", { count: "exact", head: true }).eq("product_id", id!),
+    ]);
+    const deps: string[] = [];
+    if ((recRes.count ?? 0) > 0) deps.push(`${recRes.count} recette(s)`);
+    if ((ofRes.count ?? 0) > 0) deps.push(`${ofRes.count} OF`);
+    if ((lpRes.count ?? 0) > 0) deps.push(`${lpRes.count} ligne(s)`);
+
+    if (deps.length > 0) {
+      toast({ title: "Suppression impossible", description: `Ce produit est utilisé dans : ${deps.join(", ")}`, variant: "destructive" });
+      setDeleting(false);
+      setShowDeleteDialog(false);
+      return;
+    }
+
+    const { error } = await supabase.from("products").delete().eq("id", id!);
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Produit supprimé" });
+      navigate("/gpao/produits");
+    }
+    setDeleting(false);
+    setShowDeleteDialog(false);
+  };
+
   const toggleLine = async (lineId: string) => {
     const existing = lineProducts.find((lp: any) => lp.line_id === lineId);
     if (existing) {
@@ -114,6 +149,29 @@ export default function ProductDetail() {
           <h1 className="text-2xl font-bold">{product.designation}</h1>
           <p className="text-muted-foreground font-mono">{product.code}</p>
         </div>
+        {canDelete("produits") && (
+          <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Êtes-vous sûr de vouloir supprimer définitivement « {product.designation} » ? Cette action est irréversible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deleting ? "Vérification..." : "Supprimer"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <Tabs defaultValue="info">
