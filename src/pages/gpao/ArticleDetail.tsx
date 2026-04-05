@@ -9,12 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { PackagingConfig } from "@/components/gpao/PackagingConfig";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function ArticleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +25,10 @@ export default function ArticleDetail() {
   const [article, setArticle] = useState<any>(null);
   const [families, setFamilies] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const entityImages = useEntityImages("article", id);
+  const { canDelete } = usePermissions();
 
   const [code, setCode] = useState("");
   const [designation, setDesignation] = useState("");
@@ -84,6 +89,34 @@ export default function ArticleDetail() {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    const [rlRes, cRes] = await Promise.all([
+      supabase.from("recipe_lines").select("id", { count: "exact", head: true }).eq("article_id", id!),
+      supabase.from("consumptions").select("id", { count: "exact", head: true }).eq("article_id", id!),
+    ]);
+    const deps: string[] = [];
+    if ((rlRes.count ?? 0) > 0) deps.push(`${rlRes.count} recette(s)`);
+    if ((cRes.count ?? 0) > 0) deps.push(`${cRes.count} consommation(s)`);
+
+    if (deps.length > 0) {
+      toast({ title: "Suppression impossible", description: `Cet article est utilisé dans : ${deps.join(", ")}`, variant: "destructive" });
+      setDeleting(false);
+      setShowDeleteDialog(false);
+      return;
+    }
+
+    const { error } = await supabase.from("articles").delete().eq("id", id!);
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Article supprimé" });
+      navigate("/gpao/articles");
+    }
+    setDeleting(false);
+    setShowDeleteDialog(false);
+  };
+
   if (!article) {
     return <div className="flex items-center justify-center h-64"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   }
@@ -101,6 +134,29 @@ export default function ArticleDetail() {
           <h1 className="text-2xl font-bold">{article.designation}</h1>
           <p className="text-muted-foreground font-mono">{article.code}</p>
         </div>
+        {canDelete("articles") && (
+          <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-10 w-10 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Êtes-vous sûr de vouloir supprimer définitivement « {article.designation} » ? Cette action est irréversible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deleting ? "Vérification..." : "Supprimer"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <Tabs defaultValue="info">
