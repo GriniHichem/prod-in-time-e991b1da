@@ -252,6 +252,7 @@ export default function PreventifList() {
           >
             <RotateCcw className="h-4 w-4 mr-1" /> Réinitialiser
           </Button>
+        )}
       </div>
 
       {/* Line context summary */}
