@@ -107,7 +107,7 @@ export default function ShiftsAdmin() {
   }
 
   async function handleUpdateSlot(id: string, field: string, value: string) {
-    await supabase.from("shift_time_slots").update({ [field]: value }).eq("id", id);
+    await supabase.from("shift_time_slots").update({ [field]: value } as any).eq("id", id);
     loadAll();
   }
 
