@@ -203,7 +203,7 @@ export default function PdrDetail() {
           <TabsTrigger value="stock" className="h-9"><Package className="h-3.5 w-3.5 mr-1" />Stock</TabsTrigger>
           <TabsTrigger value="instances" className="h-9"><Clock className="h-3.5 w-3.5 mr-1" />Instances</TabsTrigger>
           <TabsTrigger value="fournisseurs" className="h-9"><Truck className="h-3.5 w-3.5 mr-1" />Fournisseurs</TabsTrigger>
-          <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Machines</TabsTrigger>
+          <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Actifs liés</TabsTrigger>
           <TabsTrigger value="mouvements" className="h-9"><History className="h-3.5 w-3.5 mr-1" />Mouvements</TabsTrigger>
           <TabsTrigger value="consommation" className="h-9"><BarChart3 className="h-3.5 w-3.5 mr-1" />Conso.</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
