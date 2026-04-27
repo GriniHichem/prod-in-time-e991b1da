@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { logAuthEvent } from "@/lib/audit";
 
-type AppRole = "admin" | "resp_maintenance" | "maintenancier" | "resp_production" | "chef_ligne" | "operateur" | "gestionnaire_magasin" | "bureau_methode";
+type AppRole = "admin" | "resp_maintenance" | "maintenancier" | "resp_production" | "chef_ligne" | "operateur" | "gestionnaire_magasin" | "bureau_methode" | "responsable_si" | "auditeur";
 
 interface Profile {
   id: string;
@@ -39,13 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         setTimeout(() => {
           fetchProfile(session.user.id);
           fetchRoles(session.user.id);
+          if (event === "SIGNED_IN") {
+            logAuthEvent("login", { email: session.user.email ?? undefined });
+          } else if (event === "PASSWORD_RECOVERY") {
+            logAuthEvent("password_reset", { email: session.user.email ?? undefined });
+          }
         }, 0);
       } else {
         setProfile(null);
@@ -86,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasRole = (role: AppRole) => roles.includes(role);
 
   const signOut = async () => {
+    // Log BEFORE signOut so user_id is still available for RLS insert
+    try { await logAuthEvent("logout", { email: user?.email ?? undefined }); } catch { /* ignore */ }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);

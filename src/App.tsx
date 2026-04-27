@@ -58,6 +58,7 @@ import OrganesList from "@/pages/OrganesList";
 import Apps from "@/pages/Apps";
 import OrganeForm from "@/pages/OrganeForm";
 import OrganeDetail from "@/pages/OrganeDetail";
+import AuditPage from "@/pages/AuditPage";
 
 const queryClient = new QueryClient();
 
@@ -150,6 +151,7 @@ const App = () => (
               <Route path="/parametres/familles-pdr" element={<PdrFamiliesAdmin />} />
               <Route path="/parametres/general" element={<GeneralSettings />} />
               <Route path="/parametres/pdr-stock-permissions" element={<PdrStockPermissionsAdmin />} />
+              <Route path="/audit" element={<AuditPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
