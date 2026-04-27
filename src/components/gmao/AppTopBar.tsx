@@ -326,6 +326,10 @@ export function AppTopBar() {
                 <IconSettings size={15} />
                 Paramètres
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/audit")} className="gap-2">
+                <IconAnalytics size={15} />
+                Audit & Traçabilité
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="gap-2 text-destructive focus:text-destructive">
                 <IconLogout size={15} />
