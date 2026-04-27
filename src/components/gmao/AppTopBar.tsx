@@ -19,6 +19,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Menu, ChevronDown, LayoutGrid } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const gmaoItems = [
   { title: "Dashboard", url: "/", icon: IconDashboard },
@@ -284,10 +285,7 @@ export function AppTopBar() {
           <Button variant="ghost" size="icon" className="h-9 w-9 rounded-md text-muted-foreground hover:text-foreground">
             <IconSearch size={18} />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-md text-muted-foreground hover:text-foreground relative">
-            <IconBell size={18} />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive animate-pulse-dot" />
-          </Button>
+          <NotificationBell />
 
           <div className="h-7 w-px bg-border/60 mx-1.5" />
 
