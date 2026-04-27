@@ -1,109 +1,126 @@
-## Plan : Manuel utilisateur exhaustif (MANUAL.md v2)
 
-### Objectif
-Transformer le `MANUAL.md` actuel (624 lignes, descriptif) en un manuel **exhaustif** documentant pour chaque module : workflows pas-à-pas, **règles de validation**, **cas particuliers**, **exceptions et messages d'erreur**, **comportements conditionnels**, et **interactions inter-modules**.
+## Objectif
 
-### Structure cible (~1500-1800 lignes)
+Ajouter une nouvelle entité **Organe** (sous-ensemble fonctionnel d'une machine ou d'un équipement) et une liaison PDR flexible vers Machine / Équipement / Organe, sans casser les données existantes (machines, équipements, `machine_pdr`, `pdr_instances` restent intacts).
 
-#### 0. Glossaire & Conventions (NOUVEAU)
-- Acronymes : GMAO, GPAO, OF, PDR, PMP, MTBF, MTTR, RBAC, RLS
-- Conventions : champs obligatoires (*), badges de statut, codes couleur
-- Format dates/heures, devise (DA)
+Hiérarchie cible : **Ligne → Machine / Équipement → Organe → PDR**
 
-#### 1. Présentation & Architecture (enrichi)
-- Stack technique détaillée
-- Modèle de données global (entités principales et leurs relations)
-- Cycle de vie utilisateur type (login → dashboard → action)
+---
 
-#### 2. Authentification — cas exhaustifs
-- Inscription (signup) : champs requis, validation email
-- Connexion : **erreurs possibles** (email non vérifié, identifiants invalides, compte inactif)
-- Reset password : flow complet, expiration du lien
-- Première connexion : création automatique du profil via trigger `handle_new_user`
-- Déconnexion et expiration de session
+## 1. Migrations base de données
 
-#### 3. GMAO — par sous-module avec sections normalisées
-Pour **chaque** sous-module (Machines, Équipements, Lignes, PDR, Tickets, Préventif, Shift, Journal, Analytics) :
-- **Routes** et permissions requises
-- **Workflow création** (étapes, champs obligatoires/optionnels, valeurs par défaut)
-- **Règles de validation** (unicité du code, formats, plages numériques)
-- **Cas particuliers** :
-  - PDR stratégique → lien machine **obligatoire**
-  - PDR durée de vie : min ≤ max
-  - Sortie PDR bloquée si quantité > stock
-  - Inventaire = valeur absolue (remplace, n'ajoute pas)
-  - Suppression machine bloquée si tickets/PDR/préventifs liés
-  - Suppression produit/article bloquée si utilisé (recettes/OF/consommations)
-- **Workflow ticket complet** : création → prise en charge → résolution (cause racine + PDR consommés obligatoires) → clôture
-- **Workflow préventif complet** : brouillon → validé → exécution (calcul `prochaine_echeance` selon fréquence) → suspension/réactivation
-- **Filtres et reset** : nouveau bouton "Réinitialiser" disponible sur PreventifList, InterventionJournal, TicketsList, MachinesList, PdrList, OfList
-- **Filtre par ligne** dans Préventif : prend en compte `machine_line_assignments` (cascade ligne → machines)
-- **Liens transverses** : MachineDetail → préventif filtré ligne, LineSynoptic → préventif, LinesList → action préventif
+### a) Nouvelle table `organes`
+- `id`, `code` (unique), `designation`, `description`
+- `type` enum `organe_type` : `mecanique`, `electrique`, `pneumatique`, `hydraulique`, `electronique`, `automatisme`, `instrumentation`, `autre`
+- `statut` enum `organe_statut` : `en_service`, `en_panne`, `en_maintenance`, `hors_service`
+- `criticite` enum existant (`A`/`B`/`C`)
+- `machine_id` uuid nullable, `equipement_id` uuid nullable
+- `sort_order` int, `is_active` bool, timestamps
+- **Contrainte XOR** : `CHECK ((machine_id IS NOT NULL) <> (equipement_id IS NOT NULL))` (parent obligatoire, un seul)
+- RLS : SELECT pour authenticated, ALL pour `admin` + `resp_maintenance` + `bureau_methode` (si rôle existant, sinon admin/resp_maintenance)
 
-#### 4. GPAO — par sous-module
-Pour OF, Produits, Articles, Recettes, Shift, Consommations, Arrêts :
-- **Workflow OF** : création → démarrage → déclarations horaires → clôture
-- **Changement de mode shift** en cours d'OF : motif obligatoire, traçabilité dans `of_mode_history`
-- **Tolérance de saisie horaire** : paramètre `tolerance_saisie_heures`, blocage de saisie hors fenêtre
-- **Consommations hors jour** : correction nécessite motif, audit log automatique
-- **Arrêts** : durée auto-calculée, lien optionnel vers ticket
-- **Suppression** : règles de blocage avec messages exacts
-- **Prix articles** affichés en **DA** (Dinar Algérien)
+### b) Nouvelle table `pdr_entity_links` (liaison flexible PDR ↔ actif)
+- `id`, `pdr_id`, `entity_type` text (`machine` | `equipement` | `organe`), `entity_id` uuid
+- `quantite_recommandee` int default 1, `commentaire` text
+- timestamps + index `(pdr_id, entity_type, entity_id)` unique
+- RLS identique à `machine_pdr`
+- **Backfill** : copier toutes les lignes de `machine_pdr` en `entity_type='machine'` (pas de suppression de `machine_pdr` pour compatibilité ascendante)
 
-#### 5. Workflows transverses (NOUVEAU section dédiée)
-- **Génération auto de plan préventif** depuis PDR (instances actives + dead age)
-- **Création ticket depuis Shift Production** (ouvre dialog dans `ShiftScreen`)
-- **Lien ticket ↔ arrêt production**
-- **Image principale** : auto-affectation si première image uploadée
-- **Permissions documents** : héritage par type d'entité
+### c) Permissions
+- Insérer des lignes `role_permissions` pour le module `organes` (admin = full, resp_maintenance = full, maintenancier = view, autres = view)
+- Garder `machine_pdr` en lecture pour compat, mais toutes les nouvelles écritures passent par `pdr_entity_links`
 
-#### 6. Administration — détails par page
-Pour chaque page sous `/parametres` :
-- Qui peut accéder (rôle requis)
-- Actions disponibles
-- Cas particuliers : impossibilité de supprimer un rôle attribué, gestion des familles avec enfants, etc.
-- **UsersAdmin** : création utilisateur via signup, ajout/suppression rôle, photo profil
-- **RolesMatrix** : toggle CRUD, "accès complet", merge OR multi-rôles
-- **Shifts** : édition inline des plages horaires
+### d) Tickets & plans préventifs (additif, pas de drop)
+- `tickets` : ajouter `equipement_id uuid nullable`, `organe_id uuid nullable` (`machine_id` reste nullable existant)
+- `preventive_plans` : ajouter `equipement_id uuid nullable`, `organe_id uuid nullable`
+- Pas de contrainte XOR stricte (un ticket organe garde aussi `machine_id` parent pour requêtes), validation côté UI
 
-#### 7. Documents & Images (enrichi)
-- Buckets de stockage : `entity-documents`, `entity-images`, `machine-documents`
-- Workflow upload : sélection → catégorie → description → upload
-- Limites de taille (configurable via `useImageMaxSize`)
-- Permissions granulaires par entité (machine, equipement, pdr, produit, article, user, intervention)
-- Lightbox, ordre de tri, image principale
+---
 
-#### 8. Rôles & Permissions — exhaustif
-- Tableau complet : 8 rôles × ~16 modules × 4 actions = matrice détaillée
-- Logique OR pour utilisateurs multi-rôles
-- Fonctions SQL : `has_role()`, `check_permission()`, `check_document_permission()`
-- Rôles spéciaux pour PDR stock (entrée, sortie, correction, inventaire, annulation, fournisseurs)
+## 2. Code application
 
-#### 9. Export / Import CSV
-- Pages avec export, format colonnes par entité
-- Import OF : mapping colonnes, validations, rapport d'erreurs
+### a) Nouvelles pages
+- `src/pages/OrganesList.tsx` — liste filtrable (parent type/parent, type, statut, criticité) + bouton reset filtres (convention existante)
+- `src/pages/OrganeForm.tsx` — création/édition avec sélecteur **parent** (radio : Machine | Équipement) puis Select de l'entité
+- `src/pages/OrganeDetail.tsx` — onglets : Infos, PDR liées, Tickets, Préventif, Documents, Images (réutilise `EntityDocumentManager`/`EntityImageUploader` avec `entityType="organe"`)
+- Routes ajoutées dans `src/App.tsx` : `/organes`, `/organes/new`, `/organes/:id`, `/organes/:id/edit`
+- Item de menu dans `AppSidebar` (groupe GMAO)
 
-#### 10. Cas d'erreur & Dépannage (NOUVEAU)
-Tableau récapitulatif :
-| Situation | Message affiché | Cause | Solution |
-|---|---|---|---|
-| Suppression machine | "Impossible de supprimer : utilisée dans X tickets" | Dépendances FK | Clôturer/réassigner d'abord |
-| Sortie PDR | "Stock insuffisant" | qte > stock_actuel | Faire entrée d'abord |
-| Préventif sans PDR | "Veuillez sélectionner au moins une opération" | Checklist vide | Ajouter opérations |
-| Ticket résolution | "Cause racine obligatoire" | Champ vide | Renseigner |
-| Email non vérifié | "Vérifiez votre email" | Compte non confirmé | Cliquer lien email |
-| RLS denied | "Vous n'avez pas la permission" | Rôle insuffisant | Contacter admin |
-| Saisie hors tolérance | Slot grisé | Hors fenêtre `tolerance_saisie_heures` | Déclarer dans la fenêtre |
+### b) Hook réutilisable
+- `src/hooks/usePdrLinks.ts` : helpers `linkPdr(pdrId, entityType, entityId, qty)`, `unlinkPdr(linkId)`, `getLinksByEntity(entityType, entityId)`, `getLinksByPdr(pdrId)` — basés sur `pdr_entity_links`
 
-#### 11. Annexes
-- Liste exhaustive des routes (`/`, `/machines`, `/tickets/:id`, etc.)
-- Liste des tables principales et leur usage
-- Changelog du manuel (date de mise à jour, version)
+### c) Adaptations pages existantes
 
-### Méthode
-1. Lire en complément les pages clés non encore inspectées en détail (`PdrDetail`, `MachineDetail`, `EquipmentDetail`, `Auth`, `LineSynoptic`, `LineConfig`, `RolesMatrix`, hooks de permissions) pour extraire les **messages exacts**, validations et cas conditionnels.
-2. Réécrire `MANUAL.md` complet avec la structure ci-dessus en français, en conservant le ton du document actuel.
-3. Pas de modification du code applicatif — uniquement le fichier `MANUAL.md`.
+**`MachineDetail.tsx`** :
+- Ajouter onglet **Organes** (liste des organes où `machine_id = id`, lien vers fiche organe)
+- Onglet **PDR** : agréger PDR directes (via `pdr_entity_links` machine + ancien `machine_pdr`) **+ PDR des organes enfants**, en colonnes "Source" (Direct / Organe X)
 
-### Fichier modifié
-- `MANUAL.md` (réécriture complète, ~1500-1800 lignes)
+**`EquipmentDetail.tsx`** :
+- Ajouter onglets : Organes, PDR, Tickets, Préventif (alignés sur Machine)
+- Onglet PDR : PDR directes (entity_type=equipement) + PDR des organes enfants
+
+**`PdrDetail.tsx`** — onglet "Machines" devient **"Actifs liés"** :
+- 3 sections : Machines / Équipements / Organes (depuis `pdr_entity_links` + fallback `machine_pdr`)
+- UI d'ajout : sélecteur type d'actif puis combobox de l'entité
+- Validation : si `pdr.statut_pdr === 'strategique'` et 0 lien → blocage avec message
+
+**`EquipmentForm.tsx`** :
+- Validation côté UI : `machine_id` OU `line_id` obligatoire (interdire orphelin) — message clair
+
+**`TicketsList.tsx` / formulaire ticket** :
+- Sélecteur cible : Machine | Équipement | Organe (radio + select). Si Organe choisi, auto-remplir machine/équipement parent (lecture seule)
+- `TicketDetail.tsx` : afficher la cible avec breadcrumb Ligne → Machine/Équipement → Organe
+
+**`PreventifForm.tsx` / `PreventifDetail.tsx`** :
+- Mêmes adaptations cible (Machine | Équipement | Organe)
+- Cascade de PDR : si organe, suggérer PDR liées à l'organe ; sinon PDR machine/équipement
+
+**`LineSynoptic.tsx`** :
+- Afficher machines (ordonnées) + équipements autonomes de la ligne (`equipements.line_id = line.id` sans `machine_id`)
+- Dans bloc machine : sous-blocs cliquables pour les organes
+- Indicateurs : statut, criticité, dispo PDR, tickets ouverts (déjà présents pour machine, étendre à organe)
+
+### d) RBAC UI
+- `RolesMatrix.tsx` : ajouter le module `organes` dans `MODULE_GROUPS` (groupe GMAO) avec libellé "Organes"
+- `usePermissions` fonctionne déjà génériquement, aucun changement
+
+### e) Conventions à respecter (memory)
+- Bouton reset filtres standard sur `OrganesList`
+- Aucun `SelectItem` avec `value=""` (utiliser sentinel `__all__` comme dans le projet)
+- Prix en **DA** partout
+- Documents/Images via le système standardisé (`entity_type='organe'`)
+
+---
+
+## 3. Migration des données (rétro-compat)
+
+- **Ne rien supprimer** : `machine_pdr`, `pdr.machines` (relations existantes) restent fonctionnels
+- Backfill `pdr_entity_links` à partir de `machine_pdr` (entity_type='machine', entity_id=machine_id, quantite_recommandee)
+- `pdr_instances` : ajouter `organe_id uuid nullable` pour permettre instances installées sur organe (optionnel, additif)
+- Lectures dans le code : préférer `pdr_entity_links` ; pour l'historique, fallback sur `machine_pdr`
+
+---
+
+## 4. Sécurité
+
+- Toutes les nouvelles tables avec RLS activé
+- Policies via `has_role()` (security definer existant) — pas de risque de récursion
+- Document permissions : ajouter `entity_type='organe'` dans `document_permissions` (insertion par défaut copiée depuis `machine`)
+
+---
+
+## Fichiers impactés (résumé)
+
+**Migrations** : 1 migration SQL (tables `organes`, `pdr_entity_links`, colonnes additives `tickets`/`preventive_plans`/`pdr_instances`, RLS, backfill, role_permissions, document_permissions).
+
+**Nouveaux fichiers** : `OrganesList.tsx`, `OrganeForm.tsx`, `OrganeDetail.tsx`, `usePdrLinks.ts`.
+
+**Modifiés** : `App.tsx`, `AppSidebar.tsx`, `MachineDetail.tsx`, `EquipmentDetail.tsx`, `EquipmentForm.tsx`, `PdrDetail.tsx`, `PdrForm.tsx`, `TicketsList.tsx`, `TicketDetail.tsx`, `PreventifForm.tsx`, `PreventifDetail.tsx`, `LineSynoptic.tsx`, `RolesMatrix.tsx`, `MANUAL.md` (chapitre Organes + diagramme hiérarchie).
+
+---
+
+## Non inclus (à confirmer si souhaité)
+
+- Création automatique d'organes "par défaut" lors d'une migration de structure existante (aucune donnée actuelle ne suggère un mapping fiable)
+- Import CSV des organes (peut être ajouté plus tard via le composant `CsvImporter` existant)
+- Calcul automatique du statut Machine en fonction des statuts d'organes (ex : machine "en panne" si un organe critique est en panne) — à clarifier comme évolution future
