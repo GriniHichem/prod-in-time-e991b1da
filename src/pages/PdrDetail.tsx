@@ -30,6 +30,12 @@ export default function PdrDetail() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [linkedMachines, setLinkedMachines] = useState<any[]>([]);
+  const [entityLinks, setEntityLinks] = useState<any[]>([]);
+  const [allMachines, setAllMachines] = useState<any[]>([]);
+  const [allEquipements, setAllEquipements] = useState<any[]>([]);
+  const [allOrganes, setAllOrganes] = useState<any[]>([]);
+  const [linkDialog, setLinkDialog] = useState(false);
+  const [linkForm, setLinkForm] = useState({ entity_type: "machine" as "machine" | "equipement" | "organe", entity_id: "", quantite_recommandee: 1 });
   const [consumptionHistory, setConsumptionHistory] = useState<any[]>([]);
   const [instances, setInstances] = useState<any[]>([]);
 
@@ -44,13 +50,17 @@ export default function PdrDetail() {
 
   const loadAll = async () => {
     if (!id) return;
-    const [pRes, sRes, mRes, mlRes, cRes, iRes] = await Promise.all([
+    const [pRes, sRes, mRes, mlRes, cRes, iRes, elRes, machRes, eqRes, orgRes] = await Promise.all([
       supabase.from("pdr").select("*, pdr_families(name, approvisionnement, statut_default)").eq("id", id).single(),
       supabase.from("pdr_suppliers").select("*").eq("pdr_id", id).order("is_principal", { ascending: false }),
       supabase.from("pdr_stock_movements").select("*").eq("pdr_id", id).order("created_at", { ascending: false }).limit(100),
       supabase.from("machine_pdr").select("*, machines(code, designation)").eq("pdr_id", id),
       supabase.from("intervention_pdr").select("*, interventions(ticket_id, date_debut, tickets(numero, machines(code)))").eq("pdr_id", id).order("created_at", { ascending: false }).limit(50),
       supabase.from("pdr_instances").select("*, machines(code, designation), equipements(code, designation)").eq("pdr_id", id).order("date_installation", { ascending: false }),
+      supabase.from("pdr_entity_links" as any).select("*").eq("pdr_id", id),
+      supabase.from("machines").select("id, code, designation").eq("is_active", true).order("code"),
+      supabase.from("equipements").select("id, code, designation").eq("is_active", true).order("code"),
+      supabase.from("organes" as any).select("id, code, designation, machine_id, equipement_id").eq("is_active", true).order("code"),
     ]);
     if (pRes.data) setPdr(pRes.data);
     setSuppliers(sRes.data || []);
@@ -58,9 +68,32 @@ export default function PdrDetail() {
     setLinkedMachines(mlRes.data || []);
     setConsumptionHistory(cRes.data || []);
     setInstances(iRes.data || []);
+    setEntityLinks((elRes.data as any) || []);
+    setAllMachines(machRes.data || []);
+    setAllEquipements(eqRes.data || []);
+    setAllOrganes((orgRes.data as any) || []);
   };
 
   useEffect(() => { loadAll(); }, [id]);
+
+  const handleAddLink = async () => {
+    if (!linkForm.entity_id) { toast({ title: "Sélectionner un actif", variant: "destructive" }); return; }
+    const { error } = await supabase.from("pdr_entity_links" as any).insert({
+      pdr_id: id, entity_type: linkForm.entity_type, entity_id: linkForm.entity_id,
+      quantite_recommandee: linkForm.quantite_recommandee || 1,
+    } as any);
+    if (error) { toast({ title: "Erreur", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Actif lié" });
+    setLinkDialog(false);
+    setLinkForm({ entity_type: "machine", entity_id: "", quantite_recommandee: 1 });
+    loadAll();
+  };
+
+  const handleRemoveLink = async (linkId: string) => {
+    await supabase.from("pdr_entity_links" as any).delete().eq("id", linkId);
+    toast({ title: "Lien supprimé" });
+    loadAll();
+  };
 
   // Movement save
   const handleSaveMovement = async () => {
