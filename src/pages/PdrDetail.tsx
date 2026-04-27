@@ -408,25 +408,81 @@ export default function PdrDetail() {
           </Card>
         </TabsContent>
 
-        {/* MACHINES */}
+        {/* ACTIFS LIÉS */}
         <TabsContent value="machines">
           <Card>
-            <CardHeader><CardTitle className="text-base">Machines liées</CardTitle></CardHeader>
-            <CardContent>
-              {linkedMachines.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Aucune machine liée</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedMachines.map((lm: any) => (
-                    <div key={lm.id} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/machines/${lm.machine_id}`)}>
-                      <Wrench className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-mono text-sm">{lm.machines?.code}</span>
-                      <span className="text-sm text-muted-foreground">{lm.machines?.designation}</span>
-                      {lm.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {lm.quantite_recommandee}</Badge>}
-                    </div>
-                  ))}
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Actifs liés (Machines / Équipements / Organes)</CardTitle>
+              {canEdit("pdr") && (
+                <Button size="sm" onClick={() => setLinkDialog(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Lier un actif
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {pdr.statut_pdr === "strategique" && entityLinks.length === 0 && linkedMachines.length === 0 && (
+                <div className="flex items-center gap-2 p-3 rounded border border-destructive bg-destructive/5">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <p className="text-sm text-destructive">PDR stratégique sans actif lié — au moins un lien est requis.</p>
                 </div>
+              )}
+
+              {/* Liens via pdr_entity_links */}
+              {(["machine", "equipement", "organe"] as const).map((etype) => {
+                const items = entityLinks.filter((l: any) => l.entity_type === etype);
+                if (items.length === 0) return null;
+                const label = etype === "machine" ? "Machines" : etype === "equipement" ? "Équipements" : "Organes";
+                const list = etype === "machine" ? allMachines : etype === "equipement" ? allEquipements : allOrganes;
+                const route = etype === "machine" ? "/machines" : etype === "equipement" ? "/equipements" : "/organes";
+                return (
+                  <div key={etype}>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+                    <div className="space-y-2">
+                      {items.map((l: any) => {
+                        const ent = list.find((e: any) => e.id === l.entity_id);
+                        return (
+                          <div key={l.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50">
+                            <Wrench className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-mono text-sm cursor-pointer hover:underline" onClick={() => navigate(`${route}/${l.entity_id}`)}>
+                              {ent?.code || l.entity_id.slice(0, 8)}
+                            </span>
+                            <span className="text-sm text-muted-foreground">{ent?.designation || ""}</span>
+                            {l.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {l.quantite_recommandee}</Badge>}
+                            {canEdit("pdr") && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemoveLink(l.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Legacy machine_pdr (lecture seule, fallback) */}
+              {linkedMachines.filter((lm: any) => !entityLinks.some((el: any) => el.entity_type === "machine" && el.entity_id === lm.machine_id)).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Machines (legacy)</p>
+                  <div className="space-y-2">
+                    {linkedMachines
+                      .filter((lm: any) => !entityLinks.some((el: any) => el.entity_type === "machine" && el.entity_id === lm.machine_id))
+                      .map((lm: any) => (
+                        <div key={lm.id} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => navigate(`/machines/${lm.machine_id}`)}>
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-mono text-sm">{lm.machines?.code}</span>
+                          <span className="text-sm text-muted-foreground">{lm.machines?.designation}</span>
+                          {lm.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {lm.quantite_recommandee}</Badge>}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {entityLinks.length === 0 && linkedMachines.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Aucun actif lié</p>
               )}
             </CardContent>
           </Card>
