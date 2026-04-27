@@ -40,6 +40,7 @@ export default function EquipmentDetail() {
   const navigate = useNavigate();
   const { canEdit } = usePermissions();
   const [equip, setEquip] = useState<any>(null);
+  const [organes, setOrganes] = useState<any[]>([]);
   const entityImages = useEntityImages("equipement", id);
   useEffect(() => {
     if (!id) return;
@@ -49,6 +50,11 @@ export default function EquipmentDetail() {
       .eq("id", id)
       .single()
       .then(({ data }) => setEquip(data));
+    (supabase.from("organes" as any) as any)
+      .select("*")
+      .eq("equipement_id", id)
+      .order("sort_order")
+      .then(({ data }: any) => setOrganes(data || []));
   }, [id]);
 
   if (!equip) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
@@ -92,6 +98,7 @@ export default function EquipmentDetail() {
       <Tabs defaultValue="info">
         <TabsList className="h-11">
           <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
+          <TabsTrigger value="organes" className="h-9">Organes ({organes.length})</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
           <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
         </TabsList>
