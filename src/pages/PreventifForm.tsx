@@ -62,10 +62,14 @@ export default function PreventifForm() {
       supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
       supabase.from("pdr").select("id, reference, designation").eq("is_active", true).order("reference"),
       supabase.from("user_roles").select("user_id, role").eq("role", "maintenancier"),
-    ]).then(async ([mRes, lRes, pRes, urRes]) => {
+      supabase.from("equipements").select("id, code, designation, machine_id").eq("is_active", true).order("code"),
+      supabase.from("organes" as any).select("id, code, designation, machine_id, equipement_id").eq("is_active", true).order("code"),
+    ]).then(async ([mRes, lRes, pRes, urRes, eRes, oRes]) => {
       setMachines(mRes.data || []);
       setLines(lRes.data || []);
       setPdrList(pRes.data || []);
+      setEquipements(eRes.data || []);
+      setOrganes((oRes.data as any) || []);
 
       const userIds = (urRes.data || []).map((r: any) => r.user_id);
       if (userIds.length > 0) {
@@ -96,6 +100,8 @@ export default function PreventifForm() {
         description: (data as any).description || "",
         machine_id: data.machine_id,
         line_id: (data as any).line_id || "",
+        equipement_id: (data as any).equipement_id || "",
+        organe_id: (data as any).organe_id || "",
         frequence: data.frequence,
         type_maintenance: (data as any).type_maintenance || "",
         statut_plan: (data as any).statut_plan || "valide",
