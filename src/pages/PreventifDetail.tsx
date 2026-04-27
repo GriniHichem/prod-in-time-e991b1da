@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,6 +31,7 @@ const FREQUENCE_DAYS: Record<string, number> = {
 export default function PreventifDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useSmartBack("/preventif");
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
   const { canEdit } = usePermissions();
@@ -142,7 +144,7 @@ export default function PreventifDetail() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/preventif")} className="h-10 w-10">
+        <Button variant="ghost" size="icon" onClick={goBack} className="h-10 w-10">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
