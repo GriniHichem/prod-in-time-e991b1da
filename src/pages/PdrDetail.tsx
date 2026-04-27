@@ -30,6 +30,12 @@ export default function PdrDetail() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [linkedMachines, setLinkedMachines] = useState<any[]>([]);
+  const [entityLinks, setEntityLinks] = useState<any[]>([]);
+  const [allMachines, setAllMachines] = useState<any[]>([]);
+  const [allEquipements, setAllEquipements] = useState<any[]>([]);
+  const [allOrganes, setAllOrganes] = useState<any[]>([]);
+  const [linkDialog, setLinkDialog] = useState(false);
+  const [linkForm, setLinkForm] = useState({ entity_type: "machine" as "machine" | "equipement" | "organe", entity_id: "", quantite_recommandee: 1 });
   const [consumptionHistory, setConsumptionHistory] = useState<any[]>([]);
   const [instances, setInstances] = useState<any[]>([]);
 
@@ -44,13 +50,17 @@ export default function PdrDetail() {
 
   const loadAll = async () => {
     if (!id) return;
-    const [pRes, sRes, mRes, mlRes, cRes, iRes] = await Promise.all([
+    const [pRes, sRes, mRes, mlRes, cRes, iRes, elRes, machRes, eqRes, orgRes] = await Promise.all([
       supabase.from("pdr").select("*, pdr_families(name, approvisionnement, statut_default)").eq("id", id).single(),
       supabase.from("pdr_suppliers").select("*").eq("pdr_id", id).order("is_principal", { ascending: false }),
       supabase.from("pdr_stock_movements").select("*").eq("pdr_id", id).order("created_at", { ascending: false }).limit(100),
       supabase.from("machine_pdr").select("*, machines(code, designation)").eq("pdr_id", id),
       supabase.from("intervention_pdr").select("*, interventions(ticket_id, date_debut, tickets(numero, machines(code)))").eq("pdr_id", id).order("created_at", { ascending: false }).limit(50),
       supabase.from("pdr_instances").select("*, machines(code, designation), equipements(code, designation)").eq("pdr_id", id).order("date_installation", { ascending: false }),
+      supabase.from("pdr_entity_links" as any).select("*").eq("pdr_id", id),
+      supabase.from("machines").select("id, code, designation").eq("is_active", true).order("code"),
+      supabase.from("equipements").select("id, code, designation").eq("is_active", true).order("code"),
+      supabase.from("organes" as any).select("id, code, designation, machine_id, equipement_id").eq("is_active", true).order("code"),
     ]);
     if (pRes.data) setPdr(pRes.data);
     setSuppliers(sRes.data || []);
@@ -58,9 +68,32 @@ export default function PdrDetail() {
     setLinkedMachines(mlRes.data || []);
     setConsumptionHistory(cRes.data || []);
     setInstances(iRes.data || []);
+    setEntityLinks((elRes.data as any) || []);
+    setAllMachines(machRes.data || []);
+    setAllEquipements(eqRes.data || []);
+    setAllOrganes((orgRes.data as any) || []);
   };
 
   useEffect(() => { loadAll(); }, [id]);
+
+  const handleAddLink = async () => {
+    if (!linkForm.entity_id) { toast({ title: "Sélectionner un actif", variant: "destructive" }); return; }
+    const { error } = await supabase.from("pdr_entity_links" as any).insert({
+      pdr_id: id, entity_type: linkForm.entity_type, entity_id: linkForm.entity_id,
+      quantite_recommandee: linkForm.quantite_recommandee || 1,
+    } as any);
+    if (error) { toast({ title: "Erreur", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Actif lié" });
+    setLinkDialog(false);
+    setLinkForm({ entity_type: "machine", entity_id: "", quantite_recommandee: 1 });
+    loadAll();
+  };
+
+  const handleRemoveLink = async (linkId: string) => {
+    await supabase.from("pdr_entity_links" as any).delete().eq("id", linkId);
+    toast({ title: "Lien supprimé" });
+    loadAll();
+  };
 
   // Movement save
   const handleSaveMovement = async () => {
@@ -170,7 +203,7 @@ export default function PdrDetail() {
           <TabsTrigger value="stock" className="h-9"><Package className="h-3.5 w-3.5 mr-1" />Stock</TabsTrigger>
           <TabsTrigger value="instances" className="h-9"><Clock className="h-3.5 w-3.5 mr-1" />Instances</TabsTrigger>
           <TabsTrigger value="fournisseurs" className="h-9"><Truck className="h-3.5 w-3.5 mr-1" />Fournisseurs</TabsTrigger>
-          <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Machines</TabsTrigger>
+          <TabsTrigger value="machines" className="h-9"><Wrench className="h-3.5 w-3.5 mr-1" />Actifs liés</TabsTrigger>
           <TabsTrigger value="mouvements" className="h-9"><History className="h-3.5 w-3.5 mr-1" />Mouvements</TabsTrigger>
           <TabsTrigger value="consommation" className="h-9"><BarChart3 className="h-3.5 w-3.5 mr-1" />Conso.</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
@@ -375,25 +408,81 @@ export default function PdrDetail() {
           </Card>
         </TabsContent>
 
-        {/* MACHINES */}
+        {/* ACTIFS LIÉS */}
         <TabsContent value="machines">
           <Card>
-            <CardHeader><CardTitle className="text-base">Machines liées</CardTitle></CardHeader>
-            <CardContent>
-              {linkedMachines.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Aucune machine liée</p>
-              ) : (
-                <div className="space-y-2">
-                  {linkedMachines.map((lm: any) => (
-                    <div key={lm.id} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/machines/${lm.machine_id}`)}>
-                      <Wrench className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-mono text-sm">{lm.machines?.code}</span>
-                      <span className="text-sm text-muted-foreground">{lm.machines?.designation}</span>
-                      {lm.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {lm.quantite_recommandee}</Badge>}
-                    </div>
-                  ))}
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Actifs liés (Machines / Équipements / Organes)</CardTitle>
+              {canEdit("pdr") && (
+                <Button size="sm" onClick={() => setLinkDialog(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Lier un actif
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {pdr.statut_pdr === "strategique" && entityLinks.length === 0 && linkedMachines.length === 0 && (
+                <div className="flex items-center gap-2 p-3 rounded border border-destructive bg-destructive/5">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <p className="text-sm text-destructive">PDR stratégique sans actif lié — au moins un lien est requis.</p>
                 </div>
+              )}
+
+              {/* Liens via pdr_entity_links */}
+              {(["machine", "equipement", "organe"] as const).map((etype) => {
+                const items = entityLinks.filter((l: any) => l.entity_type === etype);
+                if (items.length === 0) return null;
+                const label = etype === "machine" ? "Machines" : etype === "equipement" ? "Équipements" : "Organes";
+                const list = etype === "machine" ? allMachines : etype === "equipement" ? allEquipements : allOrganes;
+                const route = etype === "machine" ? "/machines" : etype === "equipement" ? "/equipements" : "/organes";
+                return (
+                  <div key={etype}>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+                    <div className="space-y-2">
+                      {items.map((l: any) => {
+                        const ent = list.find((e: any) => e.id === l.entity_id);
+                        return (
+                          <div key={l.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50">
+                            <Wrench className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-mono text-sm cursor-pointer hover:underline" onClick={() => navigate(`${route}/${l.entity_id}`)}>
+                              {ent?.code || l.entity_id.slice(0, 8)}
+                            </span>
+                            <span className="text-sm text-muted-foreground">{ent?.designation || ""}</span>
+                            {l.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {l.quantite_recommandee}</Badge>}
+                            {canEdit("pdr") && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemoveLink(l.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Legacy machine_pdr (lecture seule, fallback) */}
+              {linkedMachines.filter((lm: any) => !entityLinks.some((el: any) => el.entity_type === "machine" && el.entity_id === lm.machine_id)).length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Machines (legacy)</p>
+                  <div className="space-y-2">
+                    {linkedMachines
+                      .filter((lm: any) => !entityLinks.some((el: any) => el.entity_type === "machine" && el.entity_id === lm.machine_id))
+                      .map((lm: any) => (
+                        <div key={lm.id} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => navigate(`/machines/${lm.machine_id}`)}>
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-mono text-sm">{lm.machines?.code}</span>
+                          <span className="text-sm text-muted-foreground">{lm.machines?.designation}</span>
+                          {lm.quantite_recommandee && <Badge variant="outline" className="text-xs ml-auto">Qté rec. {lm.quantite_recommandee}</Badge>}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {entityLinks.length === 0 && linkedMachines.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Aucun actif lié</p>
               )}
             </CardContent>
           </Card>
@@ -616,6 +705,46 @@ export default function PdrDetail() {
               Fournisseur principal
             </label>
             <Button onClick={handleSaveSupplier} className="w-full h-12">{editingSupplierId ? "Enregistrer" : "Ajouter"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Asset Dialog */}
+      <Dialog open={linkDialog} onOpenChange={setLinkDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Lier un actif à cette PDR</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type d'actif</Label>
+              <Select value={linkForm.entity_type} onValueChange={(v) => setLinkForm((f) => ({ ...f, entity_type: v as any, entity_id: "" }))}>
+                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="machine">Machine</SelectItem>
+                  <SelectItem value="equipement">Équipement</SelectItem>
+                  <SelectItem value="organe">Organe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Actif *</Label>
+              <Select value={linkForm.entity_id || "__none__"} onValueChange={(v) => setLinkForm((f) => ({ ...f, entity_id: v === "__none__" ? "" : v }))}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Aucun —</SelectItem>
+                  {(linkForm.entity_type === "machine" ? allMachines : linkForm.entity_type === "equipement" ? allEquipements : allOrganes)
+                    .filter((e: any) => !entityLinks.some((l: any) => l.entity_type === linkForm.entity_type && l.entity_id === e.id))
+                    .map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.code} — {e.designation}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Quantité recommandée</Label>
+              <Input type="number" min="1" value={linkForm.quantite_recommandee}
+                onChange={(e) => setLinkForm((f) => ({ ...f, quantite_recommandee: Number(e.target.value) || 1 }))} className="h-12" />
+            </div>
+            <Button onClick={handleAddLink} className="w-full h-12">Lier</Button>
           </div>
         </DialogContent>
       </Dialog>

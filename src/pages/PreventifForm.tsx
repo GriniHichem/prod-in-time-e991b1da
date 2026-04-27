@@ -35,12 +35,16 @@ export default function PreventifForm() {
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
   const [machinePdr, setMachinePdr] = useState<any[]>([]);
+  const [equipements, setEquipements] = useState<any[]>([]);
+  const [organes, setOrganes] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     title: "",
     description: "",
     machine_id: "",
     line_id: "",
+    equipement_id: "",
+    organe_id: "",
     frequence: "mensuel",
     type_maintenance: "",
     statut_plan: "brouillon",
@@ -58,10 +62,14 @@ export default function PreventifForm() {
       supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
       supabase.from("pdr").select("id, reference, designation").eq("is_active", true).order("reference"),
       supabase.from("user_roles").select("user_id, role").eq("role", "maintenancier"),
-    ]).then(async ([mRes, lRes, pRes, urRes]) => {
+      supabase.from("equipements").select("id, code, designation, machine_id").eq("is_active", true).order("code"),
+      supabase.from("organes" as any).select("id, code, designation, machine_id, equipement_id").eq("is_active", true).order("code"),
+    ]).then(async ([mRes, lRes, pRes, urRes, eRes, oRes]) => {
       setMachines(mRes.data || []);
       setLines(lRes.data || []);
       setPdrList(pRes.data || []);
+      setEquipements(eRes.data || []);
+      setOrganes((oRes.data as any) || []);
 
       const userIds = (urRes.data || []).map((r: any) => r.user_id);
       if (userIds.length > 0) {
@@ -92,6 +100,8 @@ export default function PreventifForm() {
         description: (data as any).description || "",
         machine_id: data.machine_id,
         line_id: (data as any).line_id || "",
+        equipement_id: (data as any).equipement_id || "",
+        organe_id: (data as any).organe_id || "",
         frequence: data.frequence,
         type_maintenance: (data as any).type_maintenance || "",
         statut_plan: (data as any).statut_plan || "valide",
@@ -133,6 +143,8 @@ export default function PreventifForm() {
       description: form.description.trim() || null,
       machine_id: form.machine_id,
       line_id: form.line_id || null,
+      equipement_id: form.equipement_id || null,
+      organe_id: form.organe_id || null,
       frequence: form.frequence,
       type_maintenance: form.type_maintenance,
       statut_plan: form.statut_plan,
@@ -235,6 +247,33 @@ export default function PreventifForm() {
                   <SelectContent>
                     <SelectItem value="__none__">Aucune</SelectItem>
                     {lines.map(l => <SelectItem key={l.id} value={l.id}>{l.code} — {l.designation}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Équipement (optionnel)</Label>
+                <Select value={form.equipement_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, equipement_id: v === "__none__" ? "" : v, organe_id: "" }))}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
+                    {equipements
+                      .filter((e: any) => !form.machine_id || e.machine_id === form.machine_id || !e.machine_id)
+                      .map((e: any) => <SelectItem key={e.id} value={e.id}>{e.code} — {e.designation}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Organe (optionnel)</Label>
+                <Select value={form.organe_id || "__none__"} onValueChange={v => setForm(f => ({ ...f, organe_id: v === "__none__" ? "" : v }))}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Aucun</SelectItem>
+                    {organes
+                      .filter((o: any) =>
+                        (form.equipement_id && o.equipement_id === form.equipement_id) ||
+                        (!form.equipement_id && form.machine_id && o.machine_id === form.machine_id)
+                      )
+                      .map((o: any) => <SelectItem key={o.id} value={o.id}>{o.code} — {o.designation}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
