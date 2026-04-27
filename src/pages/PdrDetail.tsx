@@ -708,6 +708,46 @@ export default function PdrDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Link Asset Dialog */}
+      <Dialog open={linkDialog} onOpenChange={setLinkDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Lier un actif à cette PDR</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type d'actif</Label>
+              <Select value={linkForm.entity_type} onValueChange={(v) => setLinkForm((f) => ({ ...f, entity_type: v as any, entity_id: "" }))}>
+                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="machine">Machine</SelectItem>
+                  <SelectItem value="equipement">Équipement</SelectItem>
+                  <SelectItem value="organe">Organe</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Actif *</Label>
+              <Select value={linkForm.entity_id || "__none__"} onValueChange={(v) => setLinkForm((f) => ({ ...f, entity_id: v === "__none__" ? "" : v }))}>
+                <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Aucun —</SelectItem>
+                  {(linkForm.entity_type === "machine" ? allMachines : linkForm.entity_type === "equipement" ? allEquipements : allOrganes)
+                    .filter((e: any) => !entityLinks.some((l: any) => l.entity_type === linkForm.entity_type && l.entity_id === e.id))
+                    .map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.code} — {e.designation}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Quantité recommandée</Label>
+              <Input type="number" min="1" value={linkForm.quantite_recommandee}
+                onChange={(e) => setLinkForm((f) => ({ ...f, quantite_recommandee: Number(e.target.value) || 1 }))} className="h-12" />
+            </div>
+            <Button onClick={handleAddLink} className="w-full h-12">Lier</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
