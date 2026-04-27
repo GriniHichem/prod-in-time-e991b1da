@@ -37,22 +37,44 @@ export default function LineConfig() {
   const [selectedMachine, setSelectedMachine] = useState("__none__");
   const [saving, setSaving] = useState(false);
 
+  // Equipements
+  const [lineEquipements, setLineEquipements] = useState<any[]>([]);
+  const [allEquipements, setAllEquipements] = useState<any[]>([]);
+  const [selectedEquip, setSelectedEquip] = useState("__none__");
+
   const load = async () => {
     if (!id) return;
-    const [lRes, aRes, mRes] = await Promise.all([
+    const [lRes, aRes, mRes, lEqRes, allEqRes] = await Promise.all([
       supabase.from("production_lines").select("*").eq("id", id).single(),
       supabase.from("machine_line_assignments")
         .select("*, machines(id, code, designation, role_fonctionnel, statut)")
         .eq("line_id", id)
         .order("sort_order"),
       supabase.from("machines").select("id, code, designation").eq("is_active", true).order("code"),
+      supabase.from("equipements").select("id, code, designation, type, statut").eq("line_id", id).order("code"),
+      supabase.from("equipements").select("id, code, designation, type, line_id").eq("is_active", true).order("code"),
     ]);
     setLine(lRes.data);
     setAssignments(aRes.data || []);
     setAllMachines(mRes.data || []);
+    setLineEquipements(lEqRes.data || []);
+    setAllEquipements(allEqRes.data || []);
   };
 
   useEffect(() => { load(); }, [id]);
+
+  const handleAddEquip = async () => {
+    if (selectedEquip === "__none__" || !id) return;
+    const { error } = await supabase.from("equipements").update({ line_id: id }).eq("id", selectedEquip);
+    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    else { setSelectedEquip("__none__"); load(); }
+  };
+
+  const handleRemoveEquip = async (eqId: string) => {
+    const { error } = await supabase.from("equipements").update({ line_id: null }).eq("id", eqId);
+    if (error) toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    else load();
+  };
 
   const assignedIds = new Set(assignments.map((a) => a.machine_id));
   const availableMachines = allMachines.filter((m) => !assignedIds.has(m.id));
