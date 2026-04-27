@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { ArrowLeft, Edit, Cog, Factory } from "lucide-react";
+import { ArrowLeft, Edit, Cog, Factory, Component } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
@@ -40,6 +40,7 @@ export default function EquipmentDetail() {
   const navigate = useNavigate();
   const { canEdit } = usePermissions();
   const [equip, setEquip] = useState<any>(null);
+  const [organes, setOrganes] = useState<any[]>([]);
   const entityImages = useEntityImages("equipement", id);
   useEffect(() => {
     if (!id) return;
@@ -49,6 +50,11 @@ export default function EquipmentDetail() {
       .eq("id", id)
       .single()
       .then(({ data }) => setEquip(data));
+    (supabase.from("organes" as any) as any)
+      .select("*")
+      .eq("equipement_id", id)
+      .order("sort_order")
+      .then(({ data }: any) => setOrganes(data || []));
   }, [id]);
 
   if (!equip) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
@@ -92,6 +98,7 @@ export default function EquipmentDetail() {
       <Tabs defaultValue="info">
         <TabsList className="h-11">
           <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
+          <TabsTrigger value="organes" className="h-9">Organes ({organes.length})</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
           <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
         </TabsList>
@@ -164,6 +171,33 @@ export default function EquipmentDetail() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="organes">
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex justify-end p-3 border-b">
+                {canEdit("organes") && (
+                  <Button size="sm" onClick={() => navigate(`/organes/new?equipement_id=${id}`)}>
+                    <Component className="h-4 w-4 mr-2" /> Ajouter un organe
+                  </Button>
+                )}
+              </div>
+              <div className="p-3 space-y-2">
+                {organes.length === 0 ? (
+                  <p className="text-center py-6 text-muted-foreground text-sm">Aucun organe</p>
+                ) : organes.map((o: any) => (
+                  <div key={o.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/40 cursor-pointer" onClick={() => navigate(`/organes/${o.id}`)}>
+                    <div>
+                      <p className="font-mono text-sm font-medium">{o.code} — {o.designation}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{o.type} · {o.statut?.replace("_", " ")} · Criticité {o.criticite}</p>
+                    </div>
+                    <Badge variant={o.statut === "en_service" ? "default" : o.statut === "en_panne" ? "destructive" : "secondary"} className="text-xs">{o.statut?.replace("_", " ")}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="photos">

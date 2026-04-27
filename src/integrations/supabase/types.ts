@@ -1029,6 +1029,69 @@ export type Database = {
           },
         ]
       }
+      organes: {
+        Row: {
+          code: string
+          created_at: string
+          criticite: Database["public"]["Enums"]["criticite"]
+          description: string | null
+          designation: string
+          equipement_id: string | null
+          id: string
+          is_active: boolean
+          machine_id: string | null
+          sort_order: number
+          statut: Database["public"]["Enums"]["organe_statut"]
+          type: Database["public"]["Enums"]["organe_type"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          criticite?: Database["public"]["Enums"]["criticite"]
+          description?: string | null
+          designation: string
+          equipement_id?: string | null
+          id?: string
+          is_active?: boolean
+          machine_id?: string | null
+          sort_order?: number
+          statut?: Database["public"]["Enums"]["organe_statut"]
+          type?: Database["public"]["Enums"]["organe_type"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          criticite?: Database["public"]["Enums"]["criticite"]
+          description?: string | null
+          designation?: string
+          equipement_id?: string | null
+          id?: string
+          is_active?: boolean
+          machine_id?: string | null
+          sort_order?: number
+          statut?: Database["public"]["Enums"]["organe_statut"]
+          type?: Database["public"]["Enums"]["organe_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organes_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organes_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packaging_levels: {
         Row: {
           coefficient: number
@@ -1172,6 +1235,47 @@ export type Database = {
           },
         ]
       }
+      pdr_entity_links: {
+        Row: {
+          commentaire: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          pdr_id: string
+          quantite_recommandee: number
+          updated_at: string
+        }
+        Insert: {
+          commentaire?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          pdr_id: string
+          quantite_recommandee?: number
+          updated_at?: string
+        }
+        Update: {
+          commentaire?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          pdr_id?: string
+          quantite_recommandee?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdr_entity_links_pdr_id_fkey"
+            columns: ["pdr_id"]
+            isOneToOne: false
+            referencedRelation: "pdr"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdr_families: {
         Row: {
           approvisionnement: Database["public"]["Enums"]["approvisionnement_type"]
@@ -1295,6 +1399,7 @@ export type Database = {
           intervention_id: string | null
           machine_id: string | null
           notes: string | null
+          organe_id: string | null
           pdr_id: string
           statut: string
           ticket_id: string | null
@@ -1309,6 +1414,7 @@ export type Database = {
           intervention_id?: string | null
           machine_id?: string | null
           notes?: string | null
+          organe_id?: string | null
           pdr_id: string
           statut?: string
           ticket_id?: string | null
@@ -1323,6 +1429,7 @@ export type Database = {
           intervention_id?: string | null
           machine_id?: string | null
           notes?: string | null
+          organe_id?: string | null
           pdr_id?: string
           statut?: string
           ticket_id?: string | null
@@ -1340,6 +1447,13 @@ export type Database = {
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdr_instances_organe_id_fkey"
+            columns: ["organe_id"]
+            isOneToOne: false
+            referencedRelation: "organes"
             referencedColumns: ["id"]
           },
           {
@@ -1650,11 +1764,13 @@ export type Database = {
           created_at: string
           derniere_execution: string | null
           description: string | null
+          equipement_id: string | null
           frequence: Database["public"]["Enums"]["frequence_preventif"]
           id: string
           is_active: boolean
           line_id: string | null
           machine_id: string
+          organe_id: string | null
           prochaine_echeance: string | null
           source: string | null
           source_pdr_id: string | null
@@ -1668,11 +1784,13 @@ export type Database = {
           created_at?: string
           derniere_execution?: string | null
           description?: string | null
+          equipement_id?: string | null
           frequence?: Database["public"]["Enums"]["frequence_preventif"]
           id?: string
           is_active?: boolean
           line_id?: string | null
           machine_id: string
+          organe_id?: string | null
           prochaine_echeance?: string | null
           source?: string | null
           source_pdr_id?: string | null
@@ -1686,11 +1804,13 @@ export type Database = {
           created_at?: string
           derniere_execution?: string | null
           description?: string | null
+          equipement_id?: string | null
           frequence?: Database["public"]["Enums"]["frequence_preventif"]
           id?: string
           is_active?: boolean
           line_id?: string | null
           machine_id?: string
+          organe_id?: string | null
           prochaine_echeance?: string | null
           source?: string | null
           source_pdr_id?: string | null
@@ -1700,6 +1820,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "preventive_plans_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "preventive_plans_line_id_fkey"
             columns: ["line_id"]
@@ -1712,6 +1839,13 @@ export type Database = {
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_plans_organe_id_fkey"
+            columns: ["organe_id"]
+            isOneToOne: false
+            referencedRelation: "organes"
             referencedColumns: ["id"]
           },
           {
@@ -2449,6 +2583,7 @@ export type Database = {
           created_at: string
           declarant_id: string | null
           description: string
+          equipement_id: string | null
           heure_cloture: string | null
           heure_declaration: string
           heure_prise_en_charge: string | null
@@ -2459,6 +2594,7 @@ export type Database = {
           machine_id: string
           numero: string
           of_id: string | null
+          organe_id: string | null
           panne_type_id: string | null
           priorite: Database["public"]["Enums"]["ticket_priorite"]
           shift_id: string | null
@@ -2474,6 +2610,7 @@ export type Database = {
           created_at?: string
           declarant_id?: string | null
           description?: string
+          equipement_id?: string | null
           heure_cloture?: string | null
           heure_declaration?: string
           heure_prise_en_charge?: string | null
@@ -2484,6 +2621,7 @@ export type Database = {
           machine_id: string
           numero: string
           of_id?: string | null
+          organe_id?: string | null
           panne_type_id?: string | null
           priorite?: Database["public"]["Enums"]["ticket_priorite"]
           shift_id?: string | null
@@ -2499,6 +2637,7 @@ export type Database = {
           created_at?: string
           declarant_id?: string | null
           description?: string
+          equipement_id?: string | null
           heure_cloture?: string | null
           heure_declaration?: string
           heure_prise_en_charge?: string | null
@@ -2509,6 +2648,7 @@ export type Database = {
           machine_id?: string
           numero?: string
           of_id?: string | null
+          organe_id?: string | null
           panne_type_id?: string | null
           priorite?: Database["public"]["Enums"]["ticket_priorite"]
           shift_id?: string | null
@@ -2519,6 +2659,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tickets_equipement_id_fkey"
+            columns: ["equipement_id"]
+            isOneToOne: false
+            referencedRelation: "equipements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_ligne_id_fkey"
             columns: ["ligne_id"]
@@ -2538,6 +2685,13 @@ export type Database = {
             columns: ["of_id"]
             isOneToOne: false
             referencedRelation: "ordres_fabrication"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_organe_id_fkey"
+            columns: ["organe_id"]
+            isOneToOne: false
+            referencedRelation: "organes"
             referencedColumns: ["id"]
           },
           {
@@ -2646,6 +2800,20 @@ export type Database = {
       machine_statut: "en_marche" | "arret" | "maintenance"
       mouvement_type: "entree" | "sortie" | "correction" | "inventaire"
       of_statut: "planifie" | "en_cours" | "termine" | "annule"
+      organe_statut:
+        | "en_service"
+        | "en_panne"
+        | "en_maintenance"
+        | "hors_service"
+      organe_type:
+        | "mecanique"
+        | "electrique"
+        | "pneumatique"
+        | "hydraulique"
+        | "electronique"
+        | "automatisme"
+        | "instrumentation"
+        | "autre"
       role_fonctionnel:
         | "alimentation"
         | "transformation"
@@ -2845,6 +3013,22 @@ export const Constants = {
       machine_statut: ["en_marche", "arret", "maintenance"],
       mouvement_type: ["entree", "sortie", "correction", "inventaire"],
       of_statut: ["planifie", "en_cours", "termine", "annule"],
+      organe_statut: [
+        "en_service",
+        "en_panne",
+        "en_maintenance",
+        "hors_service",
+      ],
+      organe_type: [
+        "mecanique",
+        "electrique",
+        "pneumatique",
+        "hydraulique",
+        "electronique",
+        "automatisme",
+        "instrumentation",
+        "autre",
+      ],
       role_fonctionnel: [
         "alimentation",
         "transformation",
