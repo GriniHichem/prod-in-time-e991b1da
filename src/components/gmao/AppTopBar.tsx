@@ -157,6 +157,19 @@ function MobileNav() {
             <span className="text-[9px] font-semibold tracking-[0.2em] text-muted-foreground/60 uppercase mt-1">GMAO · GPAO</span>
           </div>
         </div>
+        <RRNavLink
+          to="/apps"
+          className={({ isActive: a }) =>
+            cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-md text-[14px] font-medium mb-2",
+              "text-foreground/75 hover:bg-accent hover:text-foreground",
+              a && "bg-primary/10 text-primary font-semibold"
+            )
+          }
+        >
+          <Menu size={18} />
+          Apps
+        </RRNavLink>
         {renderItems("Maintenance", gmaoItems)}
         <div className="my-3 h-px bg-border/60" />
         {renderItems("Production", gpaoItems)}
