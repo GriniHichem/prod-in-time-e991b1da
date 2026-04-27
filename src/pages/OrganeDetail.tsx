@@ -43,9 +43,9 @@ export default function OrganeDetail() {
     if (!id) return;
     const load = async () => {
       const [oRes, tRes, pRes] = await Promise.all([
-        supabase.from("organes" as any).select("*, machines(id, code, designation), equipements(id, code, designation)").eq("id", id).single(),
-        supabase.from("tickets").select("id, numero, description, statut, priorite").eq("organe_id" as any, id).order("created_at", { ascending: false }),
-        supabase.from("preventive_plans").select("id, title, frequence, statut_plan").eq("organe_id" as any, id),
+        (supabase.from("organes" as any) as any).select("*, machines(id, code, designation), equipements(id, code, designation)").eq("id", id).single(),
+        (supabase.from("tickets") as any).select("id, numero, description, statut, priorite").eq("organe_id", id).order("created_at", { ascending: false }),
+        (supabase.from("preventive_plans") as any).select("id, title, frequence, statut_plan").eq("organe_id", id),
       ]);
       setOrgane(oRes.data);
       setTickets(tRes.data || []);
