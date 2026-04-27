@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { Menu, ChevronDown } from "lucide-react";
+import { Menu, ChevronDown, LayoutGrid } from "lucide-react";
 
 const gmaoItems = [
   { title: "Dashboard", url: "/", icon: IconDashboard },
@@ -231,6 +231,20 @@ export function AppTopBar() {
 
         {/* Primary nav */}
         <nav className="hidden md:flex items-center gap-1">
+          <Button
+            asChild
+            variant="ghost"
+            className={cn(
+              "h-9 px-3 gap-2 text-[13px] font-semibold rounded-md",
+              "text-foreground/70 hover:text-foreground hover:bg-accent/60",
+              isActive(location.pathname, "/apps") && "text-primary bg-primary/10 hover:bg-primary/15 hover:text-primary"
+            )}
+          >
+            <RRNavLink to="/apps">
+              <LayoutGrid size={16} />
+              <span className="hidden lg:inline">Apps</span>
+            </RRNavLink>
+          </Button>
           <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={gmaoItems} active={isGmaoActive} />
           <MegaMenu label="Production" GroupIcon={IconProduction} items={gpaoItems} active={isGpaoActive} />
           <Button
