@@ -56,7 +56,7 @@ export function useNotifications(filters: NotificationFilters, page: number) {
     if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
     if (filters.module) q = q.eq("module", filters.module);
     if (filters.notification_type) q = q.eq("notification_type", filters.notification_type);
-    if (filters.severity) q = q.eq("severity", filters.severity);
+    if (filters.severity) q = q.eq("severity", filters.severity as "info"|"low"|"medium"|"high"|"critical");
     if (filters.recipient_user_id) q = q.eq("recipient_user_id", filters.recipient_user_id);
     if (filters.recipient_role) q = q.eq("recipient_role", filters.recipient_role);
     if (filters.entity_code) q = q.ilike("entity_code", `%${filters.entity_code}%`);
