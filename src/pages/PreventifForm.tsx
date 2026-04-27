@@ -35,12 +35,16 @@ export default function PreventifForm() {
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
   const [machinePdr, setMachinePdr] = useState<any[]>([]);
+  const [equipements, setEquipements] = useState<any[]>([]);
+  const [organes, setOrganes] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     title: "",
     description: "",
     machine_id: "",
     line_id: "",
+    equipement_id: "",
+    organe_id: "",
     frequence: "mensuel",
     type_maintenance: "",
     statut_plan: "brouillon",
