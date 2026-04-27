@@ -33,7 +33,7 @@ export type AuditModule =
   | "gpao" | "of" | "produits" | "articles" | "recettes"
   | "consommations" | "arrets"
   | "documents" | "images"
-  | "parametres" | "audit" | "system";
+  | "parametres" | "audit" | "system" | "notifications";
 
 export interface LogAuditParams {
   action_type: AuditActionType;
