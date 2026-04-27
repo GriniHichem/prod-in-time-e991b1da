@@ -59,6 +59,8 @@ import Apps from "@/pages/Apps";
 import OrganeForm from "@/pages/OrganeForm";
 import OrganeDetail from "@/pages/OrganeDetail";
 import AuditPage from "@/pages/AuditPage";
+import NotificationsPage from "@/pages/NotificationsPage";
+import NotificationRulesAdmin from "@/pages/parametres/NotificationRulesAdmin";
 
 const queryClient = new QueryClient();
 
@@ -152,6 +154,8 @@ const App = () => (
               <Route path="/parametres/general" element={<GeneralSettings />} />
               <Route path="/parametres/pdr-stock-permissions" element={<PdrStockPermissionsAdmin />} />
               <Route path="/audit" element={<AuditPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/parametres/notifications" element={<NotificationRulesAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

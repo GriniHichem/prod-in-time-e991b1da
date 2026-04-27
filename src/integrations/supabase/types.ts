@@ -936,6 +936,162 @@ export type Database = {
           },
         ]
       }
+      notification_rules: {
+        Row: {
+          channels: Json
+          conditions: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          event_type: string
+          excluded_users: Json | null
+          frequency: Database["public"]["Enums"]["notification_frequency"]
+          id: string
+          is_active: boolean
+          is_critical: boolean
+          module: string
+          name: string
+          quiet_hours_enabled: boolean
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          severity: Database["public"]["Enums"]["notification_severity"]
+          target_roles: Json
+          target_users: Json | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          channels?: Json
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type: string
+          excluded_users?: Json | null
+          frequency?: Database["public"]["Enums"]["notification_frequency"]
+          id?: string
+          is_active?: boolean
+          is_critical?: boolean
+          module: string
+          name: string
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          target_roles?: Json
+          target_users?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          channels?: Json
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          event_type?: string
+          excluded_users?: Json | null
+          frequency?: Database["public"]["Enums"]["notification_frequency"]
+          id?: string
+          is_active?: boolean
+          is_critical?: boolean
+          module?: string
+          name?: string
+          quiet_hours_enabled?: boolean
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          target_roles?: Json
+          target_users?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          archived_at: string | null
+          created_at: string
+          deduplication_key: string | null
+          entity_code: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string | null
+          group_key: string | null
+          id: string
+          is_critical: boolean
+          message: string
+          metadata: Json | null
+          module: string
+          notification_type: string
+          read_at: string | null
+          recipient_role: string | null
+          recipient_user_id: string | null
+          rule_id: string | null
+          severity: Database["public"]["Enums"]["notification_severity"]
+          source: string
+          status: Database["public"]["Enums"]["notification_status"]
+          title: string
+          triggered_by_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_url?: string | null
+          archived_at?: string | null
+          created_at?: string
+          deduplication_key?: string | null
+          entity_code?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          group_key?: string | null
+          id?: string
+          is_critical?: boolean
+          message?: string
+          metadata?: Json | null
+          module: string
+          notification_type: string
+          read_at?: string | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
+          rule_id?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          source?: string
+          status?: Database["public"]["Enums"]["notification_status"]
+          title: string
+          triggered_by_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_url?: string | null
+          archived_at?: string | null
+          created_at?: string
+          deduplication_key?: string | null
+          entity_code?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          group_key?: string | null
+          id?: string
+          is_critical?: boolean
+          message?: string
+          metadata?: Json | null
+          module?: string
+          notification_type?: string
+          read_at?: string | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
+          rule_id?: string | null
+          severity?: Database["public"]["Enums"]["notification_severity"]
+          source?: string
+          status?: Database["public"]["Enums"]["notification_status"]
+          title?: string
+          triggered_by_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       of_mode_history: {
         Row: {
           changed_by: string | null
@@ -2764,6 +2920,48 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          id: string
+          in_app_enabled: boolean
+          minimum_severity: Database["public"]["Enums"]["notification_severity"]
+          module: string | null
+          muted: boolean
+          notification_type: string | null
+          push_enabled: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          in_app_enabled?: boolean
+          minimum_severity?: Database["public"]["Enums"]["notification_severity"]
+          module?: string | null
+          muted?: boolean
+          notification_type?: string | null
+          push_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          in_app_enabled?: boolean
+          minimum_severity?: Database["public"]["Enums"]["notification_severity"]
+          module?: string | null
+          muted?: boolean
+          notification_type?: string | null
+          push_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2790,6 +2988,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_notification_rule: {
+        Args: { _module: string; _user_id: string }
+        Returns: boolean
+      }
       check_document_permission: {
         Args: { _action: string; _entity_type: string; _user_id: string }
         Returns: boolean
@@ -2811,6 +3013,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      user_has_role_text: {
+        Args: { _role_text: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
@@ -2861,6 +3067,9 @@ export type Database = {
       intervention_statut: "en_cours" | "terminee" | "annulee"
       machine_statut: "en_marche" | "arret" | "maintenance"
       mouvement_type: "entree" | "sortie" | "correction" | "inventaire"
+      notification_frequency: "immediate" | "grouped_hourly" | "grouped_daily"
+      notification_severity: "info" | "low" | "medium" | "high" | "critical"
+      notification_status: "unread" | "read" | "archived"
       of_statut: "planifie" | "en_cours" | "termine" | "annule"
       organe_statut:
         | "en_service"
@@ -3076,6 +3285,9 @@ export const Constants = {
       intervention_statut: ["en_cours", "terminee", "annulee"],
       machine_statut: ["en_marche", "arret", "maintenance"],
       mouvement_type: ["entree", "sortie", "correction", "inventaire"],
+      notification_frequency: ["immediate", "grouped_hourly", "grouped_daily"],
+      notification_severity: ["info", "low", "medium", "high", "critical"],
+      notification_status: ["unread", "read", "archived"],
       of_statut: ["planifie", "en_cours", "termine", "annule"],
       organe_statut: [
         "en_service",
