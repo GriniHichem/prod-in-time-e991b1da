@@ -175,7 +175,8 @@ export const mockValidationRequests = [
   { id: "vrq-3", rule_id: "vr-3", module: "of", entity_type: "of", requested_action: "cancel", status: "rejected", enforcement: "blocking", priority: "high", title: "Annulation OF-00010", is_blocking: true, submitted_by_user_id: "user-1", rejected_at: "2026-04-28T12:00:00Z", rejection_reason: "Pas justifié", created_at: "2026-04-28T11:30:00Z" },
 ];
 
-
+// Helper to create chainable mock query builder
+function createQueryBuilder(data: any) {
   const builder: any = {};
   const methods = ["select", "insert", "update", "delete", "eq", "neq", "not", "order", "limit", "single", "in", "is", "gt", "lt", "gte", "lte", "like", "ilike"];
   methods.forEach((m) => {
