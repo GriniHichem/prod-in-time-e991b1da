@@ -64,6 +64,8 @@ import NotificationRulesAdmin from "@/pages/parametres/NotificationRulesAdmin";
 import SmtpConfigAdmin from "@/pages/parametres/SmtpConfigAdmin";
 import ValidationsPage from "@/pages/ValidationsPage";
 import ValidationRulesAdmin from "@/pages/parametres/ValidationRulesAdmin";
+import SearchPage from "@/pages/SearchPage";
+import { GlobalSearchProvider } from "@/components/search/GlobalSearchProvider";
 
 const queryClient = new QueryClient();
 
@@ -83,7 +85,11 @@ function ProtectedRoutes() {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  return <AppLayout />;
+  return (
+    <GlobalSearchProvider>
+      <AppLayout />
+    </GlobalSearchProvider>
+  );
 }
 
 const App = () => (
@@ -162,6 +168,7 @@ const App = () => (
               <Route path="/parametres/smtp" element={<SmtpConfigAdmin />} />
               <Route path="/validations" element={<ValidationsPage />} />
               <Route path="/parametres/validations" element={<ValidationRulesAdmin />} />
+              <Route path="/recherche" element={<SearchPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
