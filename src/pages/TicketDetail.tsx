@@ -89,9 +89,39 @@ export default function TicketDetail() {
     const tempsArret = ticket?.heure_declaration ? Math.round((new Date(now).getTime() - new Date(ticket.heure_declaration).getTime()) / 60000) : null;
     const tempsIntervention = ticket?.heure_prise_en_charge ? Math.round((new Date(now).getTime() - new Date(ticket.heure_prise_en_charge).getTime()) / 60000) : null;
 
-    await supabase.from("tickets").update({
+    const { data: updatedTicket } = await supabase.from("tickets").update({
       statut: "resolu" as any, heure_resolution: now, cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention,
-    }).eq("id", id!);
+    }).eq("id", id!).select("id").single();
+
+    // Field First: post-hoc validation request for critical ticket resolution
+    try {
+      const ticketCtx: Record<string, unknown> = {
+        priority: ticket?.priorite,
+        machine_criticite: ticket?.machines?.criticite,
+        impact_ligne: ticket?.impact_ligne,
+      };
+      const { rule, enforcement } = await checkValidationRequired({
+        module: "tickets", action_type: "resolve", entity_type: "ticket", context: ticketCtx,
+      });
+      if (enforcement === "post_hoc" && rule && updatedTicket?.id) {
+        await createValidationRequest({
+          rule,
+          request_type: "resolve",
+          module: "tickets",
+          requested_action: "resolve",
+          entity_type: "ticket",
+          entity_id: id,
+          entity_code: ticket?.numero,
+          entity_label: ticket?.titre || ticket?.description,
+          target_record_id: updatedTicket.id,
+          title: `Résolution ticket ${ticket?.numero}`,
+          description: `Cause: ${causeRacine || "—"} | Solution: ${solution || "—"}`,
+          proposed_values: { cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention },
+          metadata: ticketCtx,
+          action_url: `/tickets/${id}`,
+        });
+      }
+    } catch (e) { console.warn("[validation] ticket resolve check failed", e); }
 
     const activeIntervention = interventions.find((i) => i.statut === "en_cours");
     if (activeIntervention) {
@@ -103,13 +133,39 @@ export default function TicketDetail() {
           if (pdrItem) {
             const stockApres = Math.max(0, pdrItem.stock_actuel - p.quantite);
             await supabase.from("pdr").update({ stock_actuel: stockApres }).eq("id", p.pdr_id);
-            await supabase.from("pdr_stock_movements").insert({
+            const { data: mvt } = await supabase.from("pdr_stock_movements").insert({
               pdr_id: p.pdr_id, type: "sortie" as any, quantite: p.quantite,
               stock_avant: pdrItem.stock_actuel, stock_apres: stockApres,
               source_type: "ticket", source_id: id,
               reference_source: ticket.numero, motif: `Ticket ${ticket.numero}`,
               user_id: user?.id,
-            });
+            }).select("id").single();
+
+            // Post-hoc validation: PDR exit tied to intervention/ticket (never blocks the field action)
+            try {
+              const { rule, enforcement } = await checkValidationRequired({
+                module: "pdr_stock", action_type: "exit_intervention", entity_type: "pdr_movement",
+              });
+              if (enforcement === "post_hoc" && rule && mvt?.id) {
+                await createValidationRequest({
+                  rule,
+                  request_type: "exit_intervention",
+                  module: "pdr_stock",
+                  requested_action: "exit_intervention",
+                  entity_type: "pdr_movement",
+                  entity_id: p.pdr_id,
+                  entity_code: pdrItem.code,
+                  entity_label: pdrItem.designation,
+                  target_record_id: mvt.id,
+                  title: `Sortie PDR ${pdrItem.code} (ticket ${ticket.numero})`,
+                  description: `Quantité: ${p.quantite} | Stock: ${pdrItem.stock_actuel} → ${stockApres}`,
+                  old_values: { stock_actuel: pdrItem.stock_actuel },
+                  proposed_values: { stock_actuel: stockApres, quantite: p.quantite },
+                  metadata: { ticket_id: id, ticket_numero: ticket.numero, intervention_id: activeIntervention.id },
+                  action_url: `/tickets/${id}`,
+                });
+              }
+            } catch (e) { console.warn("[validation] pdr exit check failed", e); }
           }
         }
       }
