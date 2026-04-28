@@ -1,205 +1,200 @@
-# Module Validation & Approbation — V1 (terrain non bloquant)
 
-Principe directeur : **la réalité terrain est prioritaire**. La validation est un contrôle **a posteriori** pour les actions opérationnelles (intervention, sortie PDR liée à un ticket, déclarations shift, résolution technique). Elle est **a priori (bloquante)** uniquement pour un petit ensemble d'actions administratives sensibles (annulation/correction stock manuelle, suppressions, changements de rôles/permissions, modifications rétroactives importantes).
+# Améliorer la fiabilité de création/modification des règles (Notifications & Validations)
 
-Aucun workflow existant n'est cassé. Si aucune règle active ne couvre une action → comportement actuel inchangé.
+## Constat
 
-## Deux modes de validation
+Les deux éditeurs actuels (`src/components/notifications/RuleEditorDialog.tsx` et `src/components/validations/RuleEditorDialog.tsx`) souffrent des mêmes faiblesses :
 
-| Mode | Quand | Effet sur l'action terrain |
-|------|-------|----------------------------|
-| **post_hoc** (par défaut terrain) | Intervention, résolution technique, sortie PDR liée à un ticket, déclaration panne/arrêt, déclaration prod, déclaration consommation shift, clôture shift | Action **appliquée immédiatement**. `validation_status = pending`. Demande créée + responsable notifié. |
-| **blocking** (administratif seulement) | Annulation mouvement stock, correction stock manuelle (hors intervention), correction d'une consommation déjà validée, suppression sensible, changement rôle/permission, modification règle notif/validation, archivage doc sensible | Action **non appliquée** tant que non approuvée. Demande en `submitted`. |
+- **Champs libres non vérifiés** : `event_type`, `module`, `action_type`, `entity_type` sont des `<Input>` texte. Une faute de frappe = règle qui ne se déclenche jamais (silencieux).
+- **Conditions illisibles** : côté Notifications c'est un JSON brut (`{"all":[…]}`), côté Validations un objet caché. Aucun utilisateur métier ne peut le maintenir.
+- **Pas de garde-fous** : aucune détection de doublon (deux règles identiques actives), aucune alerte si `target_roles` est vide (règle qui n'envoie rien à personne), aucune validation que `validator_roles` est non vide pour une règle bloquante.
+- **Pas de prévisualisation** : impossible de tester si la règle se déclencherait sur un cas réel avant de sauver.
+- **Schémas désynchronisés** : le moteur `validation.ts` accepte `{or:[…], min_duration_minutes, ecart_seuil_pct, min_age_hours, …}`, mais l'éditeur n'expose rien — l'admin doit deviner.
+- **Audit incomplet côté Validations** : la création/édition d'une règle n'est pas tracée dans `audit_logs` (seul Notifications le fait).
+- **Aucun test** des règles : pas de "dry run" pour vérifier le matching avant activation.
 
-Le mode est porté par chaque `validation_rule` via un champ `enforcement` enum `post_hoc | blocking`.
+## Objectifs
 
-## Base de données
+1. Guider l'utilisateur avec des **catalogues centralisés** (modules / events / actions / entités) au lieu de saisie libre.
+2. Remplacer le **JSON brut** par un **constructeur visuel de conditions** (avec fallback JSON pour experts).
+3. Ajouter des **validations de cohérence** avant sauvegarde (warnings non bloquants + erreurs bloquantes).
+4. Détecter les **doublons et conflits** au moment d'enregistrer.
+5. Offrir un **dry run** : "Tester cette règle avec ces données" → indique si elle matcherait.
+6. **Auditer** systématiquement create/update/delete pour les deux types de règles.
+7. Préserver tout le code existant (rétro-compatibilité : règles déjà en base continuent à fonctionner).
 
-### Table `validation_requests`
-Tous les champs demandés, plus :
-- `enforcement` enum `post_hoc | blocking` (déduit de la règle au moment de la création)
-- `status` enum : `draft | submitted | pending_post_hoc | approved | rejected | cancelled | applied | archived`
-  - `pending_post_hoc` : action déjà appliquée terrain, en attente de validation responsable
-  - `submitted` : action bloquée, en attente
-- `applied_at` : timestamp de l'application réelle (pour `post_hoc`, == created_at ; pour `blocking`, == approved_at)
-- `target_record_id` : id de l'enregistrement métier déjà créé (pour les cas `post_hoc`, ex: id du `pdr_stock_movements`, id de `consumptions`, id du `tickets`)
-- Indexes : `created_at`, `status`, `module`, `entity_type`, `entity_id`, `submitted_by_user_id`, `assigned_validator_user_id`, `priority`, `enforcement`
+## Plan technique
 
-### Table `validation_rules`
-Champs demandés + :
-- `enforcement` enum `post_hoc | blocking` (default `post_hoc`)
-- `conditions` JSONB simple (égalité / OR sur `priority`, `criticite`, `impact_ligne`, `ecart_seuil`, etc.)
+### 1. Catalogues partagés — `src/lib/ruleCatalog.ts` (nouveau)
 
-### Colonnes ajoutées (toutes nullable, additives)
-- `tickets.validation_status text` (`null | not_required | pending | approved | rejected`)
-- `tickets.validation_request_id uuid`
-- `pdr_stock_movements.validation_status text`, `pdr_stock_movements.validation_request_id uuid`
-- `pdr_stock_movements.applied boolean default true` (toujours `true` en post_hoc ; `false` tant que non approuvé en blocking)
-- `consumptions.validation_status text`, `consumptions.validation_request_id uuid`
-- Aucun statut enum existant n'est modifié.
-
-### RLS
-- `validation_requests` : SELECT ouvert au demandeur, validateur assigné, rôles validateurs de la règle, admin, responsable_si, auditeur. INSERT authenticated. UPDATE via security definer `can_validate_request`. DELETE admin.
-- `validation_rules` : SELECT authenticated. ALL via `can_manage_validation_rule(_user_id, _module)` (admin + responsable_si).
-
-### Permissions
-Module `validations` ajouté à `role_permissions` + table fine `validation_permissions` similaire à `pdr_stock_permissions` :
-`view_own, view_all, submit, approve, reject, cancel, configure_rules, view_technical_details`
-
-Defaults :
-- admin : tout
-- responsable_si : view_all, approve, reject, configure_rules, view_technical_details
-- resp_maintenance : view_all + approve/reject sur scope GMAO/PDR/tickets/préventif/interventions
-- resp_production : view_all + approve/reject sur scope GPAO/OF/conso/arrêts
-- gestionnaire_magasin : submit, view_own, approve uniquement sur règles le permettant
-- maintenancier, chef_ligne, opérateur : submit, view_own
-- auditeur : view_all read-only
-
-## Règles par défaut seedées
-
-| # | Action | enforcement | priority | validateurs |
-|---|--------|-------------|----------|-------------|
-| 1 | Sortie PDR liée à ticket/intervention | `post_hoc` | medium | resp_maintenance, gestionnaire_magasin |
-| 2 | Résolution technique ticket critique (priority=high OR machine.criticite=critique OR impact_ligne=arret_complet) | `post_hoc` | high | resp_maintenance, admin |
-| 3 | Intervention curative terminée | `post_hoc` | medium | resp_maintenance |
-| 4 | Déclaration arrêt long (durée > seuil paramétrable, ex 60 min) | `post_hoc` | high | resp_production |
-| 5 | Clôture shift avec écart consommation important | `post_hoc` | medium | resp_production |
-| 6 | Correction stock manuelle (hors intervention) | **`blocking`** | high | admin, resp_maintenance, gestionnaire_magasin |
-| 7 | Annulation mouvement stock | **`blocking`** | critical | admin, resp_maintenance |
-| 8 | Inventaire stock PDR avec écart > seuil | **`blocking`** | high | gestionnaire_magasin, resp_maintenance |
-| 9 | Correction consommation déjà validée | **`blocking`** | high | resp_production, admin |
-| 10 | Modification rétroactive production (>24h) | **`blocking`** | high | resp_production |
-
-Les règles administratives (changements rôles/permissions, suppressions sensibles, archivage docs) : **structure prête** mais pas de seed en V1 (activable plus tard via `/parametres/validations`).
-
-## Couche logique partagée — `src/lib/validation.ts`
+Source unique de vérité pour modules, events, actions, entités, opérateurs.
 
 ```ts
-// Évalue les règles applicables
-checkValidationRequired({ module, action, entity, context }): {
-  rule: ValidationRule | null;
-  enforcement: 'post_hoc' | 'blocking' | 'none';
-}
+export const MODULES = [
+  { value: "tickets", label: "Tickets / GMAO", group: "Maintenance" },
+  { value: "interventions", label: "Interventions", group: "Maintenance" },
+  { value: "pdr_stock", label: "Stock PDR", group: "Maintenance" },
+  { value: "consommations", label: "Consommations", group: "GPAO" },
+  // …complet
+];
 
-// Mode bloquant : crée la demande, n'applique RIEN
-createBlockingValidationRequest(payload): Promise<ValidationRequest>
+export const NOTIF_EVENTS_BY_MODULE: Record<string, Array<{value: string; label: string; sampleContext: Record<string, unknown>}>> = {
+  tickets: [
+    { value: "ticket_created", label: "Ticket créé", sampleContext: { priority: "high", machine_criticality: "A" } },
+    { value: "ticket_resolved", label: "Ticket résolu", sampleContext: { duration_minutes: 90 } },
+    // …
+  ],
+  // …
+};
 
-// Mode post-hoc : enregistre la demande APRÈS que l'action métier a été appliquée
-recordPostHocValidationRequest({ ...payload, target_record_id }): Promise<ValidationRequest>
+export const VALIDATION_ACTIONS_BY_MODULE: Record<string, Array<{value: string; label: string; entity: string; sampleContext: Record<string, unknown>}>> = {
+  pdr_stock: [
+    { value: "correction", label: "Correction de stock", entity: "pdr_movement", sampleContext: { ecart_pct: 15 } },
+    { value: "inventaire", label: "Ajustement inventaire", entity: "pdr_movement", sampleContext: { ecart_pct: 8 } },
+    // …
+  ],
+  // …
+};
 
-// Approbation
-approveValidationRequest(id, comment): 
-  - blocking → exécute la mutation réelle (apply...) puis status='applied'
-  - post_hoc → marque target_record.validation_status='approved', status='approved'
+export const CONDITION_FIELDS: Record<string, Array<{key: string; label: string; type: "number"|"string"|"enum"; values?: string[]}>> = {
+  // par module : champs disponibles dans le `context` runtime
+  tickets: [
+    { key: "priority", label: "Priorité", type: "enum", values: ["low","medium","high","critical"] },
+    { key: "machine_criticality", label: "Criticité machine", type: "enum", values: ["A","B","C","D"] },
+    { key: "duration_minutes", label: "Durée (min)", type: "number" },
+  ],
+  // …
+};
 
-rejectValidationRequest(id, reason):
-  - blocking → rien à défaire, status='rejected'
-  - post_hoc → marque target_record.validation_status='rejected', notifie demandeur,
-              NE défait PAS automatiquement (un responsable décidera de la correction manuelle)
-              Exception : pour un ticket, le statut métier peut être ramené de "resolu_techniquement" à "en_cours" (champ statut existant inchangé, on agit via validation_status)
-
-cancelValidationRequest(id) // par le demandeur tant que pending
+export const ROLES = [/* unique source */];
 ```
 
-Toutes les transitions appellent `logEvent` (module=`validations`) et `triggerNotification` avec nouveaux events :
-`validation_request.created / approved / rejected / cancelled / applied / overdue`.
-La déduplication 24h `notification_email_log` existante est réutilisée.
+Les deux éditeurs importent ce catalogue. Les sélecteurs `event_type` / `action_type` deviennent dépendants du module choisi (cascade).
 
-## Intégrations métier V1
+### 2. Constructeur de conditions — `src/components/rules/ConditionBuilder.tsx` (nouveau)
 
-### A. PDR — `src/pages/PdrDetail.tsx`
-- **Sortie liée à intervention/ticket** (champ `source_type='ticket'|'intervention'`) : insert mouvement immédiat (stock décrémenté), puis `recordPostHocValidationRequest` selon règle 1. **Aucun blocage**.
-- **Entrée normale, sortie sans ticket** : inchangé, pas de validation.
-- **Correction manuelle / Inventaire / Annulation** : `checkValidationRequired` → si règle `blocking` matche, **ne pas insérer** le mouvement, créer demande `submitted`. Application réelle au moment de l'approbation.
-- Inventaire : la règle 8 ne déclenche le bloquant que si `|stock_compté - stock_actuel| > seuil` (seuil dans `app_settings`, default 5%).
+Composant réutilisable :
 
-### B. Consommations — `src/pages/gpao/ConsumptionPage.tsx`
-- **Saisie shift normale** : inchangée, pas de validation. Si l'écart prévu/réel dépasse seuil règle 5 → `recordPostHocValidationRequest` après insert.
-- **Correction d'une conso déjà validée / hors jour** (cas existant `production_correction`) : règle 9 `blocking` → la modif n'est pas appliquée tant que non approuvée.
+```text
+[ ALL ▼ ]   ← all/any
+  ├── [Champ ▼: priority] [op ▼: =] [valeur: high]   [×]
+  ├── [Champ ▼: duration_minutes] [op ▼: ≥] [valeur: 30]   [×]
+  └── [+ ajouter une condition]   [+ ajouter un sous-groupe]
+```
 
-### C. Tickets — `src/pages/TicketDetail.tsx`
-- **Prise en charge, intervention en cours, saisie résolution technique** : **jamais bloqués**.
-- À la résolution d'un ticket matchant règle 2 (critique) :
-  - on garde le statut métier existant (`resolu` actuel) **inchangé** côté enum
-  - on positionne `tickets.validation_status='pending'`
-  - badge UI "Résolu techniquement — en attente validation responsable"
-  - `recordPostHocValidationRequest` créée
-  - la ligne peut redémarrer, l'intervention est enregistrée, les PDR consommées sont décrémentées
-- Tickets non critiques : workflow strictement inchangé.
+- Champs proposés selon le module sélectionné (depuis `CONDITION_FIELDS`).
+- Opérateurs adaptés au type (`=, ≠, >, ≥, <, ≤, dans, contient`).
+- Bouton **"Voir le JSON"** → mode expert (édition brute, parser sécurisé).
+- Le composant émet l'objet final compatible avec :
+  - le format `notifications.ts` (`{all:[{field,op,value}]}`)
+  - le format `validation.ts` (`{or:[…], min_duration_minutes, …}`) via un adaptateur de sortie.
 
-### D. Interventions
-- `interventions.statut` enum existant inchangé.
-- Ajout colonne nullable `validation_status` sur `interventions`.
-- Règle 3 : à la clôture d'intervention curative → post_hoc, notif resp_maintenance.
+### 3. Pré-flight checks — `src/lib/ruleValidation.ts` (nouveau)
 
-### E. Arrêts production
-- Règle 4 : à la création/clôture d'un arrêt avec durée > seuil → post_hoc, notif resp_production. Pas de blocage de la clôture shift.
+Fonction `validateRulePayload(type, payload, existingRules)` qui retourne :
 
-## Frontend
+```ts
+{ errors: string[]; warnings: string[] }
+```
 
-### Page `/validations` (`src/pages/ValidationsPage.tsx`)
-- KPI : En attente / Critiques / Validées aujourd'hui / Rejetées / Mes demandes / Stock / Maintenance / Production / **Post-hoc en attente** / **Bloquantes en attente**
-- Filtres : période, statut, module, type, priorité, **enforcement (post_hoc/blocking)**, demandeur, validateur, rôle validateur, entité, code, recherche texte (titre/description/justification/code/label/module/type/email/nom). Bouton Reset (`RotateCcw`) selon convention projet.
-- Tableau paginé serveur (50/page). Badge visuel distinct **post_hoc** (gris/info) vs **blocking** (orange/rouge).
-- Sheet détail : titre, description, justification, demandeur, entité (lien), `changed_fields` lisible, priorité, statut, enforcement, commentaire validation, motif rejet, historique. Boutons Approuver / Rejeter / Annuler / Ouvrir entité.
-- Section "Détails techniques" (JSON brut) gated par `validations.view_technical_details`.
+Règles vérifiées :
 
-### Page `/parametres/validations`
-- Liste règles + dialog création/édition (pattern `RuleEditorDialog`).
-- Champs : nom, description, module, entity_type, action_type, **enforcement (post_hoc/blocking)**, is_active, is_required, priority, validator_roles, validator_users, conditions (form simple clé/valeur), auto_approve_if_low_risk.
-- Avertissement UI clair quand l'admin passe une règle terrain en `blocking` : "Cette règle bloquera l'opération terrain en attendant validation. À utiliser uniquement pour des actions administratives."
-- Accessible : admin, responsable_si.
+**Erreurs (bloquent la sauvegarde)** :
+- Nom vide
+- Module / event / action non listés dans le catalogue (sauf si admin coche "Forcer valeur custom")
+- Règle de validation `enforcement="blocking"` sans `validator_roles` ni `validator_users`
+- JSON conditions invalide
+- Opérateurs numériques avec valeur non numérique
 
-### Composants nouveaux
-- `src/components/validations/ValidationKpiCards.tsx`
-- `src/components/validations/ValidationFilters.tsx`
-- `src/components/validations/ValidationTable.tsx`
-- `src/components/validations/ValidationDetailSheet.tsx`
-- `src/components/validations/RuleEditorDialog.tsx`
-- `src/hooks/useValidations.ts`, `src/hooks/useValidationPermissions.ts`
+**Warnings (affichés mais non bloquants)** :
+- `target_roles` vide ET `target_users` vide → "Cette règle ne notifiera personne"
+- Règle identique déjà active (même module + event + conditions sérialisées)
+- Sévérité `critical` + canal `in_app` seul (pas d'email) → "Critique sans email ?"
+- Mode `blocking` sur module terrain (`tickets`, `interventions`) → "Risque de blocage opérationnel"
+- Heures silencieuses activées sur règle critique
 
-### Navigation
-- Entrée "Validations" dans `AppSidebar` (icône `ShieldCheck`) + badge pulse pour demandes pertinentes à l'utilisateur (validateur).
-- Tile dans `/apps` (groupe Sécurité).
-- Tile dans `/parametres` groupe "Sécurité & Accès" → `/parametres/validations`.
+Les warnings s'affichent dans une bannière `<Alert>` au-dessus du footer ; un bouton "Enregistrer quand même" est présenté.
 
-## Audit
-Chaque transition validation génère un log `module=validations` avec entity lisible. Pour éviter la duplication : le log métier existant (mouvement stock, consommation, résolution) reste tel quel ; le log validation est complémentaire (`validation_request.created`, `.approved`, etc.).
+### 4. Dry run — bouton "Tester la règle"
 
-## Sécurité
-- `SENSITIVE_FIELDS` dans `src/lib/validation.ts` : password, token, api_key, smtp_password, document_content. Si modifié → `changed_fields` contient seulement le nom, `old/proposed_values` masquent par `"***"`.
-- Aucune nouvelle exposition de secret.
-- Toutes les nouvelles RLS additives.
+Dans chaque éditeur, sous les conditions :
 
-## Garanties anti-régression
-- Aucun champ existant supprimé/renommé.
-- Aucun statut enum existant modifié (`tickets.statut`, `interventions.statut`, `pdr_stock_movements.type`, `consumptions`, `of_statut` : tous inchangés).
-- Toutes les nouvelles colonnes nullable, defaults compatibles.
-- Si `validation_rules` vide ou règle inactive → branche "no validation" → comportement strictement identique à aujourd'hui.
-- Tests Vitest : `validation-logic.test.ts` (matching règle, enforcement post_hoc vs blocking, conditions), `validations-page.test.tsx` (filtres + permissions), `validation-pdr-flow.test.ts` (sortie urgente non bloquée), `validation-ticket-critical.test.ts` (résolution technique non bloquée).
+```
+[Tester avec un exemple ▾]
+{ priority: "high", duration_minutes: 90 }   ← textarea pré-rempli depuis sampleContext
+[ Lancer le test ]   →  ✓ Cette règle se déclencherait  /  ✗ Conditions non satisfaites
+```
 
-## Fichiers
+- Notifications : appelle `evaluateConditions(sample, conditions)` (déjà exporté).
+- Validations : appelle `matchConditions(conditions, sample)` — il faut **l'exporter** depuis `src/lib/validation.ts` (actuellement privée).
 
-**Migrations**
-- `validation_requests`, `validation_rules`, `validation_permissions`
-- colonnes nullable `validation_status`, `validation_request_id` sur `tickets`, `pdr_stock_movements`, `consumptions`, `interventions`
-- colonne nullable `applied boolean default true` sur `pdr_stock_movements`
-- security definers `can_validate_request`, `can_manage_validation_rule`
-- seed des 10 règles par défaut + permissions par défaut
+### 5. Détection de doublons — au chargement de la liste
 
-**Code nouveau**
-- `src/lib/validation.ts`
-- `src/hooks/useValidations.ts`, `src/hooks/useValidationPermissions.ts`
-- `src/pages/ValidationsPage.tsx`
-- `src/pages/parametres/ValidationRulesAdmin.tsx`
-- `src/components/validations/*` (5 fichiers)
-- `src/test/validations/*`
+Dans `NotificationRulesAdmin.tsx` et `ValidationRulesAdmin.tsx`, après `fetchRules`, regrouper par `(module, event_type|action_type, hash(conditions))`. Afficher un badge `Doublon` discret sur les règles dupliquées avec tooltip indiquant les IDs en conflit. Pas de suppression auto — juste un signal.
 
-**Code modifié (additif uniquement)**
-- `src/App.tsx`, `src/pages/Apps.tsx`, `src/pages/Parametres.tsx`, `src/components/gmao/AppSidebar.tsx`
-- `src/lib/notifications.ts` (nouveaux event_types `validation_request.*`)
-- `src/pages/PdrDetail.tsx` (post_hoc sur sortie liée intervention, blocking sur correction/inventaire/annulation)
-- `src/pages/gpao/ConsumptionPage.tsx` (post_hoc écart shift, blocking correction conso validée)
-- `src/pages/TicketDetail.tsx` (post_hoc résolution critique, jamais bloquant)
-- `MANUAL.md` (chapitre "Validations & Approbations" + tableau post_hoc vs blocking)
-- mémoire projet (`mem://features/validation-system`)
+### 6. Audit complet pour Validation Rules
+
+Ajouter dans `src/components/validations/RuleEditorDialog.tsx` les appels `logAudit()` pour `create`/`update` (pattern identique à Notifications). Ajouter aussi `logAudit` pour `delete` et `toggleActive` dans `ValidationRulesAdmin.tsx`.
+
+### 7. UX cohérente entre les deux dialogues
+
+Les deux éditeurs partagent désormais la même structure visuelle :
+
+```text
+┌─ Identité ───────────────────────────────────┐
+│ Nom *   [_______]   [✓ Active] [✓ Critique]  │
+│ Description (libre)                          │
+└──────────────────────────────────────────────┘
+┌─ Cible ──────────────────────────────────────┐
+│ Module *  [Sélecteur ▼]                      │
+│ Événement * (ou Action *) [Sélecteur ▼]      │
+│ Type d'entité [Sélecteur ▼ - optionnel]      │
+└──────────────────────────────────────────────┘
+┌─ Conditions de déclenchement ────────────────┐
+│ [ConditionBuilder]   [JSON expert ▾]         │
+│ [Tester avec un exemple]                     │
+└──────────────────────────────────────────────┘
+┌─ Destinataires / Validateurs ────────────────┐
+│ Rôles  [chips multi-select]                  │
+│ Utilisateurs spécifiques [combobox] (notif)  │
+└──────────────────────────────────────────────┘
+┌─ Délivrance (notif) / Application (valid) ───┐
+│ Canaux / Fréquence  /  Mode + Priorité       │
+└──────────────────────────────────────────────┘
+
+⚠ Warnings (si présents)            [Annuler] [Enregistrer]
+```
+
+### 8. Aucune migration DB nécessaire
+
+Tous les schémas existants (`notification_rules`, `validation_rules`) supportent déjà `conditions JSONB`. Aucune colonne ajoutée, aucune contrainte modifiée, **rétro-compatibilité totale** des règles existantes.
+
+## Fichiers touchés
+
+**Nouveaux**
+- `src/lib/ruleCatalog.ts`
+- `src/lib/ruleValidation.ts`
+- `src/components/rules/ConditionBuilder.tsx`
+- `src/components/rules/RulePreflight.tsx` (bannière warnings + dry run)
+
+**Modifiés**
+- `src/components/notifications/RuleEditorDialog.tsx` → utilise catalogue + ConditionBuilder + preflight
+- `src/components/validations/RuleEditorDialog.tsx` → idem + audit
+- `src/lib/validation.ts` → exporter `matchConditions` pour le dry run
+- `src/pages/parametres/NotificationRulesAdmin.tsx` → badges doublons
+- `src/pages/parametres/ValidationRulesAdmin.tsx` → badges doublons + audit toggle/delete
+- `MANUAL.md` → section "Création de règles fiables"
+
+**Pas touchés**
+- Moteurs `triggerNotification` et `checkValidationRequired` — formats d'entrée inchangés.
+- Tables Supabase — aucun changement de schéma.
+- Workflows en cours d'exécution — règles existantes continuent de tourner.
+
+## Critères de validation
+
+- Créer une règle Notification sans destinataire → warning visible, sauvegarde possible si confirmée.
+- Créer une règle Validation `blocking` sans validator_roles → erreur bloquante.
+- Saisir `{ priority: "high" }` dans le testeur d'une règle "ticket_resolved si priority=high" → ✓ vert.
+- Faute de frappe sur module → impossible (dropdown).
+- Toute création/modification/suppression apparaît dans `/audit`.
+- Règles existantes en base s'affichent et s'éditent sans perte de données.
