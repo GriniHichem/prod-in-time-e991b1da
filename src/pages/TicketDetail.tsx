@@ -159,6 +159,130 @@ export default function TicketDetail() {
     loadTicket();
   };
 
+  const handleTransfer = async () => {
+    if (!transferTargetId || !handoverMotif.trim() || !id || !user) {
+      toast({ title: "Erreur", description: "Sélectionnez un maintenancier et saisissez un motif", variant: "destructive" });
+      return;
+    }
+    setHandoverBusy(true);
+    try {
+      const now = new Date().toISOString();
+      const targetProfile = maintenanciers.find((m) => m.user_id === transferTargetId);
+      const previousAssigneeId = ticket.assignee_id;
+
+      // 1. Close current active intervention as "transferee"
+      const activeIntervention = interventions.find((i) => i.statut === "en_cours" && i.technicien_id === previousAssigneeId);
+      if (activeIntervention) {
+        await supabase.from("interventions").update({
+          statut: "transferee" as any, date_fin: now,
+          notes: `Transfert vers ${targetProfile?.full_name || "—"} — Motif: ${handoverMotif}`,
+        }).eq("id", activeIntervention.id);
+      }
+
+      // 2. Reassign ticket (keep heure_prise_en_charge for KPI continuity)
+      await supabase.from("tickets").update({ assignee_id: transferTargetId }).eq("id", id);
+
+      // 3. Open new intervention for new assignee
+      await supabase.from("interventions").insert({
+        ticket_id: id, technicien_id: transferTargetId,
+        description: `Reprise après transfert (motif: ${handoverMotif})`,
+        statut: "en_cours" as any,
+      });
+
+      // 4. Audit
+      await logAudit({
+        action_type: "status_change", module: "tickets",
+        entity_type: "ticket", entity_id: id, entity_code: ticket.numero,
+        entity_label: ticket.description, action_label: "Transfert ticket",
+        description: `Transfert de ${assigneeName || "—"} vers ${targetProfile?.full_name || "—"} — ${handoverMotif}`,
+        old_values: { assignee_id: previousAssigneeId },
+        new_values: { assignee_id: transferTargetId },
+        metadata: { motif: handoverMotif, event: "ticket.transferred" },
+        severity: "medium",
+      });
+
+      // 5. In-app notification to new assignee
+      await supabase.from("notifications").insert({
+        notification_type: "ticket_transferred", module: "tickets",
+        title: `Ticket transféré : ${ticket.numero}`,
+        message: `${assigneeName || "Un maintenancier"} vous a transféré ce ticket. Motif : ${handoverMotif}`,
+        recipient_user_id: transferTargetId,
+        triggered_by_user_id: user.id,
+        entity_type: "ticket", entity_id: id, entity_code: ticket.numero,
+        entity_label: ticket.description,
+        action_url: `/tickets/${id}`,
+        severity: "info" as any,
+      });
+
+      toast({ title: "Ticket transféré", description: `Repris par ${targetProfile?.full_name || "—"}` });
+      setTransferTargetId(""); setHandoverMotif("");
+      loadTicket();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    } finally {
+      setHandoverBusy(false);
+    }
+  };
+
+  const handleRelease = async () => {
+    if (!handoverMotif.trim() || !id || !user) {
+      toast({ title: "Erreur", description: "Saisissez un motif de libération", variant: "destructive" });
+      return;
+    }
+    setHandoverBusy(true);
+    try {
+      const now = new Date().toISOString();
+      const previousAssigneeId = ticket.assignee_id;
+
+      // 1. Close current intervention as "liberee"
+      const activeIntervention = interventions.find((i) => i.statut === "en_cours" && i.technicien_id === previousAssigneeId);
+      if (activeIntervention) {
+        await supabase.from("interventions").update({
+          statut: "liberee" as any, date_fin: now,
+          notes: `Libération du ticket — Motif: ${handoverMotif}`,
+        }).eq("id", activeIntervention.id);
+      }
+
+      // 2. Release ticket back to pool
+      await supabase.from("tickets").update({
+        assignee_id: null, statut: "ouvert" as any, heure_prise_en_charge: null,
+      }).eq("id", id);
+
+      // 3. Audit
+      await logAudit({
+        action_type: "status_change", module: "tickets",
+        entity_type: "ticket", entity_id: id, entity_code: ticket.numero,
+        entity_label: ticket.description, action_label: "Libération ticket",
+        description: `Libération par ${assigneeName || "—"} — ${handoverMotif}`,
+        old_values: { assignee_id: previousAssigneeId, statut: ticket.statut },
+        new_values: { assignee_id: null, statut: "ouvert" },
+        metadata: { motif: handoverMotif, event: "ticket.released" },
+        severity: "medium",
+      });
+
+      // 4. Notify maintenance pool (resp_maintenance role)
+      await supabase.from("notifications").insert({
+        notification_type: "ticket_released", module: "tickets",
+        title: `Ticket libéré : ${ticket.numero}`,
+        message: `${assigneeName || "Un maintenancier"} a libéré ce ticket. Motif : ${handoverMotif}`,
+        recipient_role: "maintenancier",
+        triggered_by_user_id: user.id,
+        entity_type: "ticket", entity_id: id, entity_code: ticket.numero,
+        entity_label: ticket.description,
+        action_url: `/tickets/${id}`,
+        severity: "warning" as any,
+      });
+
+      toast({ title: "Ticket libéré", description: "Disponible pour reprise" });
+      setHandoverMotif("");
+      loadTicket();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    } finally {
+      setHandoverBusy(false);
+    }
+  };
+
   const addPdr = () => {
     if (!newPdrId) return;
     setSelectedPdr((prev) => {
