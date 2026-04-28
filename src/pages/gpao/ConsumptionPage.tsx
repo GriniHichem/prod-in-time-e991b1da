@@ -215,53 +215,55 @@ export default function ConsumptionPage() {
               ))}
             </div>
           ) : (
-            /* Desktop/tablet: table */
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>OF</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Article</TableHead>
-                  <TableHead>Quantité</TableHead>
-                  <TableHead>Unité</TableHead>
-                  <TableHead>Shift</TableHead>
-                  <TableHead>Date</TableHead>
-                  {canCorrect && <TableHead className="w-20">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground"><Package className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucune consommation</TableCell></TableRow>
-                ) : filtered.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono">{c.ordres_fabrication?.numero}</TableCell>
-                    <TableCell className="w-10">
-                      <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
-                    </TableCell>
-                    <TableCell>{c.articles?.code} — {c.articles?.designation}</TableCell>
-                    <TableCell className="tabular-nums font-medium">{c.quantite}</TableCell>
-                    <TableCell>{c.unite}</TableCell>
-                    <TableCell className="text-xs">
-                      {c.shifts?.shift_type === "matin" ? "Matin" : c.shifts?.shift_type === "apres_midi" ? "Après-midi" : c.shifts?.shift_type === "nuit" ? "Nuit" : "—"}
-                      {c.shifts?.shift_teams?.name && <span className="text-muted-foreground ml-1">({c.shifts.shift_teams.name})</span>}
-                    </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">{c.shifts?.date_shift || new Date(c.created_at).toLocaleDateString("fr-FR")}</TableCell>
-                    {canCorrect && (
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(c)} title="Corriger">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openAudit(c.id)} title="Historique">
-                            <History className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+            /* Desktop/tablet: scrollable table with sticky first column */
+            <div className="w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="first-col-sticky min-w-[120px]">OF</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead className="min-w-[220px]">Article</TableHead>
+                    <TableHead>Quantité</TableHead>
+                    <TableHead>Unité</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Date</TableHead>
+                    {canCorrect && <TableHead className="w-20">Actions</TableHead>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={canCorrect ? 8 : 7} className="text-center py-8 text-muted-foreground"><Package className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucune consommation</TableCell></TableRow>
+                  ) : filtered.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="first-col-sticky font-mono">{c.ordres_fabrication?.numero}</TableCell>
+                      <TableCell className="w-10">
+                        <EntityThumbnail imageUrl={articleImageMap[c.article_id]} alt={c.articles?.designation} size="sm" rounded="md" />
+                      </TableCell>
+                      <TableCell>{c.articles?.code} — {c.articles?.designation}</TableCell>
+                      <TableCell className="tabular-nums font-medium">{c.quantite}</TableCell>
+                      <TableCell>{c.unite}</TableCell>
+                      <TableCell className="text-xs">
+                        {c.shifts?.shift_type === "matin" ? "Matin" : c.shifts?.shift_type === "apres_midi" ? "Après-midi" : c.shifts?.shift_type === "nuit" ? "Nuit" : "—"}
+                        {c.shifts?.shift_teams?.name && <span className="text-muted-foreground ml-1">({c.shifts.shift_teams.name})</span>}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-muted-foreground">{c.shifts?.date_shift || new Date(c.created_at).toLocaleDateString("fr-FR")}</TableCell>
+                      {canCorrect && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(c)} title="Corriger">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openAudit(c.id)} title="Historique">
+                              <History className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

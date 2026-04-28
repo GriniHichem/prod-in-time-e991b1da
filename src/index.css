@@ -136,6 +136,25 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Sticky first column inside a horizontally scrolling table.
+     Use on the FIRST <th>/<td> of every row in a ScrollTable. */
+  .first-col-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: hsl(var(--card));
+    box-shadow: inset -1px 0 0 hsl(var(--border));
+  }
+  thead .first-col-sticky {
+    background: hsl(var(--muted));
+    z-index: 2;
+  }
+
+  /* Safe-area padding helpers for mobile */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }
 
 /* Sidebar active item glow effect */
