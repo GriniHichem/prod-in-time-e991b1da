@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, Edit, History, ShieldAlert } from "lucide-react";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
+import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 
 export default function ConsumptionPage() {
   const { user, hasRole } = useAuth();
