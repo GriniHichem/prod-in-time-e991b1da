@@ -44,6 +44,11 @@ export default function TicketDetail() {
   const [newCollabRole, setNewCollabRole] = useState<"aide" | "co_intervenant">("aide");
   const [assigneeName, setAssigneeName] = useState<string>("");
 
+  // Handover (transfer / release)
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [handoverMotif, setHandoverMotif] = useState("");
+  const [handoverBusy, setHandoverBusy] = useState(false);
+
   const loadTicket = async () => {
     if (!id) return;
     const { data } = await supabase
