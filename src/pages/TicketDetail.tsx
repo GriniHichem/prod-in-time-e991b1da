@@ -253,6 +253,19 @@ export default function TicketDetail() {
           }
         }
       }
+      // Insert one "Collaboration" intervention per active collaborator
+      if (collaborators.length > 0) {
+        await supabase.from("interventions").insert(
+          collaborators.map((c) => ({
+            ticket_id: id!,
+            technicien_id: c.user_id,
+            description: `Collaboration (${c.role_label === "co_intervenant" ? "co-intervenant" : "aide"})`,
+            statut: "terminee" as any,
+            date_debut: ticket?.heure_prise_en_charge || now,
+            date_fin: now,
+          }))
+        );
+      }
     }
     toast({ title: "Ticket résolu" });
     setSelectedPdr([]);
