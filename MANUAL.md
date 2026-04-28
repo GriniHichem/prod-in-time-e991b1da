@@ -796,6 +796,67 @@ L'administration est organisée en **4 pôles** :
 |------|-------------|
 | **Paramètres généraux** (`/parametres/general`) | Paramètres système (clé/valeur) — ex. `tolerance_saisie_heures` |
 | **Media / Images** (`/parametres/images`) | Taille maximale d'image (Mo) |
+| **Notifications** (`/parametres/notifications`) | Règles de notifications par module (sévérité, canaux, destinataires) |
+| **SMTP & Emails** (`/parametres/smtp`) | Configuration du serveur SMTP self-hosted, test d'envoi, paramètres globaux email |
+
+---
+
+## 6 bis. Notifications & Emails
+
+Système complet de notifications in-app + emails via SMTP **self-hosted** (aucune dépendance à un service tiers type Resend/SendGrid).
+
+### 6 bis.1 Architecture
+
+- **Notifications in-app** : table `notifications` + cloche temps-réel (`NotificationBell`) + page `/notifications`.
+- **Règles configurables** (`notification_rules`) : pour chaque évènement métier (ticket créé, OF en retard, PDR sous min…), on définit la sévérité, les canaux (`in_app`, `email`) et les destinataires (rôle ou utilisateur).
+- **Emails** : envoyés par l'edge function `send-notification-email` via SMTP (denomailer), uniquement si la règle inclut le canal `email` et que `notif_email_enabled = true`.
+- **Déduplication** : table `notification_email_log` empêche le ré-envoi du même email (même `dedup_key` + destinataire) sous 24 h.
+- **Cron quotidien** (06:00 UTC) : edge function `check-deadlines` scanne tickets, plans préventifs et OF pour générer les notifications d'échéance/retard.
+
+### 6 bis.2 Configuration SMTP (`/parametres/smtp`)
+
+Réservé à l'**Admin**. Tous les paramètres sont stockés dans `app_settings` (clé/valeur) — aucune variable d'environnement à éditer.
+
+| Champ | Clé `app_settings` | Exemple |
+|-------|--------------------|---------|
+| Hôte SMTP | `smtp_host` | `mail.exemple.com` |
+| Port | `smtp_port` | `587` (STARTTLS) ou `465` (SSL) |
+| Sécurité | `smtp_secure` | `tls` / `ssl` / `none` |
+| Utilisateur | `smtp_user` | `notifications@exemple.com` |
+| Mot de passe | `smtp_password` | masqué `••••••••` après sauvegarde |
+| Email expéditeur | `smtp_from_email` | `no-reply@exemple.com` |
+| Nom expéditeur | `smtp_from_name` | `PROD IN TIME` |
+| Email support | `support_email` | affiché en pied d'email |
+| Activer emails | `notif_email_enabled` | `true` / `false` |
+| Délai rappel défaut (j) | `notif_rappel_jours_defaut` | `1` à `30` |
+
+**Bouton "Envoyer un email de test"** : appelle `send-test-email` avec une adresse cible et affiche un toast succès/erreur avec le message technique exact retourné par le serveur SMTP.
+
+### 6 bis.3 Règles de notification (`/parametres/notifications`)
+
+Pour chaque règle :
+- **Évènement** (clé technique, ex. `ticket.created`, `of.late`, `pdr.below_min`)
+- **Sévérité** : `info`, `low`, `medium`, `high`, `critical` (couleur du bandeau email)
+- **Canaux** : `in_app` ✅ et/ou `email` ✉️
+- **Destinataires** : rôle (fan-out vers tous les utilisateurs du rôle) ou utilisateur précis
+- **Activée** : on/off
+
+### 6 bis.4 Workflow d'envoi
+
+1. Un évènement métier appelle `triggerNotification(...)` (`src/lib/notifications.ts`).
+2. La règle correspondante est lue ; une ligne est insérée dans `notifications`.
+3. Si la règle contient `email`, `send-notification-email` est invoquée.
+4. La fonction résout les destinataires, vérifie la déduplication 24 h, envoie via SMTP, et journalise dans `notification_email_log` (`queued` → `sent` / `failed` / `skipped`).
+
+### 6 bis.5 Cas d'erreur SMTP fréquents
+
+| Symptôme | Cause | Action |
+|----------|-------|--------|
+| `connection refused` | Hôte/port faux ou bloqué | Vérifier hôte, port, ouverture pare-feu |
+| `authentication failed` | Login/mot de passe invalide | Re-saisir le mot de passe (champ vide = inchangé) |
+| `self signed certificate` | Certificat non fiable | Passer en `tls` strict ou `none` selon politique |
+| Email envoyé non reçu | Filtré spam / SPF manquant | Configurer SPF/DKIM côté domaine expéditeur |
+| `notif_email_enabled=false` | Emails globalement désactivés | Activer le toggle dans `/parametres/smtp` |
 
 ---
 
