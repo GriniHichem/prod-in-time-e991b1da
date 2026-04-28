@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, User, Wrench, Factory, Package, Users, X } from "lucide-react";
+import { ArrowLeft, Clock, User, Wrench, Factory, Package, Users, X, ArrowRightLeft, UserMinus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { StickyActionBar } from "@/components/responsive/StickyActionBar";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
+import { logAudit } from "@/lib/audit";
 
 export default function TicketDetail() {
   const { id } = useParams();
