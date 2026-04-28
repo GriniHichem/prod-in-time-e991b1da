@@ -1,143 +1,136 @@
+
+# Recherche Avancée — Moteur de recherche global
+
+## Constat actuel
+Chaque liste a sa propre recherche locale (filtre côté client sur `code` + `designation`). Aucune recherche globale, aucune indexation plein-texte (FTS), aucune recherche dans : commentaires, notes d'intervention, journaux audit, notifications, rapports analytiques, mouvements PDR, OF, validations, etc. Les utilisateurs ne peuvent pas trouver "ce ticket que j'ai vu la semaine dernière" sans naviguer module par module.
+
 ## Objectif
+Une seule barre de recherche, accessible partout (raccourci `⌘K` / `Ctrl+K`), capable de :
+- chercher par mot-clé dans **tous les modules** (machines, équipements, organes, lignes, PDR, tickets, interventions, OF, produits, articles, recettes, consommations, arrêts, préventif, utilisateurs, validations, notifications, audit, documents),
+- chercher dans le **contenu libre** (notes, descriptions, motifs, commentaires fournisseurs, raisons d'audit),
+- chercher **dans les rapports** (KPI exportés, journaux d'intervention, libellés audit),
+- proposer des **résultats groupés par module** avec aperçu, score de pertinence, badges (statut, criticité), et navigation directe vers la fiche.
 
-Renforcer la fiabilité des modules **Notifications** et **Validations** avec :
-1. Une **suite de tests Vitest** couvrant un maximum de scénarios sur la logique pure (matchers, pré-flight, doublons, dispatcher, dedup).
-2. Un **jeu de règles de démonstration** (seed SQL) couvrant les cas typiques d'usine pour permettre un test manuel exhaustif.
+## Architecture cible
 
-Aucun changement de schéma n'est nécessaire — uniquement de nouveaux fichiers de tests, un mock enrichi et une migration "seed" idempotente.
+```text
+┌──────────────────────────────────────────────────┐
+│  TopBar  [ 🔍 Rechercher partout…  ⌘K ]          │
+└──────────────┬───────────────────────────────────┘
+               │ (ouvre)
+        ┌──────▼──────────────────────────┐
+        │ CommandPalette (Dialog)         │
+        │  • résultats live (debounce)    │
+        │  • groupés par module           │
+        │  • "Voir tous les résultats →"  │
+        └──────┬──────────────────────────┘
+               │
+        ┌──────▼──────────────────────────┐
+        │  /recherche?q=…&modules=…&…     │
+        │   page complète + facettes      │
+        └─────────────────────────────────┘
+```
 
----
+Backend = vue PostgreSQL `search_index` matérialisée logiquement (UNION ALL) + colonnes `tsvector` + RPC `global_search(q, modules[], filters)` qui :
+1. Tokenise la requête (FTS français + trigram fallback pour fautes de frappe),
+2. Filtre par module / date / statut / criticité,
+3. Respecte les RLS (fonction `SECURITY INVOKER` → l'utilisateur ne voit que ce qu'il peut voir),
+4. Renvoie : `module, entity_id, code, label, snippet (extrait surligné), score, severity, url, updated_at`.
 
-## 1. Tests unitaires (Vitest, logique pure)
+## Phases
 
-### `src/test/notifications/match-conditions.test.ts`
-Couvre `matchConditions` de `src/lib/validation.ts` :
-- conditions nulles → match
-- égalité simple (`priority: "high"`)
-- tableau de valeurs (`priority: ["high","critical"]`)
-- groupe `or` (au moins un sous-groupe matche)
-- seuils numériques : `min_duration_minutes`, `ecart_seuil_pct` (valeur absolue), `min_age_hours`
-- contexte vide ou champ absent → faux pour seuils, faux pour égalité
-- combinaisons multi-clés (AND implicite)
+### Phase 1 — Infra recherche (DB)
+- Activer extensions `pg_trgm` (déjà active) et `unaccent`.
+- Ajouter colonnes `search_vector tsvector` + index GIN sur tables principales : `machines, equipements, organes, lignes, pdr, tickets, interventions, ordres_fabrication, products, articles, recipes, consumptions, arrets, preventif_plans, notifications, audit_logs, validation_requests, entity_documents, pdr_stock_movements, pdr_family_suppliers`.
+- Triggers `tsvector_update` (config `french` + unaccent) sur INSERT/UPDATE rebuilding depuis `code, designation, description, notes, motif, ...`.
+- Backfill une fois pour les lignes existantes.
+- RPC `public.global_search(q text, modules text[] default null, date_from date default null, date_to date default null, severities text[] default null, limit_per_module int default 10)` :
+  - utilise `plainto_tsquery` + fallback `similarity()` ≥ 0.25 si <3 résultats,
+  - `ts_headline()` pour le snippet surligné,
+  - `SECURITY INVOKER` → RLS appliquée naturellement,
+  - tri : `ts_rank * recency_boost`.
+- RPC `public.search_suggest(q text)` pour autocomplete (top 8 codes/désignations/numéros).
 
-### `src/test/notifications/evaluate-conditions.test.ts`
-Couvre `evaluateConditions` (moteur `all`/`any` de `src/lib/notifications.ts`) :
-- groupe `all` avec leaves `eq`/`gte`/`in`
-- groupe `any` (un seul vrai suffit)
-- imbrication `all > any > leaf`
-- opérateurs : `eq, neq, gt, gte, lt, lte, in, nin, contains` (chaîne insensible à la casse)
-- chemin imbriqué (`metadata.criticality`) via `getField`
-- types incompatibles (string vs number sur `gt`) → faux
-- conditions nulles ou indéfinies → vrai
+### Phase 2 — Hook + couche client
+- `src/lib/search.ts` : `globalSearch()`, `searchSuggest()`, parsing requêtes avancées (`module:tickets statut:ouvert criticité:A "fuite huile"`).
+- `src/hooks/useGlobalSearch.ts` : `useQuery` avec debounce 250 ms, cache 30 s, abort sur changement.
+- Catalogue `src/lib/searchCatalog.ts` : mapping module → icône, route, formateur de snippet, badges affichés.
 
-### `src/test/notifications/build-entity-url.test.ts`
-- Tous les `entity_type` listés (machine, ticket, of, article…) renvoient l'URL correcte.
-- Type inconnu → `null`.
-- `entity_id` manquant → `null`.
+### Phase 3 — UI Command Palette (omnisearch)
+- `src/components/search/GlobalSearchPalette.tsx` basé sur `cmdk` (déjà inclus via shadcn `Command`).
+- Raccourci global `⌘K` / `Ctrl+K` + `/` (monté dans `App.tsx`).
+- Bouton 🔍 dans la `TopBar` (header), visible mobile + desktop.
+- Affichage : groupes par module, snippet surligné, badge statut, date relative, sous-texte "Entrer pour ouvrir / ⇧ Entrer pour ouvrir dans un onglet".
+- Historique des recherches récentes (`localStorage`, 8 dernières).
 
-### `src/test/rules/preflight-notif-rule.test.ts`
-- Nom/module/event manquants → erreurs.
-- Module hors catalogue (sans `allowCustom`) → erreur ; avec `allowCustom` → OK.
-- Event non standard pour le module → warning seulement.
-- Aucun destinataire (roles + users) → warning.
-- `channels` vide → erreur.
-- Sévérité `critical` sans canal email → warning.
-- Règle critique + quiet hours → warning.
-- Conditions JSON string invalide → erreur ; valide → OK.
+### Phase 4 — Page /recherche (résultats complets + facettes)
+- `src/pages/SearchPage.tsx` :
+  - Barre principale avec opérateurs supportés affichés en astuce,
+  - Sidebar de **facettes** : Modules, Période (Aujourd'hui/7j/30j/Custom), Statuts, Criticité, Auteur, Tags,
+  - Résultats : tableau riche groupé (onglets par module + onglet "Tous"),
+  - Pagination par module (`limit_per_module` + "Voir plus dans Tickets →"),
+  - Export CSV des résultats (`/mnt/documents/recherche_export_*.csv`),
+  - URL synchronisée (`?q=&modules=&from=&to=&sev=`) partageable.
 
-### `src/test/rules/preflight-validation-rule.test.ts`
-- Champs obligatoires manquants → erreurs.
-- Action hors catalogue → warning.
-- `enforcement=blocking` sans validateur → **erreur bloquante** (cas critique du retour utilisateur).
-- `enforcement=blocking` sur module terrain (`tickets`, `interventions`, `pdr_stock`) → warning.
-- Validateurs présents (roles ou users) → pas d'erreur.
+### Phase 5 — Recherche dans les rapports
+- Module "Rapports" indexé : libellés audit (`action_label, description, entity_label`), KPI snapshots, journaux d'intervention.
+- Vue `report_search_view` qui agrège : audit_logs (filtré par `has_audit_access`), interventions clôturées (avec extraits notes), OF terminés.
+- Résultat affiché avec badge "Rapport" + lien direct vers `/audit?id=…` ou `/maintenance/journal?intervention=…`.
 
-### `src/test/rules/find-duplicates.test.ts`
-- 2 règles inactives identiques → pas de doublon (filtre `is_active`).
-- 2 règles actives identiques (module/event/conditions) → doublon détecté.
-- Conditions différentes → pas de doublon.
-- Plusieurs groupes de doublons indépendants → tous remontés.
+### Phase 6 — Qualité & sécurité
+- Tests Vitest : tokenisation, opérateurs (`module:`, `statut:`, `"phrase exacte"`, `-exclusion`), parsing dates, fallback trigram.
+- Audit log automatique (`logAudit('search.executed', {q, modules, count})`) — sans stocker la requête en clair pour l'admin si elle contient des données sensibles (anonymisation > 100 chars).
+- Respect strict RLS via `SECURITY INVOKER`.
+- Limitation : 50 résultats / module / requête, requêtes < 200 chars, debounce serveur via `pg_sleep`-free.
 
-### `src/test/rules/rule-catalog.test.ts`
-Garde-fou sur le catalogue (évite les régressions silencieuses) :
-- Tous les `MODULES` ont un `label` et un `group`.
-- Chaque clé de `NOTIF_EVENTS_BY_MODULE` et `VALIDATION_ACTIONS_BY_MODULE` existe dans `MODULES`.
-- `getConditionFields` retourne au moins le set commun pour un module non listé.
-- Les `defaultEnforcement` sont bien `post_hoc` ou `blocking`.
+## Détails techniques
 
-### `src/test/notifications/dedup-window.test.ts`
-Test indirect : exporter (ou répliquer) la logique de fenêtre :
-- `immediate` → 5 min
-- `grouped_hourly` → 1h
-- `grouped_daily` → 24h
-Si la fonction reste interne, on testera via un petit wrapper exporté.
+**Opérateurs supportés**
+- `mot1 mot2` → AND
+- `"phrase exacte"` → match phrase
+- `-mot` → exclusion
+- `module:tickets` / `module:pdr,machines`
+- `statut:ouvert` `crit:A` `priorité:haute`
+- `from:2026-01-01 to:2026-04-30`
+- `auteur:jdupont` `numero:TKT-00123`
 
-### Mock Supabase enrichi (`src/test/__mocks__/supabase.ts`)
-Ajout de :
-- `mockNotificationRules` (3 règles : tickets/critical, pdr_stock/out, audit/critical)
-- `mockValidationRules` (3 règles : pdr correction blocking, ticket close post_hoc, of cancel blocking)
-- `mockNotifications` (in_app non lue, lue, archivée)
-- `mockValidationRequests` (1 submitted, 1 approved, 1 rejected)
-- Entrées correspondantes dans `fromMap`.
+**Pertinence**
+```
+score = ts_rank_cd(search_vector, query)
+      * (1 + 0.3 * is_exact_code_match)
+      * recency_decay(updated_at)   -- 1.0 < 7j, 0.7 < 30j, 0.4 sinon
+      + 0.2 * trigram_similarity    -- fallback fautes de frappe
+```
 
----
+**Snippet** : `ts_headline('french', source_text, query, 'StartSel=<mark>,StopSel=</mark>,MaxWords=20,MinWords=8')`.
 
-## 2. Seed de règles de démonstration
+## Fichiers prévus
 
-### `supabase/migrations/<timestamp>_seed_notification_validation_rules.sql`
-Migration **idempotente** (`ON CONFLICT DO NOTHING` ou `WHERE NOT EXISTS`), insère un jeu réaliste pour pouvoir tester chaque chemin dans l'UI.
+**Migrations SQL**
+- `add_search_vectors_<entities>.sql` (colonnes + index GIN + triggers, par lot pour rester < 60 s)
+- `create_global_search_rpc.sql`
+- `create_report_search_view.sql`
 
-**Notification rules (≈10) :**
-| Module | Event | Sévérité | Conditions | Canaux |
-|---|---|---|---|---|
-| tickets | ticket_created | critical | `priority in [high,critical]` ou `machine_criticality=A` | in_app+email |
-| tickets | ticket_resolved | info | `min_duration_minutes=60` | in_app |
-| pdr_stock | pdr_stock_critical | high | `stock_actuel <= stock_min` | in_app+email |
-| pdr_stock | pdr_stock_out | critical | aucune | in_app+email |
-| pdr_stock | pdr_dead_age | high | `age_jours >= 365` | in_app |
-| preventif | preventive_late | high | `days_late >= 3` | in_app+email |
-| consommations | production_declaration_missing | medium | `hours_late >= 2` | in_app |
-| consommations | consumption_correction | medium | `ecart_seuil_pct=10` | in_app |
-| audit | audit_critical_event | critical | aucune (catch-all) | in_app+email |
-| users | user_role_changed | high | aucune | in_app+email |
+**Code**
+- `src/lib/search.ts`, `src/lib/searchCatalog.ts`, `src/lib/searchQueryParser.ts`
+- `src/hooks/useGlobalSearch.ts`, `src/hooks/useSearchSuggest.ts`
+- `src/components/search/GlobalSearchPalette.tsx`
+- `src/components/search/SearchResultItem.tsx`
+- `src/components/search/SearchFacets.tsx`
+- `src/components/search/SearchTrigger.tsx` (bouton TopBar)
+- `src/pages/SearchPage.tsx`
+- Modifs : `src/App.tsx` (route + raccourci global), `src/components/gmao/AppSidebar.tsx` (entrée "Recherche"), header layout.
 
-**Validation rules (≈8) :**
-| Module | Action | Enforcement | Conditions | Validateurs |
-|---|---|---|---|---|
-| pdr_stock | correction | blocking | `ecart_seuil_pct=5` | resp_maintenance, admin |
-| pdr_stock | inventaire | blocking | aucune | resp_maintenance, admin |
-| pdr_stock | exit | post_hoc | aucune | resp_maintenance |
-| tickets | resolve_critical | post_hoc | `priority in [high,critical]` | resp_maintenance |
-| tickets | reopen | blocking | aucune | resp_maintenance, admin |
-| consommations | correction | blocking | `ecart_seuil_pct=15` | resp_production |
-| of | cancel | blocking | aucune | resp_production, admin |
-| users | role_change | blocking | aucune | admin, responsable_si |
+**Tests**
+- `src/test/search/query-parser.test.ts`
+- `src/test/search/catalog.test.ts`
+- `src/test/search/rank-scoring.test.ts`
 
-Chaque règle est insérée seulement si `name` n'existe pas déjà → relance sans danger.
+## Mémoire à enregistrer après implémentation
+- Convention : toute nouvelle table indexable doit ajouter `search_vector` + trigger + entrée dans `searchCatalog.ts`.
+- Raccourci global `⌘K` réservé à la palette de recherche.
 
----
-
-## 3. Bénéfices pour l'utilisateur
-
-- **Fiabilité** : chaque ajout futur sur le catalogue ou le moteur de conditions casse immédiatement les tests si une régression est introduite.
-- **Démo / QA** : l'admin peut ouvrir `/parametres/notifications` et `/parametres/validations` et voir une dizaine de règles réalistes pré-configurées, prêtes à tester (création de ticket, sortie PDR, correction conso, etc.).
-- **Pas d'impact runtime** : aucune nouvelle dépendance, aucune modification du code applicatif.
-
----
-
-## Fichiers créés/modifiés
-
-**Nouveaux :**
-- `src/test/notifications/match-conditions.test.ts`
-- `src/test/notifications/evaluate-conditions.test.ts`
-- `src/test/notifications/build-entity-url.test.ts`
-- `src/test/notifications/dedup-window.test.ts`
-- `src/test/rules/preflight-notif-rule.test.ts`
-- `src/test/rules/preflight-validation-rule.test.ts`
-- `src/test/rules/find-duplicates.test.ts`
-- `src/test/rules/rule-catalog.test.ts`
-- `supabase/migrations/<timestamp>_seed_notification_validation_rules.sql`
-
-**Modifiés :**
-- `src/test/__mocks__/supabase.ts` → ajout des datasets règles/notifications/requests
-- `src/lib/notifications.ts` → mineur : exporter `dedupWindowSince` (ou un alias) pour le test
+## Hors-scope (proposable plus tard)
+- Recherche sémantique (embeddings via Lovable AI),
+- Recherche dans le contenu OCR des PDF (Storage),
+- "Recherches sauvegardées" + alertes par email quand un nouveau résultat matche.
