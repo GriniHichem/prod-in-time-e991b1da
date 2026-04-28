@@ -66,6 +66,17 @@ interface NotificationRule {
   is_critical: boolean;
 }
 
+async function dispatchEmailIfNeeded(notificationId: string, ruleChannels: NotificationChannel[]) {
+  if (!ruleChannels.includes("email")) return;
+  try {
+    await supabase.functions.invoke("send-notification-email", {
+      body: { notification_id: notificationId },
+    });
+  } catch (e) {
+    if (typeof console !== "undefined") console.warn("[notifications] email dispatch failed", e);
+  }
+}
+
 // =============================================
 // Conditions engine (no eval)
 // =============================================
@@ -167,6 +178,7 @@ export async function triggerNotification(params: TriggerNotificationParams): Pr
     const message = params.message || "";
 
     const inserts: Array<Record<string, unknown>> = [];
+    const ruleChannelsByRow: NotificationChannel[][] = [];
 
     for (const rRaw of rules) {
       const r = rRaw as unknown as NotificationRule;
@@ -189,6 +201,7 @@ export async function triggerNotification(params: TriggerNotificationParams): Pr
       const excluded = new Set(Array.isArray(r.excluded_users) ? r.excluded_users : []);
       const severity = params.severity ?? r.severity;
       const isCritical = r.is_critical || severity === "critical";
+      const channels = Array.isArray(r.channels) ? r.channels : ["in_app" as NotificationChannel];
 
       const baseRow = {
         title,
@@ -211,15 +224,30 @@ export async function triggerNotification(params: TriggerNotificationParams): Pr
 
       for (const role of targetRoles) {
         inserts.push({ ...baseRow, recipient_role: role });
+        ruleChannelsByRow.push(channels);
       }
       for (const uid of targetUsers) {
         if (excluded.has(uid)) continue;
         inserts.push({ ...baseRow, recipient_user_id: uid });
+        ruleChannelsByRow.push(channels);
       }
     }
 
     if (inserts.length === 0) return;
-    await supabase.from("notifications").insert(inserts as never);
+    const { data: inserted } = await supabase
+      .from("notifications")
+      .insert(inserts as never)
+      .select("id");
+
+    // Fire-and-forget email dispatch for rules with email channel
+    if (inserted && inserted.length === ruleChannelsByRow.length) {
+      inserted.forEach((row, i) => {
+        const ch = ruleChannelsByRow[i];
+        if (ch && (row as { id: string }).id) {
+          void dispatchEmailIfNeeded((row as { id: string }).id, ch);
+        }
+      });
+    }
   } catch (e) {
     if (typeof console !== "undefined") console.warn("[notifications] triggerNotification failed", e);
   }
