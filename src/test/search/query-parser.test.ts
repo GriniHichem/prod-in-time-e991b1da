@@ -62,12 +62,13 @@ describe("parseSearchQuery", () => {
     expect(p.fts).toBe("fuite");
   });
 
-  it("ignores invalid date formats and keeps them as FTS tokens", () => {
+  it("ignores invalid date formats silently (no FTS pollution)", () => {
     const p = parseSearchQuery("from:hier to:demain");
     expect(p.dateFrom).toBeNull();
     expect(p.dateTo).toBeNull();
-    // 'from:hier' n'est pas un filtre reconnu (pas une date ISO) → conservé en FTS
-    expect(p.fts).toContain("from:hier");
+    // Comportement voulu : un filtre reconnu (from/to) avec valeur invalide
+    // est ignoré sans contaminer la requête FTS.
+    expect(p.fts).toBe("");
   });
 
   it("swaps inverted date bounds", () => {
