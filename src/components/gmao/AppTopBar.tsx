@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { Menu, ChevronDown, LayoutGrid } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { SearchTrigger } from "@/components/search/SearchTrigger";
 
 const gmaoItems = [
   { title: "Dashboard", url: "/", icon: IconDashboard },
@@ -281,10 +282,9 @@ export function AppTopBar() {
         <div className="flex-1" />
 
         {/* Right zone */}
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-md text-muted-foreground hover:text-foreground">
-            <IconSearch size={18} />
-          </Button>
+        <div className="flex items-center gap-2">
+          <SearchTrigger variant="input" className="hidden md:flex" />
+          <SearchTrigger variant="icon" className="md:hidden" />
           <NotificationBell />
 
           <div className="h-7 w-px bg-border/60 mx-1.5" />
