@@ -206,6 +206,10 @@ export function createMockSupabase() {
     audit_logs: [],
     shift_settings: [],
     shift_mode_slots: [],
+    notification_rules: mockNotificationRules,
+    validation_rules: mockValidationRules,
+    notifications: mockNotifications,
+    validation_requests: mockValidationRequests,
   };
 
   return {
