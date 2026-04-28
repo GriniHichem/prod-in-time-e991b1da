@@ -2,3 +2,12 @@ project_id = "luryiclhlftqikiqkwsp"
 
 [functions.send-email]
 verify_jwt = false
+
+[functions.send-test-email]
+verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
+
+[functions.check-deadlines]
+verify_jwt = false
