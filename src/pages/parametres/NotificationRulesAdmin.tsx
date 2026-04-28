@@ -49,6 +49,16 @@ export default function NotificationRulesAdmin() {
 
   useEffect(() => { void fetchRules(); }, []);
 
+  const duplicateIds = (() => {
+    const set = new Set<string>();
+    const dups = findDuplicates(
+      rules.map((r) => ({ id: r.id, module: r.module, conditions: r.conditions, is_active: r.is_active })),
+      (r) => (rules.find((x) => x.id === r.id)?.event_type ?? "")
+    );
+    dups.forEach((ids) => ids.forEach((id) => set.add(id)));
+    return set;
+  })();
+
   const toggleActive = async (rule: Rule) => {
     const newActive = !rule.is_active;
     const { error } = await supabase.from("notification_rules").update({ is_active: newActive }).eq("id", rule.id);
@@ -135,7 +145,14 @@ export default function NotificationRulesAdmin() {
                     <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium text-sm">{r.name}</div>
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      {r.name}
+                      {duplicateIds.has(r.id) && (
+                        <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-600" title="Une autre règle active cible le même module/événement avec les mêmes conditions">
+                          Doublon
+                        </Badge>
+                      )}
+                    </div>
                     {r.description && <div className="text-xs text-muted-foreground line-clamp-1">{r.description}</div>}
                     {r.is_critical && <Badge variant="destructive" className="text-[9px] mt-1">Critique</Badge>}
                   </TableCell>
