@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +11,20 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
-
-const MODULES = [
-  "machines","equipements","organes","lignes","pdr","pdr_stock","tickets","interventions",
-  "preventif","gpao","of","produits","articles","recettes","consommations","arrets",
-  "documents","images","auth","users","roles","permissions","audit","system",
-];
+import { evaluateConditions } from "@/lib/notifications";
+import { MODULES, NOTIF_EVENTS_BY_MODULE, ROLES } from "@/lib/ruleCatalog";
+import { preflightNotifRule } from "@/lib/ruleValidation";
+import {
+  ConditionBuilder,
+  fromAnyConditions,
+  toNotifConditions,
+  type CondTree,
+} from "@/components/rules/ConditionBuilder";
+import { PreflightBanner, DryRunTester } from "@/components/rules/RulePreflight";
 
 const SEVERITIES = ["info","low","medium","high","critical"] as const;
 const FREQUENCIES = ["immediate","grouped_hourly","grouped_daily"] as const;
 const CHANNELS: Array<"in_app"|"email"|"push"> = ["in_app","email","push"];
-const ROLES = ["admin","responsable_si","resp_maintenance","maintenancier","resp_production","chef_ligne","operateur","gestionnaire_magasin","bureau_methode","auditeur"];
 
 interface RuleForm {
   id?: string;
@@ -34,52 +37,85 @@ interface RuleForm {
   target_roles: string[];
   channels: Array<"in_app"|"email"|"push">;
   frequency: typeof FREQUENCIES[number];
-  conditions: string;
+  conditions: CondTree;
   is_critical: boolean;
 }
 
 const EMPTY: RuleForm = {
   name: "", description: "", is_active: true, module: "tickets", event_type: "",
   severity: "medium", target_roles: [], channels: ["in_app"], frequency: "immediate",
-  conditions: "", is_critical: false,
+  conditions: { combinator: "all", rules: [] }, is_critical: false,
 };
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  rule: Partial<RuleForm> & { id?: string } | null;
+  rule: (Partial<Omit<RuleForm, "conditions">> & { id?: string; conditions?: unknown }) | null;
   onSaved: () => void;
 }
 
 export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
   const [form, setForm] = useState<RuleForm>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [expertMode, setExpertMode] = useState(false);
+  const [expertJson, setExpertJson] = useState("");
+  const [forceWarnings, setForceWarnings] = useState(false);
 
   useEffect(() => {
     if (rule) {
+      const tree = fromAnyConditions(rule.conditions);
       setForm({
         ...EMPTY,
         ...rule,
         target_roles: (rule.target_roles as string[]) ?? [],
         channels: (rule.channels as Array<"in_app"|"email"|"push">) ?? ["in_app"],
-        conditions: typeof rule.conditions === "string" ? rule.conditions : rule.conditions ? JSON.stringify(rule.conditions, null, 2) : "",
+        conditions: tree,
       } as RuleForm);
+      setExpertJson(rule.conditions ? JSON.stringify(rule.conditions, null, 2) : "");
     } else {
       setForm(EMPTY);
+      setExpertJson("");
     }
+    setExpertMode(false);
+    setForceWarnings(false);
   }, [rule, open]);
+
+  const events = useMemo(() => NOTIF_EVENTS_BY_MODULE[form.module] ?? [], [form.module]);
+  const sampleCtx = useMemo(
+    () => events.find((e) => e.value === form.event_type)?.sampleContext ?? {},
+    [events, form.event_type]
+  );
+
+  const conditionsObj: Record<string, unknown> | null = useMemo(() => {
+    if (expertMode && expertJson.trim()) {
+      try { return JSON.parse(expertJson); } catch { return null; }
+    }
+    return toNotifConditions(form.conditions);
+  }, [expertMode, expertJson, form.conditions]);
+
+  const preflight = useMemo(() => preflightNotifRule({
+    name: form.name,
+    module: form.module,
+    event_type: form.event_type,
+    target_roles: form.target_roles,
+    channels: form.channels,
+    severity: form.severity,
+    is_critical: form.is_critical,
+    conditions: expertMode ? expertJson : conditionsObj,
+    allowCustom: false,
+  }), [form, expertMode, expertJson, conditionsObj]);
 
   const toggleArr = <T,>(arr: T[], v: T): T[] => arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 
   const save = async () => {
-    if (!form.name.trim() || !form.event_type.trim()) {
-      toast({ title: "Champs requis", description: "Nom et type d'événement obligatoires", variant: "destructive" });
+    if (preflight.errors.length > 0) {
+      toast({ title: "Corrige les erreurs avant d'enregistrer", variant: "destructive" });
       return;
     }
-    let conditionsJson: unknown = null;
-    if (form.conditions.trim()) {
-      try { conditionsJson = JSON.parse(form.conditions); }
-      catch { toast({ title: "JSON invalide", description: "Vérifie la syntaxe des conditions", variant: "destructive" }); return; }
+    if (preflight.warnings.length > 0 && !forceWarnings) {
+      setForceWarnings(true);
+      toast({ title: "Vérifie les avertissements", description: "Cliquez à nouveau sur Enregistrer pour confirmer." });
+      return;
     }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -93,7 +129,7 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
       target_roles: form.target_roles,
       channels: form.channels,
       frequency: form.frequency,
-      conditions: conditionsJson as never,
+      conditions: conditionsObj as never,
       is_critical: form.is_critical,
       updated_by: user?.id ?? null,
     };
@@ -124,11 +160,13 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{form.id ? "Modifier la règle" : "Nouvelle règle de notification"}</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4">
+          {/* Identité */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Nom *</Label>
@@ -141,7 +179,7 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
               </div>
               <div className="flex items-center gap-2">
                 <Switch checked={form.is_critical} onCheckedChange={(v) => setForm({ ...form, is_critical: v })} />
-                <Label>Critique (non masquable)</Label>
+                <Label>Critique</Label>
               </div>
             </div>
           </div>
@@ -149,17 +187,30 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
             <Label>Description</Label>
             <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
+
+          {/* Cible */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Module *</Label>
-              <Select value={form.module} onValueChange={(v) => setForm({ ...form, module: v })}>
+              <Select value={form.module} onValueChange={(v) => setForm({ ...form, module: v, event_type: "" })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MODULES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {MODULES.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Type d'événement *</Label>
-              <Input placeholder="ex: ticket_created" value={form.event_type} onChange={(e) => setForm({ ...form, event_type: e.target.value })} />
+              <Label>Événement *</Label>
+              {events.length > 0 ? (
+                <Select value={form.event_type} onValueChange={(v) => setForm({ ...form, event_type: v })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
+                  <SelectContent>
+                    {events.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input placeholder="ex: ticket_created" value={form.event_type} onChange={(e) => setForm({ ...form, event_type: e.target.value })} />
+              )}
             </div>
             <div>
               <Label>Sévérité</Label>
@@ -169,6 +220,8 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
               </Select>
             </div>
           </div>
+
+          {/* Destinataires */}
           <div>
             <Label>Rôles destinataires</Label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -184,6 +237,8 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Canaux + Fréquence */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Canaux</Label>
@@ -198,7 +253,6 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
                   </label>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Email & push : à venir</p>
             </div>
             <div>
               <Label>Fréquence</Label>
@@ -212,23 +266,54 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
               </Select>
             </div>
           </div>
-          <div>
-            <Label>Conditions (JSON)</Label>
-            <Textarea
-              rows={4}
-              className="font-mono text-xs"
-              placeholder='{"all":[{"field":"duration_minutes","op":"gte","value":30}]}'
-              value={form.conditions}
-              onChange={(e) => setForm({ ...form, conditions: e.target.value })}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Opérateurs : eq, neq, gt, gte, lt, lte, in, nin, contains. Groupes all/any.
-            </p>
+
+          {/* Conditions */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Conditions de déclenchement</Label>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-primary underline"
+                onClick={() => {
+                  if (!expertMode) setExpertJson(JSON.stringify(toNotifConditions(form.conditions) ?? {}, null, 2));
+                  setExpertMode(!expertMode);
+                }}
+              >
+                {expertMode ? "Mode visuel" : "Mode expert (JSON)"}
+              </button>
+            </div>
+            {expertMode ? (
+              <Textarea
+                rows={5}
+                className="font-mono text-xs"
+                placeholder='{"all":[{"field":"priority","op":"eq","value":"high"}]}'
+                value={expertJson}
+                onChange={(e) => setExpertJson(e.target.value)}
+              />
+            ) : (
+              <ConditionBuilder
+                module={form.module}
+                value={form.conditions}
+                onChange={(v) => setForm({ ...form, conditions: v })}
+              />
+            )}
           </div>
+
+          {/* Dry-run */}
+          <DryRunTester
+            sampleContext={sampleCtx}
+            onTest={(ctx) => evaluateConditions(ctx, conditionsObj as never)}
+          />
+
+          {/* Preflight */}
+          <PreflightBanner result={preflight} />
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button onClick={save} disabled={saving}>{saving ? "..." : "Enregistrer"}</Button>
+          <Button onClick={save} disabled={saving || preflight.errors.length > 0}>
+            {saving ? "..." : forceWarnings && preflight.warnings.length > 0 ? "Confirmer & enregistrer" : "Enregistrer"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
