@@ -54,6 +54,14 @@ export default function TicketDetail() {
     if (data) {
       setCauseRacine(data.cause_racine || "");
       setSolution(data.solution || "");
+      // Resolve assignee name
+      if (data.assignee_id) {
+        const { data: prof } = await supabase
+          .from("profiles").select("first_name,last_name").eq("user_id", data.assignee_id).maybeSingle();
+        setAssigneeName(prof ? `${prof.first_name ?? ""} ${prof.last_name ?? ""}`.trim() : "");
+      } else {
+        setAssigneeName("");
+      }
     }
 
     const { data: intData } = await supabase
@@ -62,12 +70,80 @@ export default function TicketDetail() {
       .eq("ticket_id", id)
       .order("date_debut", { ascending: false });
     setInterventions(intData || []);
+
+    // Collaborators (active only)
+    const { data: collabs } = await supabase
+      .from("ticket_collaborators")
+      .select("id, user_id, role_label, added_at")
+      .eq("ticket_id", id)
+      .is("removed_at", null)
+      .order("added_at", { ascending: true });
+    if (collabs && collabs.length > 0) {
+      const userIds = collabs.map((c: any) => c.user_id);
+      const { data: profs } = await supabase
+        .from("profiles").select("user_id, first_name, last_name").in("user_id", userIds);
+      const profMap = new Map((profs || []).map((p: any) => [p.user_id, p]));
+      setCollaborators(collabs.map((c: any) => {
+        const p: any = profMap.get(c.user_id);
+        return { ...c, full_name: p ? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() : "Utilisateur" };
+      }));
+    } else {
+      setCollaborators([]);
+    }
+  };
+
+  const loadMaintenanciers = async () => {
+    const { data: roles } = await supabase
+      .from("user_roles").select("user_id, role")
+      .in("role", ["maintenancier", "resp_maintenance"] as any);
+    const ids = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
+    if (ids.length === 0) { setMaintenanciers([]); return; }
+    const { data: profs } = await supabase
+      .from("profiles").select("user_id, first_name, last_name").in("user_id", ids);
+    setMaintenanciers((profs || []).map((p: any) => ({
+      user_id: p.user_id,
+      full_name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Utilisateur",
+    })));
   };
 
   useEffect(() => {
     loadTicket();
+    loadMaintenanciers();
     supabase.from("pdr").select("id, reference, designation, stock_actuel").eq("is_active", true).order("reference").then(({ data }) => setPdrList(data || []));
   }, [id]);
+
+  const addCollaborator = async () => {
+    if (!newCollabId || !id) return;
+    const { error } = await supabase.from("ticket_collaborators").insert({
+      ticket_id: id, user_id: newCollabId, role_label: newCollabRole, added_by: user?.id,
+    });
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Collaborateur ajouté" });
+    setNewCollabId("");
+    setNewCollabRole("aide");
+    loadTicket();
+  };
+
+  const removeCollaborator = async (collabId: string) => {
+    const { error } = await supabase.from("ticket_collaborators")
+      .update({ removed_at: new Date().toISOString(), removed_by: user?.id })
+      .eq("id", collabId);
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+    loadTicket();
+  };
+
+  const toggleCollabRole = async (collabId: string, current: string) => {
+    const next = current === "aide" ? "co_intervenant" : "aide";
+    await supabase.from("ticket_collaborators").update({ role_label: next }).eq("id", collabId);
+    loadTicket();
+  };
+
 
   const handleTakeCharge = async () => {
     const now = new Date().toISOString();
