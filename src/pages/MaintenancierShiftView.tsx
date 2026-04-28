@@ -242,29 +242,25 @@ export default function MaintenancierShiftView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Shift</h1>
-          <p className="text-sm text-muted-foreground capitalize">{today}</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold">Shift</h1>
+          <p className="text-xs md:text-sm text-muted-foreground capitalize truncate">{today}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                <span className="text-xs font-medium">{tickets.length} curatif</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <span className="text-xs font-medium">{plans.length} préventif</span>
-              </div>
-            </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+            <span className="text-xs font-medium tabular-nums">{tickets.length} curatif</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-primary" />
+            <span className="text-xs font-medium tabular-nums">{plans.length} préventif</span>
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="curative">
-        <TabsList className="h-11 w-full grid grid-cols-2">
+        <TabsList className="h-11 w-full grid grid-cols-2 sticky top-14 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm">
           <TabsTrigger value="curative" className="h-9 gap-1.5 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive">
             <ShieldAlert className="h-4 w-4" />
             Curative
