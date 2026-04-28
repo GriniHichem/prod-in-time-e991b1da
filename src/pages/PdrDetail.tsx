@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 
 export default function PdrDetail() {
   const { id } = useParams();
@@ -126,15 +127,85 @@ export default function PdrDetail() {
         : mvtForm.prix_unitaire;
     }
 
-    await supabase.from("pdr_stock_movements").insert({
+    // Validation gate (Field First architecture)
+    let validationActionType: string | null = null;
+    const ctx: Record<string, unknown> = {};
+    if (mvtForm.type === "correction") {
+      validationActionType = "correction";
+    } else if (mvtForm.type === "inventaire") {
+      validationActionType = "inventory";
+      const ecartPct = stockAvant > 0 ? Math.abs(((stockApres - stockAvant) / stockAvant) * 100) : 100;
+      ctx.ecart_pct = ecartPct;
+    }
+
+    if (validationActionType) {
+      const { rule, enforcement } = await checkValidationRequired({
+        module: "pdr_stock", action_type: validationActionType, entity_type: "pdr_movement", context: ctx,
+      });
+      // Blocking → do not apply, create request only
+      if (enforcement === "blocking" && rule) {
+        await createValidationRequest({
+          rule,
+          request_type: validationActionType,
+          module: "pdr_stock",
+          requested_action: validationActionType,
+          entity_type: "pdr_movement",
+          entity_id: id,
+          entity_code: pdr.code,
+          entity_label: pdr.designation,
+          title: `${validationActionType === "correction" ? "Correction" : "Inventaire"} stock PDR ${pdr.code}`,
+          description: mvtForm.motif || `Demande de ${validationActionType} sur ${pdr.designation}`,
+          old_values: { stock_actuel: stockAvant },
+          proposed_values: { stock_actuel: stockApres, type: mvtForm.type, quantite: mvtForm.quantite, motif: mvtForm.motif, ref_document_erp: mvtForm.ref_document_erp },
+          metadata: { ...ctx, pdr_id: id, ref_document_erp: mvtForm.ref_document_erp },
+          action_url: `/pdr/${id}`,
+        });
+        toast({
+          title: "Validation requise",
+          description: "La demande a été soumise pour approbation. Le stock n'a pas été modifié.",
+        });
+        setMovementDialog(false);
+        setMvtForm({ type: "entree", quantite: 0, prix_unitaire: 0, motif: "", ref_document_erp: "" });
+        return;
+      }
+    }
+
+    const { data: insertedMvt } = await supabase.from("pdr_stock_movements").insert({
       pdr_id: id, type: mvtForm.type as any, quantite: mvtForm.quantite,
       stock_avant: stockAvant, stock_apres: stockApres,
       prix_unitaire: mvtForm.prix_unitaire || null, motif: mvtForm.motif || null,
       source_type: "manuel", user_id: user?.id,
       ref_document_erp: mvtForm.ref_document_erp || null,
-    });
+    }).select("id").single();
 
     await supabase.from("pdr").update({ stock_actuel: stockApres, pmp: Math.round(newPmp * 100) / 100 }).eq("id", id);
+
+    // Post-hoc validation if a rule matches but enforcement is post_hoc (none currently for manual but kept extensible)
+    if (validationActionType && insertedMvt?.id) {
+      const { rule, enforcement } = await checkValidationRequired({
+        module: "pdr_stock", action_type: validationActionType, entity_type: "pdr_movement", context: ctx,
+      });
+      if (enforcement === "post_hoc" && rule) {
+        await createValidationRequest({
+          rule,
+          request_type: validationActionType,
+          module: "pdr_stock",
+          requested_action: validationActionType,
+          entity_type: "pdr_movement",
+          entity_id: id,
+          entity_code: pdr.code,
+          entity_label: pdr.designation,
+          target_record_id: insertedMvt.id,
+          title: `Vérification mouvement PDR ${pdr.code}`,
+          description: mvtForm.motif || "",
+          old_values: { stock_actuel: stockAvant },
+          proposed_values: { stock_actuel: stockApres, type: mvtForm.type, quantite: mvtForm.quantite },
+          metadata: { ...ctx, pdr_id: id },
+          action_url: `/pdr/${id}`,
+        });
+      }
+    }
+
     toast({ title: "Mouvement enregistré" });
     setMovementDialog(false);
     setMvtForm({ type: "entree", quantite: 0, prix_unitaire: 0, motif: "", ref_document_erp: "" });

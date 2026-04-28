@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, Edit, History, ShieldAlert } from "lucide-react";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
+import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 
 export default function ConsumptionPage() {
   const { user, hasRole } = useAuth();
@@ -77,6 +78,37 @@ export default function ConsumptionPage() {
       toast({ title: "Erreur", description: "Quantité invalide", variant: "destructive" });
       return;
     }
+
+    // Check validation: blocking on validated consumption corrections
+    try {
+      const { rule, enforcement } = await checkValidationRequired({
+        module: "consommations", action_type: "correction", entity_type: "consumption",
+      });
+      if (enforcement === "blocking" && rule) {
+        await createValidationRequest({
+          rule,
+          request_type: "correction",
+          module: "consommations",
+          requested_action: "correction",
+          entity_type: "consumption",
+          entity_id: editItem.id,
+          target_record_id: editItem.id,
+          title: `Correction consommation`,
+          description: editMotif,
+          justification: editMotif,
+          old_values: { quantite: editItem.quantite },
+          proposed_values: { quantite: newQte, motif: editMotif },
+          metadata: { of_id: editItem.of_id, article_id: editItem.article_id, shift_id: editItem.shift_id },
+          action_url: `/consommations`,
+        });
+        toast({
+          title: "Validation requise",
+          description: "Votre correction a été soumise pour approbation. La consommation n'a pas été modifiée.",
+        });
+        setEditDialogOpen(false);
+        return;
+      }
+    } catch (e) { console.warn("[validation] consumption correction check failed", e); }
 
     // Log audit
     await supabase.from("audit_logs").insert({
