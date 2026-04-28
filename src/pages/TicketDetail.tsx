@@ -363,6 +363,53 @@ export default function TicketDetail() {
               <Textarea value={solution} onChange={(e) => setSolution(e.target.value)} placeholder="Action corrective..." className={isMobile ? "min-h-[60px]" : ""} />
             </div>
 
+            {/* Co-intervenants */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1"><Users className="h-3 w-3" /> Avec l'aide de</Label>
+              <div className={`flex gap-2 ${isMobile ? "flex-col" : ""}`}>
+                <Select value={newCollabId} onValueChange={setNewCollabId}>
+                  <SelectTrigger className="h-10 flex-1"><SelectValue placeholder="Sélectionner un maintenancier" /></SelectTrigger>
+                  <SelectContent>
+                    {maintenanciers
+                      .filter((m) => m.user_id !== ticket.assignee_id && !collaborators.some((c) => c.user_id === m.user_id))
+                      .map((m) => <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Select value={newCollabRole} onValueChange={(v) => setNewCollabRole(v as any)}>
+                    <SelectTrigger className="h-10 w-32"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aide">Aide</SelectItem>
+                      <SelectItem value="co_intervenant">Co-intervenant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" className="h-10" onClick={addCollaborator} disabled={!newCollabId}>+</Button>
+                </div>
+              </div>
+              {collaborators.length > 0 && (
+                <div className="space-y-1">
+                  {collaborators.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 rounded bg-muted/50">
+                      <span className="truncate">{c.full_name}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-xs cursor-pointer hover:bg-accent"
+                          onClick={() => toggleCollabRole(c.id, c.role_label)}
+                          title="Cliquer pour changer le rôle"
+                        >
+                          {c.role_label === "co_intervenant" ? "co-intervenant" : "aide"}
+                        </Badge>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={() => removeCollaborator(c.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* PDR */}
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Pièces utilisées</Label>
