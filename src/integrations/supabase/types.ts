@@ -59,6 +59,7 @@ export type Database = {
           id: string
           is_active: boolean
           prix_unitaire: number | null
+          search_vector: unknown
           stock_actuel: number
           stock_min: number
           unite: string
@@ -75,6 +76,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           prix_unitaire?: number | null
+          search_vector?: unknown
           stock_actuel?: number
           stock_min?: number
           unite?: string
@@ -91,6 +93,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           prix_unitaire?: number | null
+          search_vector?: unknown
           stock_actuel?: number
           stock_min?: number
           unite?: string
@@ -126,6 +129,7 @@ export type Database = {
           new_values: Json | null
           old_values: Json | null
           record_id: string | null
+          search_vector: unknown
           severity: string
           source: string
           status: string
@@ -154,6 +158,7 @@ export type Database = {
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
+          search_vector?: unknown
           severity?: string
           source?: string
           status?: string
@@ -182,6 +187,7 @@ export type Database = {
           new_values?: Json | null
           old_values?: Json | null
           record_id?: string | null
+          search_vector?: unknown
           severity?: string
           source?: string
           status?: string
@@ -202,6 +208,7 @@ export type Database = {
           notes: string | null
           of_id: string
           quantite: number
+          search_vector: unknown
           shift_id: string | null
           unite: string
           validation_request_id: string | null
@@ -215,6 +222,7 @@ export type Database = {
           notes?: string | null
           of_id: string
           quantite?: number
+          search_vector?: unknown
           shift_id?: string | null
           unite?: string
           validation_request_id?: string | null
@@ -228,6 +236,7 @@ export type Database = {
           notes?: string | null
           of_id?: string
           quantite?: number
+          search_vector?: unknown
           shift_id?: string | null
           unite?: string
           validation_request_id?: string | null
@@ -382,6 +391,7 @@ export type Database = {
           file_type: string | null
           file_url: string
           id: string
+          search_vector: unknown
           storage_path: string
           uploaded_by: string | null
         }
@@ -396,6 +406,7 @@ export type Database = {
           file_type?: string | null
           file_url: string
           id?: string
+          search_vector?: unknown
           storage_path: string
           uploaded_by?: string | null
         }
@@ -410,6 +421,7 @@ export type Database = {
           file_type?: string | null
           file_url?: string
           id?: string
+          search_vector?: unknown
           storage_path?: string
           uploaded_by?: string | null
         }
@@ -488,6 +500,7 @@ export type Database = {
           role_fonctionnel:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector: unknown
           statut: Database["public"]["Enums"]["equipement_statut"]
           type: Database["public"]["Enums"]["equipement_type"]
           updated_at: string
@@ -514,6 +527,7 @@ export type Database = {
           role_fonctionnel?:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["equipement_statut"]
           type?: Database["public"]["Enums"]["equipement_type"]
           updated_at?: string
@@ -540,6 +554,7 @@ export type Database = {
           role_fonctionnel?:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["equipement_statut"]
           type?: Database["public"]["Enums"]["equipement_type"]
           updated_at?: string
@@ -615,6 +630,7 @@ export type Database = {
           description: string
           id: string
           notes: string | null
+          search_vector: unknown
           statut: Database["public"]["Enums"]["intervention_statut"]
           technicien_id: string
           ticket_id: string
@@ -629,6 +645,7 @@ export type Database = {
           description?: string
           id?: string
           notes?: string | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["intervention_statut"]
           technicien_id: string
           ticket_id: string
@@ -643,6 +660,7 @@ export type Database = {
           description?: string
           id?: string
           notes?: string | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["intervention_statut"]
           technicien_id?: string
           ticket_id?: string
@@ -881,6 +899,7 @@ export type Database = {
           role_fonctionnel:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector: unknown
           statut: Database["public"]["Enums"]["machine_statut"]
           updated_at: string
         }
@@ -908,6 +927,7 @@ export type Database = {
           role_fonctionnel?:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["machine_statut"]
           updated_at?: string
         }
@@ -935,6 +955,7 @@ export type Database = {
           role_fonctionnel?:
             | Database["public"]["Enums"]["role_fonctionnel"]
             | null
+          search_vector?: unknown
           statut?: Database["public"]["Enums"]["machine_statut"]
           updated_at?: string
         }
@@ -1080,6 +1101,7 @@ export type Database = {
           recipient_role: string | null
           recipient_user_id: string | null
           rule_id: string | null
+          search_vector: unknown
           severity: Database["public"]["Enums"]["notification_severity"]
           source: string
           status: Database["public"]["Enums"]["notification_status"]
@@ -1107,6 +1129,7 @@ export type Database = {
           recipient_role?: string | null
           recipient_user_id?: string | null
           rule_id?: string | null
+          search_vector?: unknown
           severity?: Database["public"]["Enums"]["notification_severity"]
           source?: string
           status?: Database["public"]["Enums"]["notification_status"]
@@ -1134,6 +1157,7 @@ export type Database = {
           recipient_role?: string | null
           recipient_user_id?: string | null
           rule_id?: string | null
+          search_vector?: unknown
           severity?: Database["public"]["Enums"]["notification_severity"]
           source?: string
           status?: Database["public"]["Enums"]["notification_status"]
@@ -1212,6 +1236,7 @@ export type Database = {
           quantite_produite: number
           quantite_rebut: number
           recipe_id: string | null
+          search_vector: unknown
           shift_mode_id: string | null
           statut: Database["public"]["Enums"]["of_statut"]
           unite: string
@@ -1233,6 +1258,7 @@ export type Database = {
           quantite_produite?: number
           quantite_rebut?: number
           recipe_id?: string | null
+          search_vector?: unknown
           shift_mode_id?: string | null
           statut?: Database["public"]["Enums"]["of_statut"]
           unite?: string
@@ -1254,6 +1280,7 @@ export type Database = {
           quantite_produite?: number
           quantite_rebut?: number
           recipe_id?: string | null
+          search_vector?: unknown
           shift_mode_id?: string | null
           statut?: Database["public"]["Enums"]["of_statut"]
           unite?: string
@@ -1301,6 +1328,7 @@ export type Database = {
           id: string
           is_active: boolean
           machine_id: string | null
+          search_vector: unknown
           sort_order: number
           statut: Database["public"]["Enums"]["organe_statut"]
           type: Database["public"]["Enums"]["organe_type"]
@@ -1316,6 +1344,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           machine_id?: string | null
+          search_vector?: unknown
           sort_order?: number
           statut?: Database["public"]["Enums"]["organe_statut"]
           type?: Database["public"]["Enums"]["organe_type"]
@@ -1331,6 +1360,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           machine_id?: string | null
+          search_vector?: unknown
           sort_order?: number
           statut?: Database["public"]["Enums"]["organe_statut"]
           type?: Database["public"]["Enums"]["organe_type"]
@@ -1429,6 +1459,7 @@ export type Database = {
           point_commande: number
           prix_unitaire: number | null
           reference: string
+          search_vector: unknown
           statut_pdr: Database["public"]["Enums"]["statut_pdr"]
           stock_actuel: number
           stock_max: number
@@ -1454,6 +1485,7 @@ export type Database = {
           point_commande?: number
           prix_unitaire?: number | null
           reference: string
+          search_vector?: unknown
           statut_pdr?: Database["public"]["Enums"]["statut_pdr"]
           stock_actuel?: number
           stock_max?: number
@@ -1479,6 +1511,7 @@ export type Database = {
           point_commande?: number
           prix_unitaire?: number | null
           reference?: string
+          search_vector?: unknown
           statut_pdr?: Database["public"]["Enums"]["statut_pdr"]
           stock_actuel?: number
           stock_max?: number
@@ -1595,6 +1628,7 @@ export type Database = {
           notes: string | null
           prix: number | null
           reference_fournisseur: string | null
+          search_vector: unknown
           tel: string | null
           updated_at: string
           updated_by: string | null
@@ -1614,6 +1648,7 @@ export type Database = {
           notes?: string | null
           prix?: number | null
           reference_fournisseur?: string | null
+          search_vector?: unknown
           tel?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -1633,6 +1668,7 @@ export type Database = {
           notes?: string | null
           prix?: number | null
           reference_fournisseur?: string | null
+          search_vector?: unknown
           tel?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -1739,6 +1775,7 @@ export type Database = {
           quantite: number
           ref_document_erp: string | null
           reference_source: string | null
+          search_vector: unknown
           source_id: string | null
           source_type: string | null
           stock_apres: number
@@ -1761,6 +1798,7 @@ export type Database = {
           quantite: number
           ref_document_erp?: string | null
           reference_source?: string | null
+          search_vector?: unknown
           source_id?: string | null
           source_type?: string | null
           stock_apres?: number
@@ -1783,6 +1821,7 @@ export type Database = {
           quantite?: number
           ref_document_erp?: string | null
           reference_source?: string | null
+          search_vector?: unknown
           source_id?: string | null
           source_type?: string | null
           stock_apres?: number
@@ -2042,6 +2081,7 @@ export type Database = {
           machine_id: string
           organe_id: string | null
           prochaine_echeance: string | null
+          search_vector: unknown
           source: string | null
           source_pdr_id: string | null
           statut_plan: string
@@ -2062,6 +2102,7 @@ export type Database = {
           machine_id: string
           organe_id?: string | null
           prochaine_echeance?: string | null
+          search_vector?: unknown
           source?: string | null
           source_pdr_id?: string | null
           statut_plan?: string
@@ -2082,6 +2123,7 @@ export type Database = {
           machine_id?: string
           organe_id?: string | null
           prochaine_echeance?: string | null
+          search_vector?: unknown
           source?: string | null
           source_pdr_id?: string | null
           statut_plan?: string
@@ -2229,6 +2271,7 @@ export type Database = {
           id: string
           is_active: boolean
           machine_id: string | null
+          search_vector: unknown
           updated_at: string
         }
         Insert: {
@@ -2240,6 +2283,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           machine_id?: string | null
+          search_vector?: unknown
           updated_at?: string
         }
         Update: {
@@ -2251,6 +2295,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           machine_id?: string | null
+          search_vector?: unknown
           updated_at?: string
         }
         Relationships: [
@@ -2275,6 +2320,7 @@ export type Database = {
           line_id: string | null
           machine_id: string | null
           of_id: string
+          search_vector: unknown
           shift_id: string
           ticket_id: string | null
           type: Database["public"]["Enums"]["arret_type"]
@@ -2291,6 +2337,7 @@ export type Database = {
           line_id?: string | null
           machine_id?: string | null
           of_id: string
+          search_vector?: unknown
           shift_id: string
           ticket_id?: string | null
           type?: Database["public"]["Enums"]["arret_type"]
@@ -2307,6 +2354,7 @@ export type Database = {
           line_id?: string | null
           machine_id?: string | null
           of_id?: string
+          search_vector?: unknown
           shift_id?: string
           ticket_id?: string | null
           type?: Database["public"]["Enums"]["arret_type"]
@@ -2361,6 +2409,7 @@ export type Database = {
           id: string
           is_active: boolean
           poids_unitaire: number | null
+          search_vector: unknown
           unite: string
           unite_base: string | null
           updated_at: string
@@ -2375,6 +2424,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           poids_unitaire?: number | null
+          search_vector?: unknown
           unite?: string
           unite_base?: string | null
           updated_at?: string
@@ -2389,6 +2439,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           poids_unitaire?: number | null
+          search_vector?: unknown
           unite?: string
           unite_base?: string | null
           updated_at?: string
@@ -2488,6 +2539,7 @@ export type Database = {
           is_active: boolean
           name: string
           product_id: string
+          search_vector: unknown
           updated_at: string
           version: number
         }
@@ -2497,6 +2549,7 @@ export type Database = {
           is_active?: boolean
           name: string
           product_id: string
+          search_vector?: unknown
           updated_at?: string
           version?: number
         }
@@ -2506,6 +2559,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           product_id?: string
+          search_vector?: unknown
           updated_at?: string
           version?: number
         }
@@ -2867,6 +2921,7 @@ export type Database = {
           organe_id: string | null
           panne_type_id: string | null
           priorite: Database["public"]["Enums"]["ticket_priorite"]
+          search_vector: unknown
           shift_id: string | null
           solution: string | null
           statut: Database["public"]["Enums"]["ticket_statut"]
@@ -2896,6 +2951,7 @@ export type Database = {
           organe_id?: string | null
           panne_type_id?: string | null
           priorite?: Database["public"]["Enums"]["ticket_priorite"]
+          search_vector?: unknown
           shift_id?: string | null
           solution?: string | null
           statut?: Database["public"]["Enums"]["ticket_statut"]
@@ -2925,6 +2981,7 @@ export type Database = {
           organe_id?: string | null
           panne_type_id?: string | null
           priorite?: Database["public"]["Enums"]["ticket_priorite"]
+          search_vector?: unknown
           shift_id?: string | null
           solution?: string | null
           statut?: Database["public"]["Enums"]["ticket_statut"]
@@ -3124,6 +3181,7 @@ export type Database = {
           request_type: string
           requested_action: string
           rule_id: string | null
+          search_vector: unknown
           source: string
           status: Database["public"]["Enums"]["validation_status_enum"]
           submitted_at: string | null
@@ -3166,6 +3224,7 @@ export type Database = {
           request_type: string
           requested_action: string
           rule_id?: string | null
+          search_vector?: unknown
           source?: string
           status?: Database["public"]["Enums"]["validation_status_enum"]
           submitted_at?: string | null
@@ -3208,6 +3267,7 @@ export type Database = {
           request_type?: string
           requested_action?: string
           rule_id?: string | null
+          search_vector?: unknown
           source?: string
           status?: Database["public"]["Enums"]["validation_status_enum"]
           submitted_at?: string | null
@@ -3319,6 +3379,27 @@ export type Database = {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
       }
+      fts_build: { Args: { parts: string[] }; Returns: unknown }
+      global_search: {
+        Args: {
+          date_from?: string
+          date_to?: string
+          limit_per_module?: number
+          modules?: string[]
+          q: string
+        }
+        Returns: {
+          code: string
+          entity_id: string
+          label: string
+          module: string
+          score: number
+          severity: string
+          snippet: string
+          updated_at: string
+          url: string
+        }[]
+      }
       has_audit_access: {
         Args: { _module: string; _user_id: string }
         Returns: boolean
@@ -3330,8 +3411,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_suggest: {
+        Args: { max_results?: number; q: string }
+        Returns: {
+          code: string
+          label: string
+          module: string
+          score: number
+          url: string
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
       user_has_role_text: {
         Args: { _role_text: string; _user_id: string }
         Returns: boolean
