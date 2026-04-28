@@ -36,6 +36,13 @@ export default function TicketDetail() {
   const [newPdrId, setNewPdrId] = useState("");
   const [newPdrQte, setNewPdrQte] = useState("1");
 
+  // Co-intervenants
+  const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [newCollabId, setNewCollabId] = useState("");
+  const [newCollabRole, setNewCollabRole] = useState<"aide" | "co_intervenant">("aide");
+  const [assigneeName, setAssigneeName] = useState<string>("");
+
   const loadTicket = async () => {
     if (!id) return;
     const { data } = await supabase
