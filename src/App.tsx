@@ -57,6 +57,7 @@ import NotFound from "@/pages/NotFound";
 import ResetPassword from "@/pages/ResetPassword";
 import OrganesList from "@/pages/OrganesList";
 import Apps from "@/pages/Apps";
+import SecurityHub from "@/pages/SecurityHub";
 import OrganeForm from "@/pages/OrganeForm";
 import OrganeDetail from "@/pages/OrganeDetail";
 import AuditPage from "@/pages/AuditPage";
@@ -116,6 +117,8 @@ const App = () => (
               {/* GMAO */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/apps" element={<Apps />} />
+              <Route path="/securite" element={<SecurityHub />} />
+              <Route path="/parametres/access-control" element={<Navigate to="/securite" replace />} />
               <Route path="/machines" element={<MachinesList />} />
               <Route path="/machines/new" element={<MachineForm />} />
               <Route path="/machines/:id" element={<MachineDetail />} />
@@ -160,7 +163,7 @@ const App = () => (
               {/* Admin */}
               <Route path="/parametres" element={<Parametres />} />
               <Route path="/parametres/users" element={<UsersAdmin />} />
-              <Route path="/parametres/access-control" element={<AccessControlHub />} />
+              
               <Route path="/parametres/familles" element={<FamillesAdmin />} />
               <Route path="/parametres/pannes" element={<PannesAdmin />} />
               <Route path="/parametres/roles" element={<RolesMatrix />} />
