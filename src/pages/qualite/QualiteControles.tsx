@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
-import { ClipboardList, Plus, RotateCcw, Search, Download } from "lucide-react";
+import { ClipboardList, Plus, RotateCcw, Search, Download, AlertOctagon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { exportToCsv } from "@/lib/exportCsv";
 import { logAudit } from "@/lib/audit";
 import { parseDecimal } from "@/pages/qualite/QualiteIndicateurs";
@@ -451,13 +452,14 @@ export default function QualiteControles() {
                 <TableHead>Cible / Min-Max</TableHead>
                 <TableHead>Conformité</TableHead>
                 <TableHead>Commentaire</TableHead>
+                <TableHead className="w-[100px]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Chargement…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Chargement…</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Aucun contrôle</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Aucun contrôle</TableCell></TableRow>
               ) : filtered.map((r) => {
                 const value =
                   r.measured_value_numeric != null ? `${r.measured_value_numeric}${r.unit ? " " + r.unit : ""}` :
@@ -477,6 +479,15 @@ export default function QualiteControles() {
                     </TableCell>
                     <TableCell>{renderConformityBadge(r)}</TableCell>
                     <TableCell className="max-w-xs truncate">{r.comment || "—"}</TableCell>
+                    <TableCell>
+                      {r.is_conform === false && (
+                        <Button asChild size="sm" variant="outline" title="Créer une non-conformité">
+                          <Link to={`/qualite/non-conformites?from_check=${r.id}`}>
+                            <AlertOctagon className="h-3.5 w-3.5" /> NC
+                          </Link>
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
