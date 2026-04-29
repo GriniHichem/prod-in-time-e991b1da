@@ -1,71 +1,86 @@
 ## Objectif
 
-Garantir que les KPI d'un ticket (temps d'arrêt, temps d'intervention, prise en charge, fin) restent cohérents et exacts dans **tous** les scénarios :
-- Prise en charge simple
-- Collaboration (aide / co-intervenant)
-- Transfert vers un autre maintenancier
-- Libération puis reprise
-- Résolution finale
+Empêcher l'envoi de saisies invalides depuis mobile/tablette en bloquant les boutons d'action et en affichant des erreurs inline **avant** l'appel Supabase, pour les trois cas critiques :
+- **Heure non autorisée** (créneau hors fenêtre de saisie)
+- **OF manquant** (déclaration sans Ordre de Fabrication actif)
+- **Ticket sans machine** (création de ticket maintenance)
 
 ## Constats actuels
 
-### KPI ticket (`tickets`)
-- `temps_arret_minutes` = `heure_resolution - heure_declaration` (calc dans `handleResolve`)
-- `temps_intervention_minutes` = `heure_resolution - heure_prise_en_charge` (calc dans `handleResolve`)
-- `heure_prise_en_charge` est posée à la 1ère prise et **conservée** lors d'un transfert (OK pour KPI continu) — mais **remise à null** lors d'une libération, ce qui casse le calcul si reprise.
+Toutes les validations existantes sont **réactives** (toast après clic) et le bouton de soumission reste cliquable. Sur mobile (clic tactile, viewport étroit), cela cause des doubles envois et confusion.
 
-### KPI interventions
-- À la prise en charge : `interventions` insérée sans `date_debut` explicite (default = `now()`) — OK
-- Au transfert : intervention sortante fermée avec `date_fin = now`, nouvelle ouverte (default `date_debut = now`) — OK
-- À la libération : intervention fermée `liberee` — OK ; mais à la **reprise** suivante (`handleTakeCharge`), une nouvelle intervention démarre — OK
-- À la résolution : seule l'intervention `en_cours` courante est fermée (`date_fin = now`) — OK
-- **Bug** : les **collaborateurs** sont insérés **au moment de la résolution** avec `date_debut = ticket.heure_prise_en_charge || now`. Conséquences :
-  - On ignore la vraie date d'ajout (`ticket_collaborators.added_at`) → durée de collaboration faussée (souvent gonflée).
-  - Si le collab a été retiré avant la résolution (`removed_at`), sa `date_fin` devrait être `removed_at`, pas `now`.
-  - Aucune intervention créée pour un collab actif si le ticket est transféré/libéré sans résolution → perte de traçabilité KPI.
+Fichiers concernés :
+- `src/pages/gpao/ShiftScreen.tsx` — `handleDeclareProduction` (heure), `handleStartShift` (OF/ligne), `handleCreateTicket` (machine)
+- `src/pages/TicketsList.tsx` — `handleCreate` (machine)
+- `src/pages/TicketDetail.tsx` — `handleResolve`, `handleTransfer`, `handleRelease`, `handleTakeCharge` (déjà traités précédemment, vérifier la cohérence mobile)
 
-### Problèmes liés à la libération
-- `heure_prise_en_charge` est mise à `null` → si un autre maintenancier reprend, le KPI total perd la fenêtre antérieure. Soit on garde `heure_prise_en_charge` initial (cohérent avec le transfert), soit on stocke un horodatage séparé pour la **première** prise en charge.
+## Modifications
 
-## Modifications proposées
+### 1. Schémas Zod centralisés (`src/lib/formValidation.ts` — nouveau)
+Créer des schémas réutilisables :
+```ts
+ticketCreateSchema     → machine_id (uuid requis), description (1..1000 chars trim), priorite enum
+productionDeclareSchema → of_id, slot_index (>=0), quantite_produite (>=0), quantite_rebut (>=0)
+shiftStartSchema       → team_id, slot_id, of_id, line_id (tous requis)
+```
+Plus un helper `getFieldError(result, field)` pour l'affichage inline.
 
-### 1. Libération (`handleRelease`)
-- **Ne plus** vider `heure_prise_en_charge`. La conserver pour que `temps_intervention_minutes` reflète bien la durée totale (transfert et reprise traités symétriquement).
-- À la reprise (`handleTakeCharge`) : si `heure_prise_en_charge` existe déjà (ticket déjà pris une fois), **ne pas l'écraser** ; juste mettre à jour `assignee_id` + statut, et créer une nouvelle intervention `en_cours`.
+### 2. ShiftScreen — Production hourly form
+- État local `formErrors` (Record<string,string>).
+- À chaque changement de champ : revalider le schéma → `formErrors`.
+- **Bouton « Déclarer »** : `disabled` si `selectedHourSlot === null` ou `!canEditSlot(slot)` ou erreurs Zod ou OF manquant.
+- Sous chaque champ (créneau, quantité) : `<p className="text-xs text-destructive">…</p>` inline.
+- **Banner rouge** persistant en haut du formulaire si :
+  - Aucun OF actif → "Sélectionnez un OF pour déclarer la production"
+  - Aucun créneau éditable disponible → "Aucune fenêtre horaire ouverte (règle Hour-1)"
+- Sur mobile : banner sticky sous le header pour rester visible en scroll.
 
-### 2. Collaborateurs — interventions individuelles avec dates correctes
-- Lors de **l'ajout** d'un collaborateur (`addCollaborator`) : créer immédiatement une intervention `en_cours` avec `date_debut = added_at`, `description = Collaboration (aide|co_intervenant)` au lieu d'attendre la résolution.
-- Lors du **retrait** (`removeCollaborator`) : fermer l'intervention correspondante (`statut = terminee`, `date_fin = removed_at`).
-- Lors de la **résolution** (`handleResolve`) : fermer toutes les interventions de collaborateurs encore `en_cours` avec `date_fin = now`. Supprimer le bloc d'insert "Collaboration" actuel (devenu redondant).
-- Lors d'un **transfert / libération** : les interventions `en_cours` des collaborateurs restent ouvertes (ils continuent à aider) — pas de modification.
+### 3. ShiftScreen — Start shift form
+- Bouton « Démarrer » `disabled` tant que team_id, slot_id, OF, ligne_id ne sont pas tous remplis.
+- Erreurs inline sous chaque Select.
+- Si OF sans ligne assignée : message rouge **immédiat** sous le sélecteur d'OF (au lieu d'attendre le clic).
 
-### 3. KPI ticket — robustesse de `handleResolve`
-- Continuer d'utiliser `heure_declaration` et `heure_prise_en_charge` du ticket (déjà cohérents grâce au point 1).
-- Si pour une raison quelconque `heure_prise_en_charge` est `null` (résolution d'un ticket jamais pris formellement), fallback sur `heure_declaration` pour `temps_intervention_minutes` (au moins une valeur non nulle).
-- `heure_cloture` reste posée par `handleClose` (déjà OK).
+### 4. ShiftScreen — Create ticket dialog
+- Bouton « Créer ticket » `disabled` si `!ticketMachineId || ticketDescription.trim().length === 0`.
+- Compteur de caractères live (max 1000) sur la description.
+- Helper text rouge sous le sélecteur Machine si vide.
 
-### 4. Vue Journal des interventions
-- `InterventionJournal.tsx` calcule déjà `duration_minutes = date_fin - date_debut` par intervention — bénéficie automatiquement des dates corrigées (collaborateur, transfert, reprise).
+### 5. TicketsList — Create ticket dialog
+- Mêmes règles que §4 + validation Zod (uuid pour machine, description 1..1000).
+- Bouton « Créer » désactivé tant que le formulaire est invalide.
+- Sur mobile : `ResponsiveDialog` (déjà utilisé) — s'assurer que les messages d'erreur restent visibles au-dessus du clavier virtuel (padding-bottom dynamique).
 
-### 5. Audit
-- Aucun changement structurel ; les actions (ajout/retrait collab, transfert, libération, résolution) sont déjà loggées.
+### 6. UX mobile/tablette
+- Touch targets : tous les `Button` de soumission gardent `h-12` (48px conforme thème industriel).
+- États visuels : `disabled` → opacité réduite + curseur not-allowed (déjà géré par `Button` shadcn).
+- Pas de submit on Enter dans les `Input` mobiles tant que invalide.
+
+### 7. Audit / Tests
+- Aucune migration DB.
+- Ajouter `src/test/forms/form-validation.test.ts` : couvre les trois schémas Zod (cas valides/invalides).
 
 ## Détails techniques
 
-Fichier impacté : `src/pages/TicketDetail.tsx`
-
 ```text
-addCollaborator()        → INSERT interventions (en_cours, date_debut = added_at)
-removeCollaborator()     → UPDATE intervention collab (statut=terminee, date_fin=removed_at)
-handleTakeCharge()       → si heure_prise_en_charge existe déjà : ne pas l'écraser
-handleRelease()          → retirer "heure_prise_en_charge: null"
-handleResolve()          → fermer interventions collab en_cours ; supprimer insert "Collaboration"
-                           fallback temps_intervention_minutes sur heure_declaration si besoin
+src/lib/formValidation.ts         (NEW)
+  ├─ ticketCreateSchema (zod)
+  ├─ productionDeclareSchema (zod)
+  ├─ shiftStartSchema (zod)
+  └─ getFieldError() helper
+
+src/pages/gpao/ShiftScreen.tsx
+  ├─ useMemo(declareErrors) → blocks "Déclarer" button
+  ├─ useMemo(startShiftErrors) → blocks "Démarrer" button
+  ├─ useMemo(ticketErrors) → blocks "Créer ticket" button
+  └─ inline <FieldError /> components
+
+src/pages/TicketsList.tsx
+  └─ useMemo(createErrors) → blocks "Créer" button + inline errors
+
+src/test/forms/form-validation.test.ts (NEW)
 ```
 
-Aucune migration DB requise — on réutilise `interventions` (statuts existants `en_cours`/`terminee`).
-
 ## Hors-scope
-- Pas de recalcul rétroactif des KPI sur tickets déjà résolus.
-- Pas de changement aux KPI agrégés (MTTR/MTTA dashboards) — ils s'appuient déjà sur les colonnes corrigées.
-- Pas de modification de l'enum `intervention_statut`.
+- Pas de validation backend supplémentaire (RLS et triggers existants suffisent).
+- Pas de refonte des dialogs ni des layouts mobiles existants.
+- Pas de modification des règles métier (Hour-1, OF status, etc.) — juste leur exposition côté UI.
