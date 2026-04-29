@@ -1,6 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import logoEntreprise from "@/assets/logo-entreprise.jpg";
 import {
   IconDashboard, IconMachine, IconEquipment, IconFactory, IconSpare,
@@ -9,6 +10,7 @@ import {
   IconConsumption, IconStop, IconSettings, IconLogout,
   IconMaintenance, IconProduction,
 } from "@/components/icons/IndustrialIcons";
+import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
   SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
@@ -43,17 +45,32 @@ const gpaoItems = [
   { title: "Arrêts", url: "/gpao/arrets", icon: IconStop },
 ];
 
+const qualiteItems = [
+  { title: "Dashboard", url: "/qualite", icon: IconChart },
+  { title: "OF qualité", url: "/qualite/of", icon: IconOrder },
+  { title: "Indicateurs", url: "/qualite/indicateurs", icon: IconAnalytics },
+  { title: "Contrôles", url: "/qualite/controles", icon: ClipboardCheck },
+  { title: "Non-conformités", url: "/qualite/non-conformites", icon: AlertTriangle },
+  { title: "Actions", url: "/qualite/actions", icon: Wrench },
+  { title: "Recettes & nomenclatures", url: "/qualite/recettes-nomenclatures", icon: IconRecipe },
+  { title: "Traçabilité", url: "/qualite/tracabilite", icon: IconChart },
+  { title: "Rapports", url: "/qualite/rapports", icon: FileText },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { profile, roles, signOut } = useAuth();
+  const { canView } = usePermissions();
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   const isGmaoActive = gmaoItems.some((i) => isActive(i.url));
   const isGpaoActive = gpaoItems.some((i) => isActive(i.url));
+  const isQualiteActive = qualiteItems.some((i) => isActive(i.url));
+  const showQualite = canView("qualite");
 
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim() || "Utilisateur"
@@ -63,8 +80,8 @@ export function AppSidebar() {
 
   const renderGroup = (
     label: string,
-    GroupIcon: React.FC<{ size?: number }>,
-    items: typeof gmaoItems,
+    GroupIcon: React.ComponentType<{ size?: number | string; className?: string }>,
+    items: { title: string; url: string; icon: React.ComponentType<{ size?: number | string; className?: string }> }[],
     defaultOpen: boolean,
   ) => (
     <SidebarGroup>
@@ -146,6 +163,13 @@ export function AppSidebar() {
         <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
 
         {renderGroup("Production", IconProduction, gpaoItems, isGpaoActive)}
+
+        {showQualite && (
+          <>
+            <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
+            {renderGroup("Qualité", ShieldCheck, qualiteItems, isQualiteActive)}
+          </>
+        )}
 
         <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
 

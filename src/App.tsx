@@ -66,6 +66,15 @@ import ValidationsPage from "@/pages/ValidationsPage";
 import ValidationRulesAdmin from "@/pages/parametres/ValidationRulesAdmin";
 import SearchPage from "@/pages/SearchPage";
 import { GlobalSearchProvider } from "@/components/search/GlobalSearchProvider";
+import QualiteDashboard from "@/pages/qualite/QualiteDashboard";
+import QualiteOf from "@/pages/qualite/QualiteOf";
+import QualiteIndicateurs from "@/pages/qualite/QualiteIndicateurs";
+import QualiteControles from "@/pages/qualite/QualiteControles";
+import QualiteNonConformites from "@/pages/qualite/QualiteNonConformites";
+import QualiteActions from "@/pages/qualite/QualiteActions";
+import QualiteRecettesNomenclatures from "@/pages/qualite/QualiteRecettesNomenclatures";
+import QualiteTracabilite from "@/pages/qualite/QualiteTracabilite";
+import QualiteRapports from "@/pages/qualite/QualiteRapports";
 
 const queryClient = new QueryClient();
 
@@ -169,6 +178,16 @@ const App = () => (
               <Route path="/validations" element={<ValidationsPage />} />
               <Route path="/parametres/validations" element={<ValidationRulesAdmin />} />
               <Route path="/recherche" element={<SearchPage />} />
+              {/* Qualité & Traçabilité */}
+              <Route path="/qualite" element={<QualiteDashboard />} />
+              <Route path="/qualite/of" element={<QualiteOf />} />
+              <Route path="/qualite/indicateurs" element={<QualiteIndicateurs />} />
+              <Route path="/qualite/controles" element={<QualiteControles />} />
+              <Route path="/qualite/non-conformites" element={<QualiteNonConformites />} />
+              <Route path="/qualite/actions" element={<QualiteActions />} />
+              <Route path="/qualite/recettes-nomenclatures" element={<QualiteRecettesNomenclatures />} />
+              <Route path="/qualite/tracabilite" element={<QualiteTracabilite />} />
+              <Route path="/qualite/rapports" element={<QualiteRapports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
