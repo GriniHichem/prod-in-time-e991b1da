@@ -443,8 +443,23 @@ export default function OfDetail() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
+        {/* === QUALITÉ === */}
+        <TabsContent value="quality">
+          <OfQualityTab
+            ofId={of.id}
+            ofNumero={of.numero}
+            productId={of.product_id ?? null}
+            lineId={of.line_id ?? null}
+            qualityStatus={of.quality_status ?? null}
+            canManage={
+              hasRole("admin") || hasRole("resp_production") || hasRole("chef_ligne") ||
+              hasRole("controleur_qualite") || hasRole("bureau_methode")
+            }
+            onChanged={load}
+          />
+        </TabsContent>
+      </Tabs>
       {/* Shift Detail Dialog */}
       <Dialog open={!!detailShift} onOpenChange={(open) => !open && setDetailShift(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
