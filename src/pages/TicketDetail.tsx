@@ -134,6 +134,7 @@ export default function TicketDetail() {
       technicien_id: newCollabId,
       description: `Collaboration (${newCollabRole === "co_intervenant" ? "co-intervenant" : "aide"})`,
       statut: "en_cours" as any,
+      role: newCollabRole as any, // 'aide' | 'co_intervenant' — never inflates the failure count
       date_debut: collabRow?.added_at || now,
     });
     toast({ title: "Collaborateur ajouté" });
@@ -182,7 +183,7 @@ export default function TicketDetail() {
     const ticketUpdate: any = { statut: "pris_en_charge" as any, assignee_id: user?.id, assignment_status: "assigned" as any };
     if (!ticket?.heure_prise_en_charge) ticketUpdate.heure_prise_en_charge = now;
     await supabase.from("tickets").update(ticketUpdate).eq("id", id!);
-    await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any });
+    await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any, role: "lead" as any });
     toast({ title: "Ticket pris en charge" });
     loadTicket();
   };
@@ -220,6 +221,7 @@ export default function TicketDetail() {
         ticket_id: id, technicien_id: transferTargetId,
         description: `Reprise après transfert (motif: ${handoverMotif})`,
         statut: "en_cours" as any,
+        role: "lead" as any, // new assignee becomes the lead
       });
 
       // 4. Audit
@@ -450,6 +452,7 @@ export default function TicketDetail() {
             technicien_id: c.user_id,
             description: `Collaboration (${c.role_label === "co_intervenant" ? "co-intervenant" : "aide"})`,
             statut: "terminee" as any,
+            role: (c.role_label === "co_intervenant" ? "co_intervenant" : "aide") as any,
             date_debut: c.added_at || ticket?.heure_prise_en_charge || now,
             date_fin: now,
           }))

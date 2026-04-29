@@ -28,6 +28,7 @@ type JournalEntry = {
   status: string;
   duration_minutes: number | null;
   link: string;
+  role?: "lead" | "aide" | "co_intervenant" | null;
 };
 
 export default function InterventionJournal() {
@@ -51,7 +52,7 @@ export default function InterventionJournal() {
   useEffect(() => {
     const load = async () => {
       const [ticketRes, execRes, lineRes, profileRes, machineRes, assignRes] = await Promise.all([
-        supabase.from("tickets").select("*, machines(id, designation, code), interventions(id, technicien_id, date_debut, date_fin, statut, description)").order("created_at", { ascending: false }),
+        supabase.from("tickets").select("*, machines(id, designation, code), interventions(id, technicien_id, date_debut, date_fin, statut, description, role)").order("created_at", { ascending: false }),
         supabase.from("preventive_executions").select("*, preventive_plans(id, title, machine_id, line_id, machines(id, designation, code))").order("date_execution", { ascending: false }),
         supabase.from("production_lines").select("id, designation, code").eq("is_active", true),
         supabase.from("profiles").select("user_id, first_name, last_name"),
@@ -141,6 +142,7 @@ export default function InterventionJournal() {
             status: intv.statut || t.statut,
             duration_minutes: durationMs,
             link: `/tickets/${t.id}`,
+            role: intv.role || null,
           });
         });
       }
@@ -394,6 +396,15 @@ export default function InterventionJournal() {
                           {e.type === "curative" ? "Curative" : "Préventive"}
                         </Badge>
                         {statusLabel(e.status)}
+                        {e.role === "lead" && (
+                          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">Lead</Badge>
+                        )}
+                        {e.role === "co_intervenant" && (
+                          <Badge variant="outline" className="text-[10px] bg-info/10 text-info border-info/20">Co-intervenant</Badge>
+                        )}
+                        {e.role === "aide" && (
+                          <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border">Aide</Badge>
+                        )}
                       </div>
                       {e.description && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{e.description}</p>

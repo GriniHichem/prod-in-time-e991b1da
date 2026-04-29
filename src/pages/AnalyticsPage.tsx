@@ -23,13 +23,15 @@ export default function AnalyticsPage() {
   const [lines, setLines] = useState<any[]>([]);
   const [families, setFamilies] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [interventions, setInterventions] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
-      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes, fRes, pRes] = await Promise.all([
+      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes, fRes, pRes, iRes, prRes] = await Promise.all([
         supabase.from("tickets").select("*, machines(code, designation), ordres_fabrication(numero, products(code, designation))").order("heure_declaration", { ascending: false }),
         supabase.from("machines").select("*").eq("is_active", true),
         supabase.from("ordres_fabrication").select("*, products(designation, code, family_id, poids_unitaire, product_families(name)), production_lines(designation, code)").order("created_at", { ascending: false }),
@@ -40,6 +42,8 @@ export default function AnalyticsPage() {
         supabase.from("production_lines").select("*").eq("is_active", true),
         supabase.from("product_families").select("*").eq("is_active", true),
         supabase.from("products").select("*, product_families(name)").eq("is_active", true),
+        supabase.from("interventions").select("id, ticket_id, technicien_id, date_debut, date_fin, statut, role"),
+        supabase.from("profiles").select("user_id, first_name, last_name"),
       ]);
       setTickets(tRes.data || []);
       setMachines(mRes.data || []);
@@ -51,6 +55,8 @@ export default function AnalyticsPage() {
       setLines(lRes.data || []);
       setFamilies(fRes.data || []);
       setProducts(pRes.data || []);
+      setInterventions(iRes.data || []);
+      setProfiles(prRes.data || []);
       setLoading(false);
     };
     load();
@@ -68,12 +74,15 @@ export default function AnalyticsPage() {
   const cOfs = useMemo(() => df.compareRange ? filterByDateRange(ofs, df.compareRange, (o) => o.created_at) : [], [ofs, df.compareRange]);
 
   // KPIs
+  // IMPORTANT: KPIs panne / MTBF / disponibilité comptent UNIQUEMENT les tickets.
+  // Ne JAMAIS compter `interventions` ici — un ticket avec plusieurs collaborateurs
+  // génère plusieurs interventions mais reste UNE SEULE panne.
   const kpis = useMemo(() => {
     const closed = fTickets.filter((t) => t.statut === "cloture" || t.statut === "resolu");
     const withInt = closed.filter((t) => t.temps_intervention_minutes);
     const withArr = closed.filter((t) => t.temps_arret_minutes);
     const mttr = withInt.length > 0 ? Math.round(withInt.reduce((s, t) => s + t.temps_intervention_minutes, 0) / withInt.length) : 0;
-    const totalFailures = fTickets.filter((t) => t.statut !== "annule").length || 1;
+    const totalFailures = fTickets.filter((t) => t.statut !== "annule").length || 1; // 1 ticket = 1 panne
     const totalHours = (machines.length || 1) * 30 * 24;
     const mtbf = Math.round(totalHours / totalFailures);
     const avgArret = withArr.length > 0 ? Math.round(withArr.reduce((s, t) => s + t.temps_arret_minutes, 0) / withArr.length) : 0;
@@ -87,13 +96,36 @@ export default function AnalyticsPage() {
     const withInt = closed.filter((t) => t.temps_intervention_minutes);
     const withArr = closed.filter((t) => t.temps_arret_minutes);
     const mttr = withInt.length > 0 ? Math.round(withInt.reduce((s, t) => s + t.temps_intervention_minutes, 0) / withInt.length) : 0;
-    const totalFailures = cTickets.filter((t) => t.statut !== "annule").length || 1;
+    const totalFailures = cTickets.filter((t) => t.statut !== "annule").length || 1; // 1 ticket = 1 panne
     const totalHours = (machines.length || 1) * 30 * 24;
     const mtbf = Math.round(totalHours / totalFailures);
     const avgArret = withArr.length > 0 ? Math.round(withArr.reduce((s, t) => s + t.temps_arret_minutes, 0) / withArr.length) : 0;
     const availability = mtbf > 0 && mttr > 0 ? Math.round((mtbf / (mtbf + mttr / 60)) * 100) : 100;
     return { mttr, mtbf, avgArret, availability, totalFailures, closedCount: closed.length };
   }, [cTickets, machines, df.compareRange]);
+
+  // Per-technician workload — multi-counted by design (1 collaborator on a ticket = 1 row here).
+  // This is fed by `interventions.role`, NOT by ticket count, so it never inflates panne KPIs above.
+  const technicianWorkload = useMemo(() => {
+    const ticketIds = new Set(fTickets.map((t) => t.id));
+    const profileMap = new Map(profiles.map((p: any) => [p.user_id, `${p.first_name || ""} ${p.last_name || ""}`.trim() || "—"]));
+    const agg: Record<string, { name: string; total: number; durationMin: number; lead: number; aide: number; co: number }> = {};
+    interventions
+      .filter((i) => i.technicien_id && ticketIds.has(i.ticket_id))
+      .forEach((i) => {
+        const key = i.technicien_id;
+        if (!agg[key]) agg[key] = { name: profileMap.get(key) || "—", total: 0, durationMin: 0, lead: 0, aide: 0, co: 0 };
+        agg[key].total += 1;
+        if (i.date_debut && i.date_fin) {
+          agg[key].durationMin += Math.max(0, Math.round((new Date(i.date_fin).getTime() - new Date(i.date_debut).getTime()) / 60000));
+        }
+        const role = i.role || "lead";
+        if (role === "lead") agg[key].lead += 1;
+        else if (role === "co_intervenant") agg[key].co += 1;
+        else agg[key].aide += 1;
+      });
+    return Object.values(agg).sort((a, b) => b.durationMin - a.durationMin);
+  }, [interventions, fTickets, profiles]);
 
   // Prod KPIs
   const totalProduit = fOfs.reduce((s, o) => s + (o.quantite_produite || 0), 0);
@@ -298,6 +330,50 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Charge par technicien — alimentée par interventions.role (multi-comptée par design) */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Charge par technicien</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Participation individuelle agrégée par interventions. Un ticket avec plusieurs intervenants apparaît sur chaque ligne concernée — sans gonfler le nombre de pannes.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {technicianWorkload.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Aucune intervention sur la période</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-muted-foreground">
+                        <th className="text-left py-2 pr-3 font-medium">Technicien</th>
+                        <th className="text-right py-2 px-3 font-medium tabular-nums">Interventions</th>
+                        <th className="text-right py-2 px-3 font-medium tabular-nums">Temps passé</th>
+                        <th className="text-center py-2 px-3 font-medium">Lead</th>
+                        <th className="text-center py-2 px-3 font-medium">Co-intervenant</th>
+                        <th className="text-center py-2 pl-3 font-medium">Aide</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {technicianWorkload.map((t) => (
+                        <tr key={t.name} className="border-b last:border-0">
+                          <td className="py-2 pr-3">{t.name}</td>
+                          <td className="text-right py-2 px-3 tabular-nums font-medium">{t.total}</td>
+                          <td className="text-right py-2 px-3 tabular-nums text-muted-foreground">
+                            {t.durationMin >= 60 ? `${Math.floor(t.durationMin / 60)}h ${t.durationMin % 60}m` : `${t.durationMin} min`}
+                          </td>
+                          <td className="text-center py-2 px-3 tabular-nums">{t.lead || "—"}</td>
+                          <td className="text-center py-2 px-3 tabular-nums">{t.co || "—"}</td>
+                          <td className="text-center py-2 pl-3 tabular-nums">{t.aide || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Production */}

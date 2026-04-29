@@ -630,6 +630,7 @@ export type Database = {
           description: string
           id: string
           notes: string | null
+          role: Database["public"]["Enums"]["intervention_role"]
           search_vector: unknown
           statut: Database["public"]["Enums"]["intervention_statut"]
           technicien_id: string
@@ -645,6 +646,7 @@ export type Database = {
           description?: string
           id?: string
           notes?: string | null
+          role?: Database["public"]["Enums"]["intervention_role"]
           search_vector?: unknown
           statut?: Database["public"]["Enums"]["intervention_statut"]
           technicien_id: string
@@ -660,6 +662,7 @@ export type Database = {
           description?: string
           id?: string
           notes?: string | null
+          role?: Database["public"]["Enums"]["intervention_role"]
           search_vector?: unknown
           statut?: Database["public"]["Enums"]["intervention_statut"]
           technicien_id?: string
@@ -3517,6 +3520,7 @@ export type Database = {
         | "semestriel"
         | "annuel"
       impact_ligne: "arret_complet" | "arret_partiel" | "degradation" | "aucun"
+      intervention_role: "lead" | "aide" | "co_intervenant"
       intervention_statut:
         | "en_cours"
         | "terminee"
@@ -3756,6 +3760,7 @@ export const Constants = {
         "annuel",
       ],
       impact_ligne: ["arret_complet", "arret_partiel", "degradation", "aucun"],
+      intervention_role: ["lead", "aide", "co_intervenant"],
       intervention_statut: [
         "en_cours",
         "terminee",
