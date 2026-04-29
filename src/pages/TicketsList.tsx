@@ -181,9 +181,12 @@ export default function TicketsList() {
               <div className="space-y-2">
                 <Label>Machine *</Label>
                 <Select value={newMachineId} onValueChange={setNewMachineId}>
-                  <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner une machine" /></SelectTrigger>
+                  <SelectTrigger className="h-12" aria-invalid={!!createErrors.machine_id}><SelectValue placeholder="Sélectionner une machine" /></SelectTrigger>
                   <SelectContent>{machines.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} — {m.designation}</SelectItem>)}</SelectContent>
                 </Select>
+                {createErrors.machine_id && (
+                  <p className="text-xs text-destructive">{createErrors.machine_id}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Type de panne</Label>
@@ -205,10 +208,23 @@ export default function TicketsList() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Description *</Label>
-                <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Décrivez le problème..." className="min-h-[80px]" />
+                <div className="flex items-center justify-between">
+                  <Label>Description *</Label>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{newDescription.trim().length}/1000</span>
+                </div>
+                <Textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value.slice(0, 1000))}
+                  placeholder="Décrivez le problème..."
+                  className="min-h-[80px]"
+                  aria-invalid={!!createErrors.description}
+                  maxLength={1000}
+                />
+                {createErrors.description && (
+                  <p className="text-xs text-destructive">{createErrors.description}</p>
+                )}
               </div>
-              <Button onClick={handleCreate} className="w-full h-12">Créer le ticket</Button>
+              <Button onClick={handleCreate} disabled={!canSubmitCreate} className="w-full h-12">Créer le ticket</Button>
             </div>
           </ResponsiveDialog>
         </div>
