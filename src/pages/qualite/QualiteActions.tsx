@@ -280,7 +280,7 @@ export default function QualiteActions() {
   async function loadAll() {
     setLoading(true);
     const [actionsRes, usersRes, ncRes, ofRes] = await Promise.all([
-      supabase.from("quality_actions").select("*").order("created_at", { ascending: false }).limit(500),
+      (supabase.from("quality_actions") as any).select("*").order("created_at", { ascending: false }).limit(500),
       supabase.from("profiles").select("user_id, first_name, last_name").limit(500),
       supabase.from("quality_non_conformities").select("id, nc_number, of_id").order("created_at", { ascending: false }).limit(500),
       supabase.from("ordres_fabrication").select("id, numero").order("created_at", { ascending: false }).limit(200),
