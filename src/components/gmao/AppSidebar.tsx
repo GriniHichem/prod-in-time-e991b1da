@@ -10,7 +10,7 @@ import {
   IconConsumption, IconStop, IconSettings, IconLogout,
   IconMaintenance, IconProduction,
 } from "@/components/icons/IndustrialIcons";
-import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText } from "lucide-react";
+import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText, Lock, CheckSquare, Cog } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
   SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
@@ -57,6 +57,12 @@ const qualiteItems = [
   { title: "Rapports", url: "/qualite/rapports", icon: FileText },
 ];
 
+const adminItems = [
+  { title: "Sécurité & Accès", url: "/securite", icon: Lock },
+  { title: "Validations", url: "/validations", icon: CheckSquare },
+  { title: "Paramètres", url: "/parametres", icon: IconSettings },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -70,6 +76,7 @@ export function AppSidebar() {
   const isGmaoActive = gmaoItems.some((i) => isActive(i.url));
   const isGpaoActive = gpaoItems.some((i) => isActive(i.url));
   const isQualiteActive = qualiteItems.some((i) => isActive(i.url));
+  const isAdminActive = adminItems.some((i) => isActive(i.url));
   const showQualite = canView("qualite");
 
   const displayName = profile
@@ -173,45 +180,7 @@ export function AppSidebar() {
 
         <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
 
-        {/* Settings */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="px-2">
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/validations")} tooltip="Validations">
-                  <NavLink
-                    to="/validations"
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
-                      "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
-                      isActive("/validations") && "sidebar-active-glow text-sidebar-primary-foreground"
-                    )}
-                    activeClassName=""
-                  >
-                    <IconPreventive size={18} className="shrink-0" />
-                    {!collapsed && <span>Validations</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/parametres")} tooltip="Paramètres">
-                  <NavLink
-                    to="/parametres"
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
-                      "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
-                      isActive("/parametres") && "sidebar-active-glow text-sidebar-primary-foreground"
-                    )}
-                    activeClassName=""
-                  >
-                    <IconSettings size={18} className="shrink-0" />
-                    {!collapsed && <span>Paramètres</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {renderGroup("Administration", Cog, adminItems, isAdminActive)}
       </SidebarContent>
 
       {/* Footer — User area */}
