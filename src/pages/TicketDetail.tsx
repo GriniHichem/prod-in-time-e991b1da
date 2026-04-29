@@ -270,9 +270,9 @@ export default function TicketDetail() {
         }).eq("id", activeIntervention.id);
       }
 
-      // 2. Release ticket back to pool
+      // 2. Release ticket back to pool (keep heure_prise_en_charge for KPI continuity if re-taken)
       await supabase.from("tickets").update({
-        assignee_id: null, statut: "ouvert" as any, heure_prise_en_charge: null,
+        assignee_id: null, statut: "ouvert" as any,
       }).eq("id", id);
 
       // 3. Audit
