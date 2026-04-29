@@ -78,16 +78,37 @@ export default function OfList() {
     }
   };
 
+  // Recipe versions for the selected product (sorted latest first; active prioritized)
+  const recipesForProduct = (recipes as any[])
+    .filter((r) => r.product_id === newProductId)
+    .sort((a, b) => {
+      const sa = (a.status === "active" || a.is_active) ? 0 : a.status === "draft" ? 1 : 2;
+      const sb = (b.status === "active" || b.is_active) ? 0 : b.status === "draft" ? 1 : 2;
+      if (sa !== sb) return sa - sb;
+      return (b.version || 0) - (a.version || 0);
+    });
+
+  // When product changes, auto-pick the most recent active version (or none)
+  useEffect(() => {
+    if (!newProductId) { setNewRecipeId(""); return; }
+    const candidate = recipesForProduct.find((r) => r.status === "active" || r.is_active) || recipesForProduct[0];
+    setNewRecipeId(candidate?.id || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newProductId, recipes.length]);
+
   const handleCreate = async () => {
     if (!newProductId || !newQte) {
       toast({ title: "Erreur", description: "Produit et quantité obligatoires", variant: "destructive" });
       return;
     }
-    const recipe = recipes.find((r) => r.product_id === newProductId);
+    if (recipesForProduct.length > 0 && !newRecipeId) {
+      toast({ title: "Erreur", description: "Sélectionnez la version de recette à suivre", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("ordres_fabrication").insert({
       numero: "",
       product_id: newProductId,
-      recipe_id: recipe?.id || null,
+      recipe_id: newRecipeId || null,
       line_id: newLineId || null,
       quantite_prevue: parseFloat(newQte),
       date_debut_prevue: newDateDebut || null,
@@ -100,7 +121,7 @@ export default function OfList() {
     } else {
       toast({ title: "OF créé" });
       setDialogOpen(false);
-      setNewProductId(""); setNewLineId(""); setNewQte(""); setNewDateDebut(""); setNewDateFin("");
+      setNewProductId(""); setNewLineId(""); setNewQte(""); setNewDateDebut(""); setNewDateFin(""); setNewRecipeId("");
       loadOfs();
     }
   };
