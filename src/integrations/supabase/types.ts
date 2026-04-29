@@ -199,6 +199,36 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_role_settings: {
+        Row: {
+          audit_enabled: boolean
+          created_at: string
+          id: string
+          module: string
+          role: string
+          severity_threshold: string
+          updated_at: string
+        }
+        Insert: {
+          audit_enabled?: boolean
+          created_at?: string
+          id?: string
+          module: string
+          role: string
+          severity_threshold?: string
+          updated_at?: string
+        }
+        Update: {
+          audit_enabled?: boolean
+          created_at?: string
+          id?: string
+          module?: string
+          role?: string
+          severity_threshold?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bill_of_materials: {
         Row: {
           approved_at: string | null
@@ -390,6 +420,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_roles: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          inherits_from: Database["public"]["Enums"]["app_role"] | null
+          is_active: boolean
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          inherits_from?: Database["public"]["Enums"]["app_role"] | null
+          is_active?: boolean
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          inherits_from?: Database["public"]["Enums"]["app_role"] | null
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       document_audit_logs: {
         Row: {
@@ -3519,6 +3588,72 @@ export type Database = {
         }
         Relationships: []
       }
+      quality_permissions: {
+        Row: {
+          can_close_action: boolean
+          can_close_nc: boolean
+          can_create_action: boolean
+          can_create_check: boolean
+          can_create_nc: boolean
+          can_decide_nc: boolean
+          can_export_tracability: boolean
+          can_manage_assignments: boolean
+          can_manage_indicators: boolean
+          can_publish_bom: boolean
+          can_publish_recipe: boolean
+          can_reject_check: boolean
+          can_validate_check: boolean
+          can_verify_action: boolean
+          can_view_reports: boolean
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          can_close_action?: boolean
+          can_close_nc?: boolean
+          can_create_action?: boolean
+          can_create_check?: boolean
+          can_create_nc?: boolean
+          can_decide_nc?: boolean
+          can_export_tracability?: boolean
+          can_manage_assignments?: boolean
+          can_manage_indicators?: boolean
+          can_publish_bom?: boolean
+          can_publish_recipe?: boolean
+          can_reject_check?: boolean
+          can_validate_check?: boolean
+          can_verify_action?: boolean
+          can_view_reports?: boolean
+          created_at?: string
+          id?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          can_close_action?: boolean
+          can_close_nc?: boolean
+          can_create_action?: boolean
+          can_create_check?: boolean
+          can_create_nc?: boolean
+          can_decide_nc?: boolean
+          can_export_tracability?: boolean
+          can_manage_assignments?: boolean
+          can_manage_indicators?: boolean
+          can_publish_bom?: boolean
+          can_publish_recipe?: boolean
+          can_reject_check?: boolean
+          can_validate_check?: boolean
+          can_verify_action?: boolean
+          can_view_reports?: boolean
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       recipe_lines: {
         Row: {
           article_id: string
@@ -4585,11 +4720,19 @@ export type Database = {
         Args: { _module: string; _user_id: string }
         Returns: boolean
       }
+      has_quality_permission: {
+        Args: { _action: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_audit_enabled: {
+        Args: { _module: string; _role: string }
         Returns: boolean
       }
       search_suggest: {
