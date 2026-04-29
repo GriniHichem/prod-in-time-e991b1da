@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
+import { EquivalencesTable } from "@/components/pdr/EquivalencesTable";
 
 export default function PdrDetail() {
   const { id } = useParams();
