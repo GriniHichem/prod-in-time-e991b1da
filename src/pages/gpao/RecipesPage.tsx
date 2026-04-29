@@ -409,6 +409,36 @@ export default function RecipesPage() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={lineItemType} onValueChange={setLineItemType}>
+                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="raw_material">Matière première</SelectItem>
+                    <SelectItem value="packaging">Emballage</SelectItem>
+                    <SelectItem value="label">Étiquette</SelectItem>
+                    <SelectItem value="carton">Carton</SelectItem>
+                    <SelectItem value="pallet">Palette</SelectItem>
+                    <SelectItem value="consumable">Consommable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Perte %</Label>
+                <Input type="number" value={lineWastePercent} onChange={(e) => setLineWastePercent(e.target.value)} className="h-12" placeholder="0" step="0.01" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={lineMandatory} onChange={(e) => setLineMandatory(e.target.checked)} className="h-4 w-4" />
+                Composant obligatoire
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={lineQualitySensitive} onChange={(e) => setLineQualitySensitive(e.target.checked)} className="h-4 w-4" />
+                Qualité sensible (suivi renforcé en contrôle qualité)
+              </label>
+            </div>
             <Button onClick={handleAddLine} className="w-full h-12">Ajouter</Button>
           </div>
         </DialogContent>
