@@ -3208,6 +3208,123 @@ export type Database = {
         }
         Relationships: []
       }
+      quality_non_conformities: {
+        Row: {
+          affected_quantity: number | null
+          article_id: string | null
+          batch_number: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closure_comment: string | null
+          created_at: string
+          decision: Database["public"]["Enums"]["nc_decision"] | null
+          decision_at: string | null
+          decision_by: string | null
+          declared_by: string | null
+          description: string | null
+          detected_at: string
+          detected_quantity: number | null
+          id: string
+          immediate_action: string | null
+          lot_number: string | null
+          metadata: Json | null
+          nc_category: string | null
+          nc_number: string | null
+          nc_type: Database["public"]["Enums"]["nc_type"]
+          of_id: string | null
+          packaging_article_id: string | null
+          product_id: string | null
+          production_line_id: string | null
+          quality_check_id: string | null
+          root_cause: string | null
+          search_vector: unknown
+          severity: Database["public"]["Enums"]["nc_severity"]
+          shift_id: string | null
+          status: Database["public"]["Enums"]["nc_status"]
+          team_id: string | null
+          title: string
+          unit: string | null
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          affected_quantity?: number | null
+          article_id?: string | null
+          batch_number?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_comment?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["nc_decision"] | null
+          decision_at?: string | null
+          decision_by?: string | null
+          declared_by?: string | null
+          description?: string | null
+          detected_at?: string
+          detected_quantity?: number | null
+          id?: string
+          immediate_action?: string | null
+          lot_number?: string | null
+          metadata?: Json | null
+          nc_category?: string | null
+          nc_number?: string | null
+          nc_type: Database["public"]["Enums"]["nc_type"]
+          of_id?: string | null
+          packaging_article_id?: string | null
+          product_id?: string | null
+          production_line_id?: string | null
+          quality_check_id?: string | null
+          root_cause?: string | null
+          search_vector?: unknown
+          severity?: Database["public"]["Enums"]["nc_severity"]
+          shift_id?: string | null
+          status?: Database["public"]["Enums"]["nc_status"]
+          team_id?: string | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          affected_quantity?: number | null
+          article_id?: string | null
+          batch_number?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_comment?: string | null
+          created_at?: string
+          decision?: Database["public"]["Enums"]["nc_decision"] | null
+          decision_at?: string | null
+          decision_by?: string | null
+          declared_by?: string | null
+          description?: string | null
+          detected_at?: string
+          detected_quantity?: number | null
+          id?: string
+          immediate_action?: string | null
+          lot_number?: string | null
+          metadata?: Json | null
+          nc_category?: string | null
+          nc_number?: string | null
+          nc_type?: Database["public"]["Enums"]["nc_type"]
+          of_id?: string | null
+          packaging_article_id?: string | null
+          product_id?: string | null
+          production_line_id?: string | null
+          quality_check_id?: string | null
+          root_cause?: string | null
+          search_vector?: unknown
+          severity?: Database["public"]["Enums"]["nc_severity"]
+          shift_id?: string | null
+          status?: Database["public"]["Enums"]["nc_status"]
+          team_id?: string | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: []
+      }
       recipe_lines: {
         Row: {
           article_id: string
@@ -4284,6 +4401,38 @@ export type Database = {
         | "liberee"
       machine_statut: "en_marche" | "arret" | "maintenance"
       mouvement_type: "entree" | "sortie" | "correction" | "inventaire"
+      nc_decision:
+        | "bloquer_lot"
+        | "liberer"
+        | "liberer_sous_derogation"
+        | "retraiter"
+        | "trier"
+        | "rebuter"
+        | "retour_fournisseur"
+        | "quarantaine"
+        | "autre"
+      nc_severity: "minor" | "major" | "critical"
+      nc_status:
+        | "draft"
+        | "declared"
+        | "under_review"
+        | "blocked"
+        | "decision_pending"
+        | "action_in_progress"
+        | "verified"
+        | "closed"
+        | "cancelled"
+      nc_type:
+        | "produit_fini"
+        | "emballage"
+        | "matiere_premiere"
+        | "process"
+        | "hygiene"
+        | "etiquetage"
+        | "poids"
+        | "aspect"
+        | "securite_alimentaire"
+        | "autre"
       notification_frequency: "immediate" | "grouped_hourly" | "grouped_daily"
       notification_severity: "info" | "low" | "medium" | "high" | "critical"
       notification_status: "unread" | "read" | "archived"
@@ -4566,6 +4715,41 @@ export const Constants = {
       ],
       machine_statut: ["en_marche", "arret", "maintenance"],
       mouvement_type: ["entree", "sortie", "correction", "inventaire"],
+      nc_decision: [
+        "bloquer_lot",
+        "liberer",
+        "liberer_sous_derogation",
+        "retraiter",
+        "trier",
+        "rebuter",
+        "retour_fournisseur",
+        "quarantaine",
+        "autre",
+      ],
+      nc_severity: ["minor", "major", "critical"],
+      nc_status: [
+        "draft",
+        "declared",
+        "under_review",
+        "blocked",
+        "decision_pending",
+        "action_in_progress",
+        "verified",
+        "closed",
+        "cancelled",
+      ],
+      nc_type: [
+        "produit_fini",
+        "emballage",
+        "matiere_premiere",
+        "process",
+        "hygiene",
+        "etiquetage",
+        "poids",
+        "aspect",
+        "securite_alimentaire",
+        "autre",
+      ],
       notification_frequency: ["immediate", "grouped_hourly", "grouped_daily"],
       notification_severity: ["info", "low", "medium", "high", "critical"],
       notification_status: ["unread", "read", "archived"],
