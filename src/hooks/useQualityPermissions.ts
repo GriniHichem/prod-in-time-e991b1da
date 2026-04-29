@@ -41,7 +41,7 @@ export function useQualityPermissions() {
         .select("*")
         .in("role", roles as string[]);
       const merged: Record<string, boolean> = {};
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
+      for (const row of ((data ?? []) as unknown) as Record<string, unknown>[]) {
         for (const action of Object.keys(COL) as QualityAction[]) {
           merged[action] = (merged[action] || Boolean(row[COL[action]])) ?? false;
         }
