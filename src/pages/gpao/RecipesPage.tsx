@@ -461,33 +461,48 @@ export default function RecipesPage() {
                                 ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="text-sm font-medium">{r.name}</p>
                                   <Badge variant="outline" className="text-[10px]">v{r.version}</Badge>
-                                  <Badge variant={r.is_active ? "default" : "secondary"} className="text-[10px]">
-                                    {r.is_active ? "Active" : "Inactive"}
-                                  </Badge>
+                                  {(() => {
+                                    const status = (r.status as string) || (r.is_active ? "active" : "archived");
+                                    const variant = status === "active" ? "default" : status === "draft" ? "outline" : "secondary";
+                                    const label = status === "active" ? "Active" : status === "draft" ? "Brouillon" : "Archivée";
+                                    return <Badge variant={variant} className="text-[10px]">{label}</Badge>;
+                                  })()}
+                                  {r.approved_at && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      Approuvée {new Date(r.approved_at).toLocaleDateString()}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0 text-xs text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                                <span>{lines.length} art. · {ofs.length} OF</span>
+                                <span>{lines.length} art. · {getStepsForRecipe(r.id).length} ét. · {ofs.length} OF</span>
                                 {canManage && (
                                   <>
                                     <Button variant="ghost" size="icon" className="h-7 w-7" title="Dupliquer" onClick={() => handleDuplicateVersion(r)}>
                                       <Copy className="h-3 w-3" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Modifier" onClick={() => openEdit(r)}>
                                       <Edit className="h-3 w-3" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleActive(r)}>
-                                      <Badge variant="outline" className="text-[9px] cursor-pointer px-1">{r.is_active ? "Off" : "On"}</Badge>
-                                    </Button>
+                                    {(r.status || (r.is_active ? "active" : "archived")) !== "active" && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Activer" onClick={() => handleSetStatus(r.id, "active")}>
+                                        <CheckCircle2 className="h-3 w-3 text-primary" />
+                                      </Button>
+                                    )}
+                                    {(r.status || (r.is_active ? "active" : "archived")) !== "archived" && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Archiver" onClick={() => handleSetStatus(r.id, "archived")}>
+                                        <ArchiveIcon className="h-3 w-3" />
+                                      </Button>
+                                    )}
                                   </>
                                 )}
                               </div>
                             </div>
 
-                            {/* Version expanded: composition + OFs */}
+                            {/* Version expanded: composition + steps + OFs */}
                             {isVersionExpanded && (
                               <div className="pl-16 pr-4 pb-4 space-y-3">
                                 {/* Composition */}
