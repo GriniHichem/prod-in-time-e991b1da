@@ -13,9 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
-import { Plus, Edit, RotateCcw, Download, Search, Power, PowerOff, ClipboardCheck } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Edit, RotateCcw, Download, Search, Power, PowerOff, ClipboardCheck, Link2 } from "lucide-react";
 import { exportToCsv } from "@/lib/exportCsv";
 import { logAudit } from "@/lib/audit";
+import QualityIndicatorAssignments from "@/components/qualite/QualityIndicatorAssignments";
 
 /** Parse decimal accepting both `.` and `,` as separator. Returns null if blank. */
 export const parseDecimal = (s: string): number | null => {
