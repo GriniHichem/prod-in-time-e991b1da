@@ -35,7 +35,7 @@ export default function QualityPermissionsTab() {
   async function load() {
     setLoading(true);
     const { data } = await supabase.from("quality_permissions" as any).select("*");
-    const map = new Map<string, Row>(((data ?? []) as Row[]).map((r) => [r.role, r]));
+    const map = new Map<string, Row>((((data ?? []) as unknown) as Row[]).map((r) => [r.role, r]));
     const all: Row[] = ROLES.map((r) => map.get(r) ?? Object.assign({ role: r }, ...ACTIONS.map((a) => ({ [a.key]: false }))));
     setRows(all);
     setLoading(false);
