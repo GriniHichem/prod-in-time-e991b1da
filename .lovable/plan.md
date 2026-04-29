@@ -1,116 +1,79 @@
-# Module Contrôles qualité par OF
+# Onglet Qualité dans le détail OF
 
-Ajout strictement additif. Aucune modification de `ordres_fabrication`, `shifts`, `production_declarations`, `consumptions`, ni des dashboards GPAO.
+## Objectif
+Afficher dans `/gpao/of/:id` un nouvel onglet "Qualité" qui consolide les indicateurs attendus, les contrôles réalisés/manquants/hors tolérance, sans jamais bloquer la production.
 
-## 1. Migration BD — `quality_checks`
+## 1. Migration DB (additive, non-bloquante)
 
-```text
-id                       uuid PK default gen_random_uuid()
-of_id                    uuid NOT NULL → ordres_fabrication(id) ON DELETE CASCADE
-product_id               uuid NULL → products(id) ON DELETE SET NULL
-production_line_id       uuid NULL → production_lines(id) ON DELETE SET NULL
-shift_id                 uuid NULL → shifts(id) ON DELETE SET NULL
-team_id                  uuid NULL → shift_teams(id) ON DELETE SET NULL
-indicator_id             uuid NOT NULL → quality_indicators(id) ON DELETE RESTRICT
-measured_value_numeric   numeric NULL
-measured_value_text      text NULL
-measured_value_boolean   boolean NULL
-selected_value           text NULL              -- pour indicateurs "select"
-unit                     text NULL              -- snapshot au moment du contrôle
-target_value             numeric NULL           -- snapshot
-min_value                numeric NULL           -- snapshot
-max_value                numeric NULL           -- snapshot
-is_conform               boolean NULL           -- calculé côté trigger
-deviation_value          numeric NULL           -- mesuré - target
-deviation_percent        numeric NULL           -- (mesuré - target) / target * 100
-control_time             timestamptz NOT NULL DEFAULT now()
-controlled_by            uuid NULL
-comment                  text NOT NULL DEFAULT ''
-status                   text NOT NULL DEFAULT 'submitted'   -- draft|submitted|validated|rejected
-validation_status        text NOT NULL DEFAULT 'not_required' -- not_required|pending|approved|rejected
-validated_by             uuid NULL
-validated_at             timestamptz NULL
-created_at               timestamptz NOT NULL DEFAULT now()
-updated_at               timestamptz NOT NULL DEFAULT now()
-```
+Nouvelle migration SQL :
 
-Triggers / index :
-- `update_updated_at_column` sur UPDATE.
-- Trigger `quality_checks_compute_conformity()` AVANT INSERT/UPDATE :
-  - Si `indicator_type = numeric` et `measured_value_numeric` non null :
-    - `is_conform = (min_value IS NULL OR v >= min_value) AND (max_value IS NULL OR v <= max_value)`.
-    - `deviation_value = v - target_value` si `target_value` non null.
-    - `deviation_percent = (v - target) / target * 100` si target ≠ 0.
-  - Si `boolean` : `is_conform = measured_value_boolean`.
-  - Si `select` : `is_conform = NULL` (pas d'auto-évaluation).
-  - Si `text` : `is_conform = NULL`.
-- Trigger de validation des `status` / `validation_status` (whitelist).
-- Index : `(of_id)`, `(indicator_id)`, `(production_line_id)`, `(control_time DESC)`, `(is_conform)`.
-- RLS :
-  - SELECT : authenticated.
-  - INSERT/UPDATE : `admin`, `bureau_methode`, `resp_production`, `chef_ligne`, `controleur_qualite` (via has_role) — fallback sur `controlled_by = auth.uid()` autorisé pour l'auteur.
-  - DELETE : admin uniquement.
+- Création de l'enum `of_quality_status` :
+  - `non_demarre`, `en_controle`, `conforme`, `conforme_sous_reserve`, `non_conforme`, `bloque`, `libere`, `rebute`, `a_retraiter`
+- `ALTER TABLE ordres_fabrication ADD COLUMN quality_status of_quality_status NULL` (nullable, défaut NULL → équivaut à `non_demarre` côté UI)
+- Aucun trigger bloquant, aucune contrainte croisée avec `statut` (statut production) → les OF existants restent compatibles.
+- RLS inchangée (UPDATE déjà autorisée pour admin/resp_production/chef_ligne, on ajoutera `controleur_qualite` via une policy UPDATE additionnelle limitée à la colonne `quality_status` via une fonction RPC dédiée).
 
-**Aucun trigger n'est posé sur `ordres_fabrication`, `shifts`, `production_declarations`, `consumptions`.** L'OF n'est jamais bloqué.
+Nouvelle RPC `set_of_quality_status(p_of_id uuid, p_status of_quality_status, p_reason text)` :
+- SECURITY DEFINER, vérifie `has_role` parmi admin/resp_production/chef_ligne/controleur_qualite/bureau_methode.
+- Met à jour uniquement `quality_status`, écrit dans `audit_logs` (module `qualite`, action `update_quality_status`).
 
-## 2. Page UI — `src/pages/qualite/QualiteControles.tsx`
+## 2. Composant onglet Qualité
 
-Remplace le placeholder existant. Sections :
+Nouveau fichier `src/components/qualite/OfQualityTab.tsx` :
 
-### Bandeau actions
-- Bouton "+ Nouveau contrôle".
-- Bouton Export CSV.
+Props : `{ ofId: string, productId: string, lineId: string|null, currentStatus: string|null }`
 
-### Filtres (Card)
-- Recherche texte (indicateur code/nom + commentaire).
-- Select OF (parmi OFs actifs `en_cours` / `planifie`).
-- Select Produit (alimenté depuis OFs filtrés).
-- Select Ligne.
-- Select Conformité : Tous / Conformes / Non conformes / Non évalués.
-- Plage de dates (date début / date fin sur `control_time`).
-- Bouton "Réinitialiser" conditionnel (RotateCcw).
+Sections affichées :
+1. **Statut qualité** : badge + sélecteur (rôles autorisés uniquement) appelant `set_of_quality_status`. Indépendant du statut production.
+2. **KPIs en haut** :
+   - Indicateurs applicables (count via RPC `get_quality_indicators_for_of(of_id)`)
+   - Contrôles réalisés (count distinct indicator_id sur `quality_checks` filtrés `of_id`)
+   - Contrôles manquants (applicables `is_required=true` − réalisés)
+   - Contrôles hors tolérance (`is_conform=false`)
+3. **Tableau "Indicateurs attendus"** : code, nom, fréquence, requis, dernier contrôle, état (✓/⚠/—).
+4. **Tableau "Contrôles réalisés"** (limité aux 50 derniers de cet OF) : indicateur, valeur, conformité, date, auteur.
+5. **Actions** :
+   - Bouton "Ajouter contrôle qualité" → ouvre le même `ResponsiveDialog` que `QualiteControles.tsx` pré-rempli avec `of_id` (extraction du formulaire dans un sous-composant réutilisable `QualityCheckDialog` exporté depuis `QualiteControles.tsx`, ou duplication minimale).
+   - Bouton "Voir contrôles qualité" → `navigate('/qualite/controles?of=' + ofNumero)`.
+   - Bouton "Créer non-conformité" → `disabled` avec tooltip "Module non-conformité à venir".
 
-### Tableau
-Colonnes : Date, OF, Produit, Ligne, Indicateur, Valeur (avec unité), Cible / Min-Max, Conformité (badge `Conforme` / `Non conforme` / `Hors tolérance` / `—`), Auteur, Actions.
+Aucune écriture sur `ordres_fabrication.statut`, `consumptions`, `production_declarations`, `recipes`, `shifts`.
 
-### Dialog "Nouveau contrôle" (`ResponsiveDialog`)
-1. Select **OF** obligatoire — depuis OFs actifs (`statut IN planifie/en_cours/...`).
-2. Affichage automatique (lecture seule) du Produit et de la Ligne de l'OF.
-3. Select **Indicateur** : appelle `get_quality_indicators_for_of(of_id)` à l'ouverture pour ne proposer que les indicateurs applicables (globaux + scope).
-4. Champ Valeur dynamique selon `indicator_type` :
-   - numeric → input décimal (`parseDecimal` accepte `.` et `,`)
-   - boolean → Switch
-   - select → Select avec `select_options`
-   - text → Textarea
-5. Snapshot affiché : unité, cible, min/max issus de l'indicateur (override d'assignation appliqué côté résolveur).
-6. Calcul de conformité **en temps réel** (preview) avant submit, miroir du trigger SQL.
-7. Champ Commentaire.
-8. À la soumission : insert dans `quality_checks` avec snapshots `unit/target/min/max`, `controlled_by = user.id`, `status = submitted`. Audit log via `logAudit` (module `parametres`, entity `quality_check`).
+## 3. Intégration dans OfDetail.tsx
 
-## 3. Tests — `src/test/qualite/quality-checks.test.ts`
-- `computeConformity` numérique : conforme dans [min,max], non conforme hors plage, badge "Hors tolérance" si `tolerance_minus/plus` snapshot dépassée.
-- numérique sans min/max → `is_conform` = NULL.
-- boolean → reflète la valeur saisie.
-- select / text → `is_conform` = NULL.
-- `deviation_value` et `deviation_percent` calculés correctement (target=0 → percent NULL).
-- Validation : OF obligatoire, indicateur obligatoire, valeur obligatoire.
-- Filtrage liste (OF, ligne, conformité, plage dates, recherche texte).
-- Régression : aucun appel à `ordres_fabrication.update`, `consumptions.update`, `production_declarations.update` dans le module.
+- Ajouter `TabsTrigger value="quality"` (icône `ShieldCheck` de lucide) dans la liste des onglets ligne 218-223.
+- Ajouter `<TabsContent value="quality">` rendant `<OfQualityTab ... />`.
+- Étendre le `select()` existant de l'OF pour inclure `quality_status`.
 
-## 4. Garantie de non-régression
-- Aucune modification de tables existantes.
-- Aucun trigger sur `ordres_fabrication` / `shifts` / `consumptions` / `production_declarations`.
-- La page Shift Production, le dashboard GPAO et les déclarations restent inchangés.
-- L'OF n'est jamais bloqué : `quality_checks.is_blocking` n'existe pas et aucune logique côté SQL ne lit cette table depuis les autres modules.
+## 4. Permissions
 
-## Fichiers
-- **Nouveau** : migration `quality_checks` + trigger conformité.
-- **Modifié** : `src/pages/qualite/QualiteControles.tsx` (remplace placeholder).
-- **Nouveau** : `src/test/qualite/quality-checks.test.ts`.
-- **Mise à jour** : `mem://features/qualite-module`.
+- Lecture de l'onglet : tous les utilisateurs authentifiés (idem onglets existants).
+- Modification du statut qualité & ajout de contrôle : admin, resp_production, chef_ligne, controleur_qualite, bureau_methode.
+- Bouton "Ajouter contrôle" masqué si l'utilisateur n'a pas la permission.
 
-## Confirmation finale (livrée après implémentation)
-- Table `quality_checks` créée ✓
-- Page `/qualite/controles` opérationnelle ✓
-- Calcul de conformité validé par tests ✓
-- Aucun blocage OF / Shift / Production / Consommations ✓
+## 5. Tests
+
+Nouveau fichier `src/test/qualite/of-quality-tab.test.ts` :
+- Calcul KPIs (réalisés / manquants / hors tolérance) à partir d'une liste mockée.
+- Mapping statut qualité → label/badge variant.
+- Vérification que le payload `set_of_quality_status` ne contient pas `statut` (production).
+- Vérification que `get_quality_indicators_for_of` est bien l'unique source des indicateurs applicables.
+
+Vérification manuelle (smoke) :
+- `/gpao/of` liste OK
+- Détail OF : 7 onglets visibles, onglet Qualité fonctionnel
+- Ajout contrôle depuis OF → apparaît dans `/qualite/controles`
+- Onglets Production / Consommations / Arrêts / Tickets / Mode / Shifts inchangés
+- `/gpao/recettes`, `/maintenance/shift`, `/notifications` inchangés
+
+## 6. Mémoire
+
+Mettre à jour `mem://features/qualite-module` avec :
+- nouvelle colonne `ordres_fabrication.quality_status` (nullable, indépendant du statut production)
+- RPC `set_of_quality_status`
+- onglet Qualité dans OfDetail
+
+## Garanties de non-régression
+- Schéma : seul `ALTER TABLE ADD COLUMN` nullable + nouvel enum + nouvelle RPC. Aucune modification des tables `consumptions`, `production_declarations`, `recipes`, `shifts`, `stops`.
+- Code : aucune modification de `ShiftScreen.tsx`, `ConsumptionPage.tsx`, `RecipesPage.tsx`. `OfDetail.tsx` reçoit uniquement un onglet supplémentaire et un champ supplémentaire dans son select.
+- UI : aucun blocage de clôture, aucun champ obligatoire ajouté ailleurs.
