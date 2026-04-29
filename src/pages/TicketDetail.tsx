@@ -120,13 +120,22 @@ export default function TicketDetail() {
 
   const addCollaborator = async () => {
     if (!newCollabId || !id) return;
-    const { error } = await supabase.from("ticket_collaborators").insert({
-      ticket_id: id, user_id: newCollabId, role_label: newCollabRole, added_by: user?.id,
-    });
+    const now = new Date().toISOString();
+    const { data: collabRow, error } = await supabase.from("ticket_collaborators").insert({
+      ticket_id: id, user_id: newCollabId, role_label: newCollabRole, added_by: user?.id, added_at: now,
+    }).select("id, added_at").single();
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return;
     }
+    // Open a collaboration intervention so KPI duration starts now (not at resolve time)
+    await supabase.from("interventions").insert({
+      ticket_id: id,
+      technicien_id: newCollabId,
+      description: `Collaboration (${newCollabRole === "co_intervenant" ? "co-intervenant" : "aide"})`,
+      statut: "en_cours" as any,
+      date_debut: collabRow?.added_at || now,
+    });
     toast({ title: "Collaborateur ajouté" });
     setNewCollabId("");
     setNewCollabRole("aide");
@@ -134,12 +143,27 @@ export default function TicketDetail() {
   };
 
   const removeCollaborator = async (collabId: string) => {
+    const removedAt = new Date().toISOString();
+    const collab = collaborators.find((c) => c.id === collabId);
     const { error } = await supabase.from("ticket_collaborators")
-      .update({ removed_at: new Date().toISOString(), removed_by: user?.id })
+      .update({ removed_at: removedAt, removed_by: user?.id })
       .eq("id", collabId);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return;
+    }
+    // Close the corresponding open collaboration intervention
+    if (collab) {
+      const openIntv = interventions.find((i) =>
+        i.statut === "en_cours" &&
+        i.technicien_id === collab.user_id &&
+        (i.description || "").startsWith("Collaboration")
+      );
+      if (openIntv) {
+        await supabase.from("interventions").update({
+          statut: "terminee" as any, date_fin: removedAt,
+        }).eq("id", openIntv.id);
+      }
     }
     loadTicket();
   };

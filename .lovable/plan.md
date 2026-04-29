@@ -1,77 +1,71 @@
 ## Objectif
 
-Permettre au maintenancier qui a pris en charge un ticket mais ne peut pas le résoudre (fin de shift) de :
-- **Transférer** le ticket à un autre maintenancier (passation nominative)
-- **Libérer** le ticket (le remettre dans le pool, statut `ouvert`, sans assigné)
+Garantir que les KPI d'un ticket (temps d'arrêt, temps d'intervention, prise en charge, fin) restent cohérents et exacts dans **tous** les scénarios :
+- Prise en charge simple
+- Collaboration (aide / co-intervenant)
+- Transfert vers un autre maintenancier
+- Libération puis reprise
+- Résolution finale
 
-Couvre les deux scénarios métier de fin de poste.
+## Constats actuels
 
-## Comportement métier
+### KPI ticket (`tickets`)
+- `temps_arret_minutes` = `heure_resolution - heure_declaration` (calc dans `handleResolve`)
+- `temps_intervention_minutes` = `heure_resolution - heure_prise_en_charge` (calc dans `handleResolve`)
+- `heure_prise_en_charge` est posée à la 1ère prise et **conservée** lors d'un transfert (OK pour KPI continu) — mais **remise à null** lors d'une libération, ce qui casse le calcul si reprise.
 
-### 1. Transférer à un autre maintenancier
-- Disponible si : statut = `pris_en_charge` ou `en_cours`, et user = `assignee_id` (ou admin / resp_maintenance)
-- Sélection du nouveau maintenancier (liste `maintenancier` + `resp_maintenance`)
-- Saisie obligatoire d'un **motif de passation** (raison fin de shift, blocage, etc.)
-- Effets :
-  - Clôture de l'intervention en cours du maintenancier sortant (`statut = transferee`, `date_fin = now`, note = motif)
-  - Création d'une nouvelle intervention pour le repreneur (`statut = en_cours`)
-  - `tickets.assignee_id` = nouveau maintenancier ; statut reste `pris_en_charge`
-  - `heure_prise_en_charge` conservée (pour ne pas fausser le KPI temps total) — le transfert est tracé séparément
-  - Les **collaborateurs** (table `ticket_collaborators`) sont conservés
-  - Notification in-app au repreneur (règle dédiée `ticket.transferred`)
-  - Audit log avec ancien/nouveau assigné + motif
+### KPI interventions
+- À la prise en charge : `interventions` insérée sans `date_debut` explicite (default = `now()`) — OK
+- Au transfert : intervention sortante fermée avec `date_fin = now`, nouvelle ouverte (default `date_debut = now`) — OK
+- À la libération : intervention fermée `liberee` — OK ; mais à la **reprise** suivante (`handleTakeCharge`), une nouvelle intervention démarre — OK
+- À la résolution : seule l'intervention `en_cours` courante est fermée (`date_fin = now`) — OK
+- **Bug** : les **collaborateurs** sont insérés **au moment de la résolution** avec `date_debut = ticket.heure_prise_en_charge || now`. Conséquences :
+  - On ignore la vraie date d'ajout (`ticket_collaborators.added_at`) → durée de collaboration faussée (souvent gonflée).
+  - Si le collab a été retiré avant la résolution (`removed_at`), sa `date_fin` devrait être `removed_at`, pas `now`.
+  - Aucune intervention créée pour un collab actif si le ticket est transféré/libéré sans résolution → perte de traçabilité KPI.
 
-### 2. Libérer le ticket
-- Mêmes conditions d'accès que Transférer
-- Saisie obligatoire d'un **motif de libération**
-- Effets :
-  - Clôture de l'intervention en cours (`statut = liberee`, note = motif)
-  - `tickets.assignee_id = null`, `statut = ouvert`, `heure_prise_en_charge = null`
-  - Collaborateurs conservés (peuvent rester pour info, mais le ticket redevient prenable par n'importe quel maintenancier)
-  - Notification in-app au rôle `maintenancier` + `resp_maintenance` (règle `ticket.released`)
-  - Audit log avec motif
+### Problèmes liés à la libération
+- `heure_prise_en_charge` est mise à `null` → si un autre maintenancier reprend, le KPI total perd la fenêtre antérieure. Soit on garde `heure_prise_en_charge` initial (cohérent avec le transfert), soit on stocke un horodatage séparé pour la **première** prise en charge.
 
-## Modifications techniques
+## Modifications proposées
 
-### Base de données (migration)
-- Ajouter à l'enum `intervention_statut` les valeurs `transferee` et `liberee` (si absentes — sinon utiliser `terminee` + flag dans `notes`).
-- Aucune nouvelle table requise — réutilisation de `interventions`, `audit_logs`, `notification_rules`.
+### 1. Libération (`handleRelease`)
+- **Ne plus** vider `heure_prise_en_charge`. La conserver pour que `temps_intervention_minutes` reflète bien la durée totale (transfert et reprise traités symétriquement).
+- À la reprise (`handleTakeCharge`) : si `heure_prise_en_charge` existe déjà (ticket déjà pris une fois), **ne pas l'écraser** ; juste mettre à jour `assignee_id` + statut, et créer une nouvelle intervention `en_cours`.
 
-### UI — `src/pages/TicketDetail.tsx`
-Nouvelle carte **« Passation / Libération »** affichée quand `canTransferOrRelease` (assignee actuel + statut actif), située juste avant la carte Résolution :
+### 2. Collaborateurs — interventions individuelles avec dates correctes
+- Lors de **l'ajout** d'un collaborateur (`addCollaborator`) : créer immédiatement une intervention `en_cours` avec `date_debut = added_at`, `description = Collaboration (aide|co_intervenant)` au lieu d'attendre la résolution.
+- Lors du **retrait** (`removeCollaborator`) : fermer l'intervention correspondante (`statut = terminee`, `date_fin = removed_at`).
+- Lors de la **résolution** (`handleResolve`) : fermer toutes les interventions de collaborateurs encore `en_cours` avec `date_fin = now`. Supprimer le bloc d'insert "Collaboration" actuel (devenu redondant).
+- Lors d'un **transfert / libération** : les interventions `en_cours` des collaborateurs restent ouvertes (ils continuent à aider) — pas de modification.
+
+### 3. KPI ticket — robustesse de `handleResolve`
+- Continuer d'utiliser `heure_declaration` et `heure_prise_en_charge` du ticket (déjà cohérents grâce au point 1).
+- Si pour une raison quelconque `heure_prise_en_charge` est `null` (résolution d'un ticket jamais pris formellement), fallback sur `heure_declaration` pour `temps_intervention_minutes` (au moins une valeur non nulle).
+- `heure_cloture` reste posée par `handleClose` (déjà OK).
+
+### 4. Vue Journal des interventions
+- `InterventionJournal.tsx` calcule déjà `duration_minutes = date_fin - date_debut` par intervention — bénéficie automatiquement des dates corrigées (collaborateur, transfert, reprise).
+
+### 5. Audit
+- Aucun changement structurel ; les actions (ajout/retrait collab, transfert, libération, résolution) sont déjà loggées.
+
+## Détails techniques
+
+Fichier impacté : `src/pages/TicketDetail.tsx`
 
 ```text
-┌─ Passation / Libération ──────────────┐
-│  [Transférer à]  [Select maintenanc.] │
-│  [Motif *]       [Textarea]           │
-│  [ Transférer ]  [ Libérer ticket ]   │
-└───────────────────────────────────────┘
+addCollaborator()        → INSERT interventions (en_cours, date_debut = added_at)
+removeCollaborator()     → UPDATE intervention collab (statut=terminee, date_fin=removed_at)
+handleTakeCharge()       → si heure_prise_en_charge existe déjà : ne pas l'écraser
+handleRelease()          → retirer "heure_prise_en_charge: null"
+handleResolve()          → fermer interventions collab en_cours ; supprimer insert "Collaboration"
+                           fallback temps_intervention_minutes sur heure_declaration si besoin
 ```
 
-Handlers :
-- `handleTransfer(newUserId, motif)` — UPDATE ticket + close/open interventions + audit + notification
-- `handleRelease(motif)` — UPDATE ticket + close intervention + audit + notification
-
-Sur mobile : actions intégrées dans `StickyActionBar` en mode secondaire (boutons outline).
-
-### Notifications (paramétrables)
-Deux nouveaux event_types ajoutés au catalogue (`src/lib/ruleCatalog.ts`) :
-- `ticket.transferred` — destinataire = nouveau assigné, sévérité `info`
-- `ticket.released` — destinataires = rôles `maintenancier`/`resp_maintenance`, sévérité `warning`
-
-Règles seedées par défaut (actives, in_app uniquement).
-
-### Audit
-Entrées `audit_logs` avec :
-- `module = "tickets"`, `action_type = "transfer"` ou `"release"`
-- `old_values = { assignee_id: ancien }`, `new_values = { assignee_id: nouveau | null }`
-- `description` = motif saisi
-
-### Permissions / RLS
-- Aucun changement RLS nécessaire — l'UPDATE de `tickets` reste autorisé pour admin / resp_maintenance / maintenancier.
-- Garde-fou côté UI : seul l'assigné courant (ou admin / resp_maintenance) voit les boutons.
+Aucune migration DB requise — on réutilise `interventions` (statuts existants `en_cours`/`terminee`).
 
 ## Hors-scope
-- Pas de file d'attente / shift planning automatique (le transfert reste manuel).
-- Pas de transfert en masse (un ticket à la fois).
-- Pas de modification du flow de prise en charge initial.
+- Pas de recalcul rétroactif des KPI sur tickets déjà résolus.
+- Pas de changement aux KPI agrégés (MTTR/MTTA dashboards) — ils s'appuient déjà sur les colonnes corrigées.
+- Pas de modification de l'enum `intervention_statut`.
