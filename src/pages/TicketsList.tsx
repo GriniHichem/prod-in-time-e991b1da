@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useNavWithFrom } from "@/hooks/useNavWithFrom";
@@ -18,6 +18,7 @@ import { exportToCsv } from "@/lib/exportCsv";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
 import { FilterSheet } from "@/components/responsive/FilterSheet";
+import { ticketCreateSchema, getFieldErrors, isValid } from "@/lib/formValidation";
 
 export default function TicketsList() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -52,16 +53,27 @@ export default function TicketsList() {
     supabase.from("panne_types").select("*").eq("is_active", true).then(({ data }) => setPanneTypes(data || []));
   }, []);
 
+  // Inline mobile/tablet validation — disable submit + surface errors before any Supabase call
+  const createErrors = useMemo(
+    () => getFieldErrors(ticketCreateSchema, {
+      machine_id: newMachineId,
+      description: newDescription,
+      priorite: newPriorite,
+    }),
+    [newMachineId, newDescription, newPriorite]
+  );
+  const canSubmitCreate = isValid(createErrors);
+
   const handleCreate = async () => {
-    if (!newMachineId || !newDescription) {
-      toast({ title: "Erreur", description: "Machine et description obligatoires", variant: "destructive" });
+    if (!canSubmitCreate) {
+      toast({ title: "Formulaire invalide", description: "Corrigez les champs en rouge", variant: "destructive" });
       return;
     }
     const { error } = await supabase.from("tickets").insert({
       machine_id: newMachineId,
       panne_type_id: newPanneTypeId || null,
       priorite: newPriorite as any,
-      description: newDescription,
+      description: newDescription.trim(),
       declarant_id: user?.id,
       numero: "",
     });
@@ -169,9 +181,12 @@ export default function TicketsList() {
               <div className="space-y-2">
                 <Label>Machine *</Label>
                 <Select value={newMachineId} onValueChange={setNewMachineId}>
-                  <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner une machine" /></SelectTrigger>
+                  <SelectTrigger className="h-12" aria-invalid={!!createErrors.machine_id}><SelectValue placeholder="Sélectionner une machine" /></SelectTrigger>
                   <SelectContent>{machines.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} — {m.designation}</SelectItem>)}</SelectContent>
                 </Select>
+                {createErrors.machine_id && (
+                  <p className="text-xs text-destructive">{createErrors.machine_id}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Type de panne</Label>
@@ -193,10 +208,23 @@ export default function TicketsList() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Description *</Label>
-                <Textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Décrivez le problème..." className="min-h-[80px]" />
+                <div className="flex items-center justify-between">
+                  <Label>Description *</Label>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{newDescription.trim().length}/1000</span>
+                </div>
+                <Textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value.slice(0, 1000))}
+                  placeholder="Décrivez le problème..."
+                  className="min-h-[80px]"
+                  aria-invalid={!!createErrors.description}
+                  maxLength={1000}
+                />
+                {createErrors.description && (
+                  <p className="text-xs text-destructive">{createErrors.description}</p>
+                )}
               </div>
-              <Button onClick={handleCreate} className="w-full h-12">Créer le ticket</Button>
+              <Button onClick={handleCreate} disabled={!canSubmitCreate} className="w-full h-12">Créer le ticket</Button>
             </div>
           </ResponsiveDialog>
         </div>
