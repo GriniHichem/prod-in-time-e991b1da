@@ -183,6 +183,32 @@ export default function OfList() {
                   <SelectContent>{availableProducts.map((p) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.designation}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              {newProductId && (
+                <div className="space-y-2">
+                  <Label>Version de recette à suivre {recipesForProduct.length > 0 && "*"}</Label>
+                  {recipesForProduct.length === 0 ? (
+                    <p className="text-xs text-destructive">Aucune recette n'existe pour ce produit. Créez-en une dans GPAO → Recettes.</p>
+                  ) : (
+                    <>
+                      <Select value={newRecipeId} onValueChange={setNewRecipeId}>
+                        <SelectTrigger className="h-12"><SelectValue placeholder="Choisir une version" /></SelectTrigger>
+                        <SelectContent>
+                          {recipesForProduct.map((r) => {
+                            const status = r.status || (r.is_active ? "active" : "archived");
+                            const label = status === "active" ? "Active" : status === "draft" ? "Brouillon" : "Archivée";
+                            return (
+                              <SelectItem key={r.id} value={r.id}>
+                                v{r.version} — {r.name} ({label})
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">La version est figée à la création de l'OF. Composants, étapes et contrôles qualité seront récupérés depuis cette version.</p>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Quantité prévue (kg) *</Label>
                 <Input type="number" value={newQte} onChange={(e) => setNewQte(e.target.value)} className="h-12" placeholder="0" />
