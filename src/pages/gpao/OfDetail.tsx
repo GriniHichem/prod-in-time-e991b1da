@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { OfStatusBadge } from "./GpaoDashboard";
-import { ArrowLeft, Play, CheckCircle, BarChart3, Package, AlertTriangle, Clock, Users, RefreshCw, History } from "lucide-react";
+import { ArrowLeft, Play, CheckCircle, BarChart3, Package, AlertTriangle, Clock, Users, RefreshCw, History, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import OfQualityTab from "@/components/qualite/OfQualityTab";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Progress } from "@/components/ui/progress";
