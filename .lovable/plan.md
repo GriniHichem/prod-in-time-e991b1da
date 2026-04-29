@@ -1,98 +1,91 @@
-# Cohérence des statuts tickets — audit + champ `assignment_status` dédié
+# Adapter les KPI pour la collaboration multi-maintenanciers
 
-## Constat de l'audit
+## Constat
 
-Le statut principal des tickets est défini par l'enum Postgres `ticket_statut` :
+| KPI | Source actuelle | Comportement |
+|---|---|---|
+| Nombre de pannes / MTBF / Disponibilité | `tickets` (1 ligne = 1 panne) | ✅ Déjà correct — n'utilise pas `interventions`, donc ajouter des collaborateurs ne crée **pas** de doublon |
+| MTTR | `tickets.temps_intervention_minutes` | ✅ Une seule valeur par ticket |
+| Charge / participation par technicien | `interventions` (1 ligne par intervenant) | ⚠️ Manque un marqueur `role` pour distinguer lead / aide / co-intervenant |
+| Journal des interventions | `interventions` éclatées | ⚠️ Affiche tous les intervenants mais sans badge de rôle |
 
-```
-ouvert | pris_en_charge | en_cours | resolu | cloture
-```
-
-**`pris_en_charge` n'est PAS un nouveau terme** — il existe déjà depuis la migration initiale (`20260316172020`) et est utilisé partout de façon cohérente :
-
-- **DB** : enum `ticket_statut` + colonne `tickets.statut`
-- **UI** : `StatusBadge` (libellé "Pris en charge", couleur warning), filtres `TicketsList`, `MaintenancierShiftView`, `InterventionJournal`
-- **KPI / Dashboard** : `OPEN_TICKET_STATUSES = ["ouvert", "pris_en_charge", "en_cours"]` dans `useLineSynopticData`, agrégats tests
-- **Permissions** : `canResolve` / `canHandover` acceptent `pris_en_charge` OU `en_cours`
-- **Tests** : 9 fichiers couvrent les 5 statuts
-
-→ **Aucun conflit existant**. Le workflow reste : `ouvert → pris_en_charge → en_cours (optionnel) → resolu → cloture`.
-
-## Le vrai besoin
-
-Les flux récents (transfert, libération, collaboration) modifient `assignee_id` et créent des sous-statuts d'intervention (`transferee`, `liberee`), mais il n'existe **aucun champ pour tracer le cycle d'affectation lui-même**. Aujourd'hui on doit déduire "transféré" / "libéré" depuis l'historique d'audit.
+→ Le risque de "multiplier les pannes" **n'existe pas** dans le code actuel des KPI globaux. Le travail consiste à **enrichir le modèle d'intervention** pour rendre la lecture par technicien lisible et préserver cette garantie de façon explicite + documentée.
 
 ## Plan
 
-### 1. Migration : ajout d'un champ nullable `assignment_status`
+### 1. Migration — colonne `role` sur `interventions`
 
 ```sql
-CREATE TYPE public.ticket_assignment_status AS ENUM (
-  'unassigned',   -- assignee_id IS NULL et jamais pris
-  'assigned',     -- pris en charge (assignee_id renseigné)
-  'transferred',  -- réassigné à un autre maintenancier
-  'released'      -- libéré dans le pool (assignee_id remis à NULL)
-);
+CREATE TYPE public.intervention_role AS ENUM ('lead', 'aide', 'co_intervenant');
 
-ALTER TABLE public.tickets
-  ADD COLUMN assignment_status public.ticket_assignment_status;
+ALTER TABLE public.interventions
+  ADD COLUMN role public.intervention_role NOT NULL DEFAULT 'lead';
+
+CREATE INDEX idx_interventions_ticket_role ON public.interventions(ticket_id, role);
 ```
 
-- **Nullable** : aucune valeur imposée sur les anciens tickets, aucun défaut → zéro impact sur les filtres/KPI existants.
-- **Backfill léger** (one-shot) :
-  - `assignee_id IS NULL` et `statut IN ('ouvert')` → `unassigned`
-  - `assignee_id IS NOT NULL` et `statut IN ('pris_en_charge','en_cours')` → `assigned`
-  - autres → laisser `NULL` (statut terminal, info non pertinente)
+Backfill : pour chaque ticket, l'intervention dont `technicien_id = tickets.assignee_id` reste `lead` ; les autres deviennent `aide` (les rôles fins se mettent à jour dès le prochain ajout de collaborateur).
 
-### 2. Mise à jour `TicketDetail.tsx` (write paths uniquement)
+### 2. Code — `TicketDetail.tsx`
 
-Ajouter `assignment_status` à chaque action **sans toucher à `statut`** :
+- `handleTakeCharge` → insertion intervention avec `role: 'lead'`
+- `addCollaborator` → insertion intervention avec `role: role_label` (mapping direct `aide` / `co_intervenant`)
+- `handleTransfer` → ferme le lead, ouvre nouvelle intervention `role: 'lead'` pour le repreneur
+- `handleResolve` → fallback de création des interventions collaborateurs reçoit aussi `role` correct
 
-| Action | `statut` (inchangé) | `assignment_status` (nouveau) |
-|---|---|---|
-| `handleTakeCharge` | `pris_en_charge` | `assigned` |
-| `handleTransfer` | inchangé | `transferred`, puis `assigned` après reprise |
-| `handleRelease` | `ouvert` | `released` |
-| `handleResolve` | `resolu` | inchangé (NULL ou dernière valeur) |
+### 3. KPI globaux — verrou explicite
 
-### 3. UI — affichage non bloquant
+Dans `AnalyticsPage.tsx`, ajouter un commentaire-garde au-dessus du calcul `totalFailures` pour interdire toute future migration vers un comptage par intervention :
 
-- `StatusBadge` reste piloté par `statut` (aucune modification visuelle existante).
-- Sur `TicketDetail`, ajouter un petit badge secondaire à côté du badge principal quand `assignment_status` ∈ {`transferred`, `released`} :
-  - `Transféré` (bg-info/10)
-  - `Libéré` (bg-warning/10)
-- **Pas** de nouveau filtre dans `TicketsList` (préserve l'UX existante). Le champ devient queryable pour le dashboard/analytics ultérieurement.
-
-### 4. Garde-fous
-
-- Aucune modification à : `OPEN_TICKET_STATUSES`, filtres `TicketsList`, KPI `Dashboard`, agrégats `AnalyticsPage`, requêtes `MaintenancierShiftView`.
-- Aucune modification à l'enum `ticket_statut` ni à l'enum `intervention_statut`.
-- Tests existants restent verts (ils n'utilisent pas `assignment_status`).
-
-### 5. Tests
-
-Nouveau fichier `src/test/gmao/ticket-assignment-status.test.ts` :
-- transition `unassigned → assigned` lors de la prise en charge
-- transition `assigned → transferred → assigned` après transfert
-- transition `assigned → released` après libération
-- `statut` jamais modifié par ces transitions hors workflow normal
-
-### 6. Mémoire
-
-Mettre à jour `mem://features/gmao-maintenance` : noter que `tickets.statut` (5 valeurs) est immuable et que le cycle d'affectation est porté par `assignment_status` (nullable, séparé).
-
-## Détails techniques
-
-```text
-tickets
-├── statut           : ticket_statut    NOT NULL  (workflow métier — inchangé)
-└── assignment_status: ticket_assignment_status NULL (cycle d'affectation — nouveau)
+```ts
+// IMPORTANT: 1 ticket = 1 panne. Ne jamais compter les interventions ici,
+// sinon les collaborateurs gonfleraient artificiellement MTBF/dispo.
+const totalFailures = fTickets.filter((t) => t.statut !== "annule").length || 1;
 ```
 
-Fichiers touchés :
-- `supabase/migrations/<new>.sql` — enum + colonne + backfill
-- `src/pages/TicketDetail.tsx` — 3 fonctions (`handleTakeCharge`, `handleTransfer`, `handleRelease`) + badge secondaire
-- `src/test/gmao/ticket-assignment-status.test.ts` — nouveau
+(Aucun changement de calcul — uniquement une protection.)
+
+### 4. KPI par technicien — nouveau bloc
+
+Dans `AnalyticsPage.tsx`, ajouter une section repliable **"Charge par technicien"** alimentée par `interventions` :
+
+- regroupement par `technicien_id`
+- colonnes : nom, # interventions, durée totale (somme `date_fin - date_debut`), répartition par `role` (badges)
+- export CSV via la pipeline `exportToCsv` existante
+
+Les chiffres sont multi-comptés par design (un ticket avec 3 intervenants = 3 lignes ici), ce qui est exactement ce qu'on veut pour la charge individuelle.
+
+### 5. Journal — affichage du rôle
+
+Dans `InterventionJournal.tsx`, exposer le `role` :
+- `JournalEntry` reçoit un champ optionnel `role`
+- chaque ligne curative affiche un petit badge `Lead` / `Aide` / `Co-intervenant`
+
+### 6. Tests
+
+Nouveau `src/test/gmao/intervention-roles.test.ts` :
+- 1 ticket avec 1 lead + 2 collaborateurs → `totalFailures = 1`, mais `interventions = 3`
+- agrégation par technicien : durée par rôle correcte
+- mapping `role_label` (`aide`/`co_intervenant`) → `role` intervention identique
+- transfert : ancien lead clos avec `role=lead`, nouvelle intervention créée avec `role=lead`
+
+### 7. Mémoire
+
+Mettre à jour `mem://features/gmao-maintenance` :
+- "1 ticket = 1 panne" pour KPI MTBF/disponibilité (immuable)
+- Les interventions multi-rôles servent uniquement à la charge individuelle / journal / temps passé
+
+## Fichiers touchés
+
+- `supabase/migrations/<new>.sql` — enum + colonne + index + backfill
+- `src/pages/TicketDetail.tsx` — passage du `role` dans les 4 inserts d'intervention
+- `src/pages/AnalyticsPage.tsx` — commentaire-garde + nouveau bloc "Charge par technicien"
+- `src/pages/InterventionJournal.tsx` — propagation et affichage du badge `role`
+- `src/test/gmao/intervention-roles.test.ts` — nouveau
 - `mem://features/gmao-maintenance` — note
 
-`src/integrations/supabase/types.ts` est régénéré automatiquement après migration.
+## Garde-fous
+
+- `tickets.statut`, `tickets.assignment_status`, enum `intervention_statut` : inchangés
+- Les filtres existants (TicketsList, MaintenancierShiftView, Dashboard, Synoptic) ne sont pas touchés
+- `temps_arret_minutes` et `temps_intervention_minutes` restent au niveau ticket (1 valeur unique)
