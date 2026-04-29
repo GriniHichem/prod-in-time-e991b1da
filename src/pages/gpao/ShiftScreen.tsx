@@ -510,9 +510,12 @@ export default function ShiftScreen() {
                   <div className="space-y-2">
                     <Label>Machine *</Label>
                     <Select value={ticketMachineId} onValueChange={setTicketMachineId}>
-                      <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                      <SelectTrigger className="h-12" aria-invalid={!!ticketErrors.machine_id}><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                       <SelectContent>{machines.map((m) => <SelectItem key={m.id} value={m.id}>{m.code} — {m.designation}</SelectItem>)}</SelectContent>
                     </Select>
+                    {ticketErrors.machine_id && (
+                      <p className="text-xs text-destructive">{ticketErrors.machine_id}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Priorité</Label>
@@ -527,10 +530,23 @@ export default function ShiftScreen() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Description *</Label>
-                    <Textarea value={ticketDescription} onChange={(e) => setTicketDescription(e.target.value)} placeholder="Décrivez le problème..." className="min-h-[80px]" />
+                    <div className="flex items-center justify-between">
+                      <Label>Description *</Label>
+                      <span className="text-[10px] tabular-nums text-muted-foreground">{ticketDescription.trim().length}/1000</span>
+                    </div>
+                    <Textarea
+                      value={ticketDescription}
+                      onChange={(e) => setTicketDescription(e.target.value.slice(0, 1000))}
+                      placeholder="Décrivez le problème..."
+                      className="min-h-[80px]"
+                      aria-invalid={!!ticketErrors.description}
+                      maxLength={1000}
+                    />
+                    {ticketErrors.description && (
+                      <p className="text-xs text-destructive">{ticketErrors.description}</p>
+                    )}
                   </div>
-                  <Button onClick={handleCreateTicket} className="w-full h-12">Créer le ticket</Button>
+                  <Button onClick={handleCreateTicket} disabled={!canCreateTicket} className="w-full h-12">Créer le ticket</Button>
                 </div>
               </DialogContent>
             </Dialog>
