@@ -79,7 +79,7 @@ function MegaMenu({
   active,
 }: {
   label: string;
-  GroupIcon: React.FC<{ size?: number; className?: string }>;
+  GroupIcon: React.FC<any>;
   items: NavItem[];
   active: boolean;
 }) {
