@@ -210,7 +210,8 @@ export function AppTopBar() {
 
   const isGmaoActive = gmaoItems.some((i) => isActive(location.pathname, i.url));
   const isGpaoActive = gpaoItems.some((i) => isActive(location.pathname, i.url));
-  const isSettingsActive = isActive(location.pathname, "/parametres");
+  const isQualiteActive = qualiteItems.some((i) => isActive(location.pathname, i.url));
+  const isConfigActive = configItems.some((i) => isActive(location.pathname, i.url));
 
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim() || "Utilisateur"
