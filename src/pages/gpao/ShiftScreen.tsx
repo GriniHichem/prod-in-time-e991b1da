@@ -590,11 +590,17 @@ export default function ShiftScreen() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">Sélectionnez votre équipe et le créneau horaire pour démarrer.</p>
+            {startShiftErrors.line_id && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-start gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>{startShiftErrors.line_id}</span>
+              </div>
+            )}
             <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
               <div className="space-y-1">
                 <Label className="text-xs">Équipe *</Label>
                 <Select value={startTeamId} onValueChange={setStartTeamId}>
-                  <SelectTrigger className="h-12"><SelectValue placeholder="Choisir une équipe" /></SelectTrigger>
+                  <SelectTrigger className="h-12" aria-invalid={!!startShiftErrors.team_id}><SelectValue placeholder="Choisir une équipe" /></SelectTrigger>
                   <SelectContent>
                     {shiftTeams.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
@@ -604,17 +610,23 @@ export default function ShiftScreen() {
                     ))}
                   </SelectContent>
                 </Select>
+                {startShiftErrors.team_id && (
+                  <p className="text-xs text-destructive">{startShiftErrors.team_id}</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Créneau horaire *</Label>
                 <Select value={startSlotId} onValueChange={setStartSlotId}>
-                  <SelectTrigger className="h-12"><SelectValue placeholder="Choisir un créneau" /></SelectTrigger>
+                  <SelectTrigger className="h-12" aria-invalid={!!startShiftErrors.slot_id}><SelectValue placeholder="Choisir un créneau" /></SelectTrigger>
                   <SelectContent>
                     {modeSlots.map((s) => (
                       <SelectItem key={s.id} value={s.id}>{s.label} ({s.heure_debut} – {s.heure_fin})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {startShiftErrors.slot_id && (
+                  <p className="text-xs text-destructive">{startShiftErrors.slot_id}</p>
+                )}
               </div>
             </div>
             {!isMobile && (
@@ -629,7 +641,7 @@ export default function ShiftScreen() {
                 </div>
               </div>
             )}
-            <Button onClick={handleStartShift} disabled={!startTeamId || !startSlotId || startingShift} className="w-full h-14 text-lg">
+            <Button onClick={handleStartShift} disabled={!canStartShift} className="w-full h-14 text-lg">
               <Play className="h-5 w-5 mr-2" />{startingShift ? "Démarrage..." : "Démarrer le shift"}
             </Button>
           </CardContent>
