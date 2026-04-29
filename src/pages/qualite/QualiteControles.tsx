@@ -457,9 +457,9 @@ export default function QualiteControles() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Chargement…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Chargement…</TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Aucun contrôle</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-6">Aucun contrôle</TableCell></TableRow>
               ) : filtered.map((r) => {
                 const value =
                   r.measured_value_numeric != null ? `${r.measured_value_numeric}${r.unit ? " " + r.unit : ""}` :
@@ -479,6 +479,15 @@ export default function QualiteControles() {
                     </TableCell>
                     <TableCell>{renderConformityBadge(r)}</TableCell>
                     <TableCell className="max-w-xs truncate">{r.comment || "—"}</TableCell>
+                    <TableCell>
+                      {r.is_conform === false && (
+                        <Button asChild size="sm" variant="outline" title="Créer une non-conformité">
+                          <Link to={`/qualite/non-conformites?from_check=${r.id}`}>
+                            <AlertOctagon className="h-3.5 w-3.5" /> NC
+                          </Link>
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
