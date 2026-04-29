@@ -34,6 +34,7 @@ import DocumentCategoriesAdmin from "@/pages/parametres/DocumentCategoriesAdmin"
 import DocumentPermissionsAdmin from "@/pages/parametres/DocumentPermissionsAdmin";
 import PdrFamiliesAdmin from "@/pages/parametres/PdrFamiliesAdmin";
 import PdrStockPermissionsAdmin from "@/pages/parametres/PdrStockPermissionsAdmin";
+import AccessControlHub from "@/pages/parametres/AccessControlHub";
 import GpaoDashboard from "@/pages/gpao/GpaoDashboard";
 import OfList from "@/pages/gpao/OfList";
 import OfDetail from "@/pages/gpao/OfDetail";
@@ -159,6 +160,7 @@ const App = () => (
               {/* Admin */}
               <Route path="/parametres" element={<Parametres />} />
               <Route path="/parametres/users" element={<UsersAdmin />} />
+              <Route path="/parametres/access-control" element={<AccessControlHub />} />
               <Route path="/parametres/familles" element={<FamillesAdmin />} />
               <Route path="/parametres/pannes" element={<PannesAdmin />} />
               <Route path="/parametres/roles" element={<RolesMatrix />} />
