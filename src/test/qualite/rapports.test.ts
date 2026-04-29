@@ -31,9 +31,9 @@ describe("RapportsHelpers", () => {
 
   it("counts NC by type and severity", () => {
     const ncs = [
-      { id: "1", nc_type: "produit", severity: "high" },
-      { id: "2", nc_type: "produit", severity: "low" },
-      { id: "3", nc_type: "process", severity: "high" },
+      { id: "1", nc_type: "produit", severity: "high", status: "open" },
+      { id: "2", nc_type: "produit", severity: "low", status: "open" },
+      { id: "3", nc_type: "process", severity: "high", status: "closed" },
     ];
     expect(countNcBy(ncs, "nc_type")).toEqual([
       { key: "produit", count: 2 },
