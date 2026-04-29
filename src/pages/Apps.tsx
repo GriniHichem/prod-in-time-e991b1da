@@ -49,6 +49,17 @@ const MODULES: AppModule[] = [
   { title: "Consommations", description: "Suivi et corrections de matières", url: "/gpao/consommations", icon: IconConsumption, category: "Production", accent: "from-violet-500/15 to-violet-500/5 text-violet-500" },
   { title: "Arrêts", description: "Pannes et arrêts production", url: "/gpao/arrets", icon: IconStop, category: "Production", accent: "from-orange-500/15 to-orange-500/5 text-orange-500" },
 
+  // ===== Qualité =====
+  { title: "Dashboard Qualité", description: "Indicateurs et synthèse qualité", url: "/qualite", icon: IconChart, category: "Qualité", permissionModule: "qualite", accent: "from-sky-500/15 to-sky-500/5 text-sky-500" },
+  { title: "OF Qualité", description: "Suivi qualité par ordre de fabrication", url: "/qualite/of", icon: IconOrder, category: "Qualité", permissionModule: "qualite", accent: "from-blue-500/15 to-blue-500/5 text-blue-500" },
+  { title: "Indicateurs qualité", description: "Catalogue des indicateurs et tolérances", url: "/qualite/indicateurs", icon: IconAnalytics, category: "Qualité", permissionModule: "qualite", accent: "from-cyan-500/15 to-cyan-500/5 text-cyan-500" },
+  { title: "Contrôles", description: "Saisie et historique des contrôles qualité", url: "/qualite/controles", icon: ClipboardCheck as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-emerald-500/15 to-emerald-500/5 text-emerald-500" },
+  { title: "Non-conformités", description: "Déclaration, décisions et lots bloqués", url: "/qualite/non-conformites", icon: AlertTriangle as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-rose-500/15 to-rose-500/5 text-rose-500" },
+  { title: "Actions qualité", description: "Plans d'actions correctives et préventives", url: "/qualite/actions", icon: Wrench as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-amber-500/15 to-amber-500/5 text-amber-500" },
+  { title: "Recettes & Nomenclatures", description: "Versions recettes et BOM côté qualité", url: "/qualite/recettes-nomenclatures", icon: IconRecipe, category: "Qualité", permissionModule: "qualite", accent: "from-violet-500/15 to-violet-500/5 text-violet-500" },
+  { title: "Traçabilité", description: "Fiche traçabilité complète par OF", url: "/qualite/tracabilite", icon: GitBranch as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-teal-500/15 to-teal-500/5 text-teal-500" },
+  { title: "Rapports qualité", description: "Conformité, NC, actions, théorique vs réel", url: "/qualite/rapports", icon: FileText as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-500" },
+
   // ===== Configuration =====
   { title: "Paramètres", description: "Référentiels, utilisateurs et configuration", url: "/parametres", icon: IconSettings, category: "Configuration", accent: "from-slate-500/15 to-slate-500/5 text-slate-400" },
   { title: "Audit & Traçabilité", description: "Journal complet des actions, sécurité et corrections", url: "/audit", icon: ShieldCheck as unknown as React.FC<{ size?: number; className?: string }>, category: "Configuration", permissionModule: "audit", accent: "from-red-500/15 to-red-500/5 text-red-500" },
