@@ -293,6 +293,10 @@ export default function RecipesPage() {
     setLineArticleId("");
     setLineQte("");
     setLineUnite("kg");
+    setLineItemType("raw_material");
+    setLineWastePercent("");
+    setLineMandatory(true);
+    setLineQualitySensitive(false);
     setLineDialogOpen(true);
   };
 
@@ -304,9 +308,13 @@ export default function RecipesPage() {
     const { error } = await supabase.from("recipe_lines").insert({
       recipe_id: lineRecipeId,
       article_id: lineArticleId,
-      quantite: parseFloat(lineQte),
+      quantite: parseFloat(lineQte.replace(",", ".")),
       unite: lineUnite,
-    });
+      item_type: lineItemType,
+      waste_percent: lineWastePercent ? parseFloat(lineWastePercent.replace(",", ".")) : null,
+      is_mandatory: lineMandatory,
+      is_quality_sensitive: lineQualitySensitive,
+    } as any);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     } else {
