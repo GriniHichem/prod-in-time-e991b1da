@@ -47,6 +47,25 @@ const gpaoItems = [
   { title: "Arrêts", url: "/gpao/arrets", icon: IconStop },
 ];
 
+const qualiteItems = [
+  { title: "Dashboard", url: "/qualite", icon: IconDashboard },
+  { title: "Contrôles", url: "/qualite/controles", icon: ClipboardCheck },
+  { title: "Non-conformités", url: "/qualite/non-conformites", icon: AlertTriangle },
+  { title: "Actions", url: "/qualite/actions", icon: ListChecks },
+  { title: "Indicateurs", url: "/qualite/indicateurs", icon: IconAnalytics },
+  { title: "OF Qualité", url: "/qualite/of", icon: IconOrder },
+  { title: "Recettes & BOM", url: "/qualite/recettes-nomenclatures", icon: IconRecipe },
+  { title: "Traçabilité", url: "/qualite/tracabilite", icon: GitBranch },
+  { title: "Rapports", url: "/qualite/rapports", icon: FileBarChart },
+];
+
+const configItems = [
+  { title: "Paramètres", url: "/parametres", icon: IconSettings },
+  { title: "Sécurité & Accès", url: "/securite", icon: Lock },
+  { title: "Validations", url: "/validations", icon: CheckSquare },
+  { title: "Audit & Traçabilité", url: "/audit", icon: Activity },
+];
+
 type NavItem = { title: string; url: string; icon: React.FC<{ size?: number; className?: string }> };
 
 function isActive(currentPath: string, path: string) {
