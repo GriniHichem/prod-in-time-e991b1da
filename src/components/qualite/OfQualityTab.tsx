@@ -118,6 +118,7 @@ export default function OfQualityTab({
   const [applicable, setApplicable] = useState<IndicatorRow[]>([]);
   const [checks, setChecks] = useState<CheckRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recipeInfo, setRecipeInfo] = useState<any | null>(null);
   const [statusValue, setStatusValue] = useState<string>(qualityStatus ?? "non_demarre");
   const [statusReason, setStatusReason] = useState("");
   const [savingStatus, setSavingStatus] = useState(false);
@@ -130,12 +131,15 @@ export default function OfQualityTab({
 
   const load = async () => {
     setLoading(true);
-    const [appRes, checksRes] = await Promise.all([
+    const [appRes, checksRes, recipeRes] = await Promise.all([
       (supabase as any).rpc("get_quality_indicators_for_of", { p_of_id: ofId }),
       (supabase as any).from("quality_checks").select("*").eq("of_id", ofId).order("control_time", { ascending: false }),
+      (supabase as any).rpc("get_recipe_for_of", { p_of_id: ofId }),
     ]);
     setApplicable(appRes.data || []);
     setChecks(checksRes.data || []);
+    const r = Array.isArray(recipeRes.data) ? recipeRes.data[0] : recipeRes.data;
+    setRecipeInfo(r || null);
     setLoading(false);
   };
 
