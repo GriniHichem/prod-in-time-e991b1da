@@ -18,7 +18,7 @@ import { exportToCsv } from "@/lib/exportCsv";
 import { logAudit } from "@/lib/audit";
 
 /** Parse decimal accepting both `.` and `,` as separator. Returns null if blank. */
-const parseDecimal = (s: string): number | null => {
+export const parseDecimal = (s: string): number | null => {
   const t = (s ?? "").toString().trim().replace(",", ".");
   if (!t) return null;
   const n = Number(t);
