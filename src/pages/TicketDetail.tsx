@@ -120,13 +120,22 @@ export default function TicketDetail() {
 
   const addCollaborator = async () => {
     if (!newCollabId || !id) return;
-    const { error } = await supabase.from("ticket_collaborators").insert({
-      ticket_id: id, user_id: newCollabId, role_label: newCollabRole, added_by: user?.id,
-    });
+    const now = new Date().toISOString();
+    const { data: collabRow, error } = await supabase.from("ticket_collaborators").insert({
+      ticket_id: id, user_id: newCollabId, role_label: newCollabRole, added_by: user?.id, added_at: now,
+    }).select("id, added_at").single();
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return;
     }
+    // Open a collaboration intervention so KPI duration starts now (not at resolve time)
+    await supabase.from("interventions").insert({
+      ticket_id: id,
+      technicien_id: newCollabId,
+      description: `Collaboration (${newCollabRole === "co_intervenant" ? "co-intervenant" : "aide"})`,
+      statut: "en_cours" as any,
+      date_debut: collabRow?.added_at || now,
+    });
     toast({ title: "Collaborateur ajouté" });
     setNewCollabId("");
     setNewCollabRole("aide");
@@ -134,12 +143,27 @@ export default function TicketDetail() {
   };
 
   const removeCollaborator = async (collabId: string) => {
+    const removedAt = new Date().toISOString();
+    const collab = collaborators.find((c) => c.id === collabId);
     const { error } = await supabase.from("ticket_collaborators")
-      .update({ removed_at: new Date().toISOString(), removed_by: user?.id })
+      .update({ removed_at: removedAt, removed_by: user?.id })
       .eq("id", collabId);
     if (error) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
       return;
+    }
+    // Close the corresponding open collaboration intervention
+    if (collab) {
+      const openIntv = interventions.find((i) =>
+        i.statut === "en_cours" &&
+        i.technicien_id === collab.user_id &&
+        (i.description || "").startsWith("Collaboration")
+      );
+      if (openIntv) {
+        await supabase.from("interventions").update({
+          statut: "terminee" as any, date_fin: removedAt,
+        }).eq("id", openIntv.id);
+      }
     }
     loadTicket();
   };
@@ -153,7 +177,10 @@ export default function TicketDetail() {
 
   const handleTakeCharge = async () => {
     const now = new Date().toISOString();
-    await supabase.from("tickets").update({ statut: "pris_en_charge" as any, assignee_id: user?.id, heure_prise_en_charge: now }).eq("id", id!);
+    // Preserve original heure_prise_en_charge if it already exists (re-take after release)
+    const ticketUpdate: any = { statut: "pris_en_charge" as any, assignee_id: user?.id };
+    if (!ticket?.heure_prise_en_charge) ticketUpdate.heure_prise_en_charge = now;
+    await supabase.from("tickets").update(ticketUpdate).eq("id", id!);
     await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any });
     toast({ title: "Ticket pris en charge" });
     loadTicket();
@@ -243,9 +270,9 @@ export default function TicketDetail() {
         }).eq("id", activeIntervention.id);
       }
 
-      // 2. Release ticket back to pool
+      // 2. Release ticket back to pool (keep heure_prise_en_charge for KPI continuity if re-taken)
       await supabase.from("tickets").update({
-        assignee_id: null, statut: "ouvert" as any, heure_prise_en_charge: null,
+        assignee_id: null, statut: "ouvert" as any,
       }).eq("id", id);
 
       // 3. Audit
@@ -301,7 +328,9 @@ export default function TicketDetail() {
     }
     const now = new Date().toISOString();
     const tempsArret = ticket?.heure_declaration ? Math.round((new Date(now).getTime() - new Date(ticket.heure_declaration).getTime()) / 60000) : null;
-    const tempsIntervention = ticket?.heure_prise_en_charge ? Math.round((new Date(now).getTime() - new Date(ticket.heure_prise_en_charge).getTime()) / 60000) : null;
+    // Fallback: if no formal heure_prise_en_charge, use heure_declaration so the KPI is never null when resolving
+    const baselineForIntervention = ticket?.heure_prise_en_charge || ticket?.heure_declaration;
+    const tempsIntervention = baselineForIntervention ? Math.round((new Date(now).getTime() - new Date(baselineForIntervention).getTime()) / 60000) : null;
 
     const { data: updatedTicket } = await supabase.from("tickets").update({
       statut: "resolu" as any, heure_resolution: now, cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention,
@@ -337,7 +366,10 @@ export default function TicketDetail() {
       }
     } catch (e) { console.warn("[validation] ticket resolve check failed", e); }
 
-    const activeIntervention = interventions.find((i) => i.statut === "en_cours");
+    // Active intervention = the lead assignee's en_cours (not a collaborator's)
+    const activeIntervention = interventions.find(
+      (i) => i.statut === "en_cours" && i.technicien_id === ticket?.assignee_id
+    );
     if (activeIntervention) {
       await supabase.from("interventions").update({ statut: "terminee" as any, date_fin: now }).eq("id", activeIntervention.id);
       if (selectedPdr.length > 0) {
@@ -383,15 +415,33 @@ export default function TicketDetail() {
           }
         }
       }
-      // Insert one "Collaboration" intervention per active collaborator
-      if (collaborators.length > 0) {
+      // Close any still-open collaboration interventions (started at addCollaborator time)
+      const openCollabIntvIds = interventions
+        .filter((i) =>
+          i.statut === "en_cours" &&
+          i.technicien_id !== ticket?.assignee_id &&
+          (i.description || "").startsWith("Collaboration")
+        )
+        .map((i) => i.id);
+      if (openCollabIntvIds.length > 0) {
+        await supabase.from("interventions")
+          .update({ statut: "terminee" as any, date_fin: now })
+          .in("id", openCollabIntvIds);
+      }
+      // Safety net: for collaborators added BEFORE this fix (no open intervention), create a closed one
+      const collabsWithoutIntv = collaborators.filter(
+        (c) => !interventions.some((i) =>
+          i.technicien_id === c.user_id && (i.description || "").startsWith("Collaboration")
+        )
+      );
+      if (collabsWithoutIntv.length > 0) {
         await supabase.from("interventions").insert(
-          collaborators.map((c) => ({
+          collabsWithoutIntv.map((c) => ({
             ticket_id: id!,
             technicien_id: c.user_id,
             description: `Collaboration (${c.role_label === "co_intervenant" ? "co-intervenant" : "aide"})`,
             statut: "terminee" as any,
-            date_debut: ticket?.heure_prise_en_charge || now,
+            date_debut: c.added_at || ticket?.heure_prise_en_charge || now,
             date_fin: now,
           }))
         );
