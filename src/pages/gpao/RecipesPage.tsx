@@ -555,6 +555,72 @@ export default function RecipesPage() {
                                   )}
                                 </div>
 
+
+                                {/* Steps (process & CCP) */}
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground uppercase tracking-wide">
+                                      <ListOrdered className="h-3 w-3" /> Étapes & paramètres process
+                                    </p>
+                                    {canManage && (
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openAddStep(r.id)}>
+                                        <Plus className="h-3 w-3 mr-1" /> Étape
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {getStepsForRecipe(r.id).length === 0 ? (
+                                    <p className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">Aucune étape définie</p>
+                                  ) : (
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="w-12">#</TableHead>
+                                          <TableHead>Titre</TableHead>
+                                          <TableHead>Durée (min)</TableHead>
+                                          <TableHead>CCP</TableHead>
+                                          <TableHead>Indicateur qualité</TableHead>
+                                          {canManage && <TableHead className="w-16" />}
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {getStepsForRecipe(r.id).map((s) => {
+                                          const ind = indicators.find((i) => i.id === s.quality_indicator_id);
+                                          return (
+                                            <TableRow key={s.id}>
+                                              <TableCell className="tabular-nums">{s.step_order}</TableCell>
+                                              <TableCell className="text-sm">
+                                                <div className="font-medium">{s.title}</div>
+                                                {s.description && <div className="text-xs text-muted-foreground line-clamp-1">{s.description}</div>}
+                                              </TableCell>
+                                              <TableCell className="tabular-nums">{s.expected_duration_minutes ?? "—"}</TableCell>
+                                              <TableCell>
+                                                {s.critical_control_point ? (
+                                                  <Badge variant="destructive" className="text-[10px] gap-1"><AlertTriangle className="h-3 w-3" />CCP</Badge>
+                                                ) : <span className="text-xs text-muted-foreground">—</span>}
+                                              </TableCell>
+                                              <TableCell className="text-xs">
+                                                {ind ? `${ind.code} — ${ind.name}` : <span className="text-muted-foreground">—</span>}
+                                              </TableCell>
+                                              {canManage && (
+                                                <TableCell>
+                                                  <div className="flex gap-1">
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditStep(s)}>
+                                                      <Edit className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteStep(s.id)}>
+                                                      <Trash2 className="h-3 w-3 text-destructive" />
+                                                    </Button>
+                                                  </div>
+                                                </TableCell>
+                                              )}
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  )}
+                                </div>
+
                                 {/* Linked OFs */}
                                 {ofs.length > 0 && (
                                   <div>
