@@ -189,6 +189,13 @@ const App = () => (
               <Route path="/parametres/smtp" element={<SmtpConfigAdmin />} />
               <Route path="/validations" element={<ValidationsPage />} />
               <Route path="/parametres/validations" element={<ValidationRulesAdmin />} />
+              <Route path="/parametres/qualite" element={<QualiteParametresHub />} />
+              <Route path="/parametres/qualite/nc-categories" element={<QualiteNcCategoriesAdmin />} />
+              <Route path="/parametres/qualite/action-categories" element={<QualiteActionCategoriesAdmin />} />
+              <Route path="/parametres/qualite/units" element={<QualiteUnitsAdmin />} />
+              <Route path="/parametres/qualite/control-points" element={<QualiteControlPointsAdmin />} />
+              <Route path="/parametres/qualite/defect-types" element={<QualiteDefectTypesAdmin />} />
+              <Route path="/parametres/qualite/decision-reasons" element={<QualiteDecisionReasonsAdmin />} />
               <Route path="/recherche" element={<SearchPage />} />
               {/* Qualité & Traçabilité */}
               <Route path="/qualite" element={<QualiteDashboard />} />
