@@ -23,13 +23,15 @@ export default function AnalyticsPage() {
   const [lines, setLines] = useState<any[]>([]);
   const [families, setFamilies] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [interventions, setInterventions] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const df = useDateFilter("this_month");
 
   useEffect(() => {
     const load = async () => {
-      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes, fRes, pRes] = await Promise.all([
+      const [tRes, mRes, oRes, dRes, sRes, cRes, rlRes, lRes, fRes, pRes, iRes, prRes] = await Promise.all([
         supabase.from("tickets").select("*, machines(code, designation), ordres_fabrication(numero, products(code, designation))").order("heure_declaration", { ascending: false }),
         supabase.from("machines").select("*").eq("is_active", true),
         supabase.from("ordres_fabrication").select("*, products(designation, code, family_id, poids_unitaire, product_families(name)), production_lines(designation, code)").order("created_at", { ascending: false }),
@@ -40,6 +42,8 @@ export default function AnalyticsPage() {
         supabase.from("production_lines").select("*").eq("is_active", true),
         supabase.from("product_families").select("*").eq("is_active", true),
         supabase.from("products").select("*, product_families(name)").eq("is_active", true),
+        supabase.from("interventions").select("id, ticket_id, technicien_id, date_debut, date_fin, statut, role"),
+        supabase.from("profiles").select("user_id, first_name, last_name"),
       ]);
       setTickets(tRes.data || []);
       setMachines(mRes.data || []);
@@ -51,6 +55,8 @@ export default function AnalyticsPage() {
       setLines(lRes.data || []);
       setFamilies(fRes.data || []);
       setProducts(pRes.data || []);
+      setInterventions(iRes.data || []);
+      setProfiles(prRes.data || []);
       setLoading(false);
     };
     load();
