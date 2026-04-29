@@ -489,6 +489,12 @@ export default function TicketDetail() {
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <StatusBadge type="ticket" value={ticket.statut} />
             <StatusBadge type="priority" value={ticket.priorite} />
+            {ticket.assignment_status === "transferred" && (
+              <Badge variant="outline" className="text-xs bg-info/10 text-info border-info/20">Transféré</Badge>
+            )}
+            {ticket.assignment_status === "released" && (
+              <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">Libéré</Badge>
+            )}
             {ticket.is_from_gpao && (
               <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:text-blue-300">
                 <Factory className="h-3 w-3 mr-0.5" /> GPAO
