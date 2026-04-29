@@ -53,16 +53,27 @@ export default function TicketsList() {
     supabase.from("panne_types").select("*").eq("is_active", true).then(({ data }) => setPanneTypes(data || []));
   }, []);
 
+  // Inline mobile/tablet validation — disable submit + surface errors before any Supabase call
+  const createErrors = useMemo(
+    () => getFieldErrors(ticketCreateSchema, {
+      machine_id: newMachineId,
+      description: newDescription,
+      priorite: newPriorite,
+    }),
+    [newMachineId, newDescription, newPriorite]
+  );
+  const canSubmitCreate = isValid(createErrors);
+
   const handleCreate = async () => {
-    if (!newMachineId || !newDescription) {
-      toast({ title: "Erreur", description: "Machine et description obligatoires", variant: "destructive" });
+    if (!canSubmitCreate) {
+      toast({ title: "Formulaire invalide", description: "Corrigez les champs en rouge", variant: "destructive" });
       return;
     }
     const { error } = await supabase.from("tickets").insert({
       machine_id: newMachineId,
       panne_type_id: newPanneTypeId || null,
       priorite: newPriorite as any,
-      description: newDescription,
+      description: newDescription.trim(),
       declarant_id: user?.id,
       numero: "",
     });
