@@ -694,6 +694,19 @@ export default function ShiftScreen() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* Sticky validation banners on mobile/tablet */}
+                {!selectedOf?.id && (
+                  <div className="sticky top-0 z-10 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive flex items-start gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Sélectionnez un OF pour déclarer la production.</span>
+                  </div>
+                )}
+                {selectedOf?.id && noEditableSlot && (
+                  <div className="sticky top-0 z-10 rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                    <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Aucune fenêtre horaire ouverte (règle Hour-1, tolérance {toleranceHours}h).</span>
+                  </div>
+                )}
                 {hourlySlots.length === 0 ? (
                   <p className="text-center py-4 text-muted-foreground text-sm">Aucun créneau horaire</p>
                 ) : (
@@ -714,8 +727,9 @@ export default function ShiftScreen() {
                             existing ? "border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700"
                               : isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                               : editable ? "border-border hover:border-primary/40 cursor-pointer"
-                              : "border-border bg-muted/30 opacity-60"
+                              : "border-border bg-muted/30 opacity-60 cursor-not-allowed"
                           }`}
+                          aria-disabled={!editable && !existing}
                         >
                           <div className="flex items-center justify-between mb-0.5">
                             <span className={`font-mono font-bold ${isMobile ? "text-xs" : "text-sm"}`}>{slot.label}</span>
@@ -740,14 +754,41 @@ export default function ShiftScreen() {
                     <p className="text-sm font-medium">
                       Saisie : <span className="text-primary">{hourlySlots[selectedHourSlot]?.label}</span>
                     </p>
+                    {declareErrors.slot_editable && (
+                      <p className="text-xs text-destructive">{declareErrors.slot_editable}</p>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Quantité produite *</Label>
-                        <Input type="number" value={declQte} onChange={(e) => setDeclQte(e.target.value)} className="h-14 text-lg" placeholder="0" />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          value={declQte}
+                          onChange={(e) => setDeclQte(e.target.value)}
+                          className="h-14 text-lg"
+                          placeholder="0"
+                          aria-invalid={!!declareErrors.quantite_produite}
+                          min={0}
+                        />
+                        {declareErrors.quantite_produite && (
+                          <p className="text-xs text-destructive">{declareErrors.quantite_produite}</p>
+                        )}
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Rebuts</Label>
-                        <Input type="number" value={declRebut} onChange={(e) => setDeclRebut(e.target.value)} className="h-14 text-lg" placeholder="0" />
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          value={declRebut}
+                          onChange={(e) => setDeclRebut(e.target.value)}
+                          className="h-14 text-lg"
+                          placeholder="0"
+                          aria-invalid={!!declareErrors.quantite_rebut}
+                          min={0}
+                        />
+                        {declareErrors.quantite_rebut && (
+                          <p className="text-xs text-destructive">{declareErrors.quantite_rebut}</p>
+                        )}
                       </div>
                     </div>
                     {!isMobile && (
@@ -756,7 +797,7 @@ export default function ShiftScreen() {
                         <Input value={declNotes} onChange={(e) => setDeclNotes(e.target.value)} className="h-10" placeholder="Optionnel" />
                       </div>
                     )}
-                    <Button onClick={handleDeclareProduction} className="w-full h-14 text-lg" disabled={!declQte}>Déclarer</Button>
+                    <Button onClick={handleDeclareProduction} className="w-full h-14 text-lg" disabled={!canDeclareProduction}>Déclarer</Button>
                   </div>
                 )}
 
