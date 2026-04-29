@@ -26,7 +26,7 @@ export default function OfDetail() {
   const { id } = useParams();
   const navigate = useNavWithFrom();
   const goBack = useSmartBack("/gpao/of");
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { toast } = useToast();
   const [of, setOf] = useState<any>(null);
   const [declarations, setDeclarations] = useState<any[]>([]);
