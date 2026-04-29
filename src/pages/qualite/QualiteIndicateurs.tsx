@@ -354,9 +354,18 @@ export default function QualiteIndicateurs() {
             <ClipboardCheck className="h-6 w-6 text-primary" />
             Indicateurs qualité
           </h1>
-          <p className="text-sm text-muted-foreground">Référentiel des indicateurs configurables</p>
+          <p className="text-sm text-muted-foreground">Référentiel & affectations des indicateurs configurables</p>
         </div>
-        <div className="flex gap-2">
+      </div>
+
+      <Tabs defaultValue="indicators" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="indicators"><ClipboardCheck className="h-4 w-4 mr-1" /> Indicateurs</TabsTrigger>
+          <TabsTrigger value="assignments"><Link2 className="h-4 w-4 mr-1" /> Affectations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="indicators" className="space-y-4">
+        <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>
@@ -366,7 +375,6 @@ export default function QualiteIndicateurs() {
             </Button>
           )}
         </div>
-      </div>
 
       <Card>
         <CardContent className="p-4 space-y-3">
