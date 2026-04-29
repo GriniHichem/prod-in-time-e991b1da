@@ -428,13 +428,18 @@ export default function RecipesPage() {
                         {group.versions.length} version(s) · {activeCount} active(s) · {totalOfs} OF
                       </p>
                     </div>
-                    {canManage && (
-                      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      {group.versions.length >= 2 && (
+                        <Button variant="outline" size="sm" onClick={() => openCompare(prodId)}>
+                          <FileText className="h-3 w-3 mr-1" /> Comparer
+                        </Button>
+                      )}
+                      {canManage && (
                         <Button variant="outline" size="sm" onClick={() => openNewVersion(prodId)}>
                           <GitBranch className="h-3 w-3 mr-1" /> Nouvelle version
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   {/* Versions list */}
