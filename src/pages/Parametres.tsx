@@ -20,6 +20,7 @@ const groups: SectionGroup[] = [
     label: "Sécurité & Accès",
     icon: Shield,
     items: [
+      { title: "Sécurité, Rôles & Accès (Hub)", description: "Hub centralisé : permissions, rôles, audit, contrôles globaux, self-hosting", icon: ShieldCheck, url: "/parametres/access-control" },
       { title: "Utilisateurs", description: "Gérer les comptes et rôles", icon: Users, url: "/parametres/users" },
       { title: "Matrice des rôles", description: "Permissions détaillées par rôle", icon: ShieldCheck, url: "/parametres/roles" },
       { title: "Permissions documents", description: "Droits d'accès aux documents par rôle et entité", icon: Lock, url: "/parametres/document-permissions" },
