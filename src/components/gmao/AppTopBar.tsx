@@ -272,20 +272,8 @@ export function AppTopBar() {
           </Button>
           <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={gmaoItems} active={isGmaoActive} />
           <MegaMenu label="Production" GroupIcon={IconProduction} items={gpaoItems} active={isGpaoActive} />
-          <Button
-            asChild
-            variant="ghost"
-            className={cn(
-              "h-9 px-3 gap-2 text-[13px] font-semibold rounded-md",
-              "text-foreground/70 hover:text-foreground hover:bg-accent/60",
-              isSettingsActive && "text-primary bg-primary/10 hover:bg-primary/15 hover:text-primary"
-            )}
-          >
-            <RRNavLink to="/parametres">
-              <IconSettings size={16} />
-              <span className="hidden lg:inline">Paramètres</span>
-            </RRNavLink>
-          </Button>
+          <MegaMenu label="Qualité" GroupIcon={ClipboardCheck} items={qualiteItems} active={isQualiteActive} />
+          <MegaMenu label="Configuration" GroupIcon={Cog} items={configItems} active={isConfigActive} />
         </nav>
 
         {/* Spacer */}
