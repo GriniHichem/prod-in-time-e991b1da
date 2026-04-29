@@ -282,8 +282,13 @@ export default function PdrDetail() {
           <TabsTrigger value="mouvements" className="h-9"><History className="h-3.5 w-3.5 mr-1" />Mouvements</TabsTrigger>
           <TabsTrigger value="consommation" className="h-9"><BarChart3 className="h-3.5 w-3.5 mr-1" />Conso.</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
+          <TabsTrigger value="equivalences" className="h-9">Équivalences</TabsTrigger>
           <TabsTrigger value="documents" className="h-9"><FileText className="h-3.5 w-3.5 mr-1" />Docs</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="equivalences">
+          <EquivalencesTable pdrId={id!} canValidate={canEdit("pdr")} />
+        </TabsContent>
 
         {/* INFO */}
         <TabsContent value="info">
