@@ -261,7 +261,7 @@ export default function QualityIndicatorAssignments() {
       entity_id: a.id,
       entity_label: ind ? `${ind.code} – ${ind.name}` : "Affectation indicateur",
       action_label: "Affectation indicateur supprimée",
-      old_values: a,
+      old_values: { ...a } as any,
       severity: "low",
     });
     toast({ title: "Affectation supprimée" });
