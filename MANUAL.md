@@ -1135,16 +1135,24 @@ Disponible pour : OF, Articles (et autres entités via `CsvImporter`).
 - `/gpao/consommations`
 - `/gpao/arrets`
 
+#### Qualité
+- `/qualite` — Dashboard
+- `/qualite/controles`, `/qualite/non-conformites`, `/qualite/actions`
+- `/qualite/indicateurs`, `/qualite/of`, `/qualite/tracabilite`
+- `/qualite/recettes-nomenclatures`, `/qualite/rapports`
+
 #### Administration
 - `/parametres`
-- `/parametres/users`, `/parametres/roles`
+- `/parametres/users`, `/parametres/roles`, `/parametres/access-control`
 - `/parametres/document-permissions`, `/parametres/pdr-stock-permissions`
 - `/parametres/familles`, `/parametres/product-families`, `/parametres/pdr-families`
 - `/parametres/pannes`, `/parametres/document-categories`
 - `/parametres/lignes`, `/parametres/shifts`
 - `/parametres/general`, `/parametres/images`
 - `/parametres/notifications`, `/parametres/smtp`
+- `/parametres/qualite` (hub) + `/parametres/qualite/units`, `/control-points`, `/nc-categories`, `/defect-types`, `/decision-reasons`, `/action-categories`
 - `/notifications` (boîte de réception utilisateur)
+
 
 ### 12.2 Tables principales (BDD)
 
