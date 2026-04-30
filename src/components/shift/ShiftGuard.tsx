@@ -17,7 +17,7 @@ interface ShiftGuardProps {
  * allowWithoutShift={true}.
  */
 export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardProps) {
-  const { kind, productionShift, qualityShift, loading } = useActiveShift();
+  const { kind, productionShift, maintenanceShift, qualityShift, loading } = useActiveShift();
 
   if (loading) {
     return (
@@ -28,11 +28,9 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
     );
   }
 
-  // Maintenance never has a DB shift — always allowed.
-  if (kind === "maintenance") return <>{children}</>;
-
   const hasActive =
     (kind === "production" && !!productionShift) ||
+    (kind === "maintenance" && !!maintenanceShift) ||
     (kind === "quality" && !!qualityShift);
 
   if (hasActive || allowWithoutShift) return <>{children}</>;
