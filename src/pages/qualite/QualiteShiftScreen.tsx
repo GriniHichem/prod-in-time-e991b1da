@@ -153,11 +153,11 @@ export default function QualiteShiftScreen() {
       if (error) throw error;
 
       await logAudit({
-        action: "quality_shift_close",
-        module: "qualite",
+        action_type: "update",
+        module: "parametres" as any,
         entity_type: "quality_shift",
         entity_id: shift.id,
-        description: "Clôture shift qualité",
+        action_label: "Clôture shift qualité",
         reason: observations,
       });
       toast({ title: "Shift qualité clôturé" });
