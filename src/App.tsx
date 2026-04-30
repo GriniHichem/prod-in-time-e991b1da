@@ -147,6 +147,10 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Isolated shift apps — no global sidebar, focused kiosk-style UX */}
+            <Route path="/gpao/shift" element={<ProtectedShiftRoute kind="production" />} />
+            <Route path="/maintenance/shift" element={<ProtectedShiftRoute kind="maintenance" />} />
+            <Route path="/qualite/shift" element={<ProtectedShiftRoute kind="quality" />} />
             <Route element={<ProtectedRoutes />}>
               {/* GMAO */}
               <Route path="/" element={<Dashboard />} />
