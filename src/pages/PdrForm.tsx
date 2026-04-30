@@ -345,6 +345,11 @@ export default function PdrForm() {
               </CardContent>
             </Card>
           )}
+
+          <ExternalIdsCard
+            value={{ code_erp: (form as any).code_erp, qr_code: (form as any).qr_code, code_barres: (form as any).code_barres }}
+            onChange={(v) => setForm({ ...form, code_erp: v.code_erp ?? "", qr_code: v.qr_code ?? "", code_barres: v.code_barres ?? "" } as any)}
+          />
         </div>
       </div>
     </div>
