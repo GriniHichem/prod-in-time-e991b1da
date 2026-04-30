@@ -30,6 +30,7 @@
    - 4.6 [Shift Production](#46-shift-production)
    - 4.7 [Consommations](#47-consommations)
    - 4.8 [Arrêts](#48-arrêts)
+   - 4.9 [Module Qualité](#49-module-qualité)
 5. [Workflows transverses](#5-workflows-transverses)
 6. [Administration & paramètres](#6-administration--paramètres)
 7. [Documents](#7-documents)
