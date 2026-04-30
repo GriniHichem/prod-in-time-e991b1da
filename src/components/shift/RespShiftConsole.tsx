@@ -558,6 +558,15 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
           </div>
         </div>
       </ResponsiveDialog>
+
+      {summarySession && (
+        <ShiftSummaryDialog
+          kind={kind}
+          session={summarySession}
+          open={!!summarySession}
+          onOpenChange={(o) => !o && setSummarySession(null)}
+        />
+      )}
     </div>
   );
 }
