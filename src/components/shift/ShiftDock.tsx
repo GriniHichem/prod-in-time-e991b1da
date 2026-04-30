@@ -63,7 +63,10 @@ export function ShiftDock() {
       className="sticky bottom-0 z-30 border-t-2 border-border bg-card/95 backdrop-blur shadow-lg"
       aria-label="Actions du shift"
     >
-      <ul className="grid grid-cols-4 max-w-2xl mx-auto">
+      <ul
+        className="grid max-w-2xl mx-auto"
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
         {items.map((it) => {
           const Icon = it.icon;
           const disabled = it.requireShift && !hasShift;
@@ -71,7 +74,7 @@ export function ShiftDock() {
             <li key={it.to}>
               <NavLink
                 to={it.to}
-                end={it.to.endsWith("/shift")}
+                end={it.to.endsWith("/live")}
                 className={({ isActive }) =>
                   cn(
                     "flex flex-col items-center justify-center gap-1 py-2.5 min-h-[56px] text-xs font-medium transition-colors",
