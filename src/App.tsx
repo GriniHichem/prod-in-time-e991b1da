@@ -270,7 +270,15 @@ const App = () => (
               {/* Qualité & Traçabilité */}
               <Route path="/qualite" element={<QualiteDashboard />} />
               <Route path="/qualite/of" element={<QualiteOf />} />
-              {/* /qualite/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
+              {/* Quality shift home — managers see console, controllers redirected to /qualite/shift/live */}
+              <Route path="/qualite/shift" element={
+                <ShiftHomePage
+                  kind="quality"
+                  operatorRedirect="/qualite/shift/live"
+                  managerRoles={["admin", "responsable_controle_qualite", "directeur_qualite"]}
+                  operatorRoles={["controleur_qualite"]}
+                />
+              } />
               <Route path="/qualite/indicateurs" element={<QualiteIndicateurs />} />
               <Route path="/qualite/controles" element={<QualiteControles />} />
               <Route path="/qualite/non-conformites" element={<QualiteNonConformites />} />
