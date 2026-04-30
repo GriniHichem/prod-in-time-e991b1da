@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
-const saveSpy = vi.fn();
-const autoTableSpy = vi.fn();
+const { saveSpy, autoTableSpy } = vi.hoisted(() => ({
+  saveSpy: vi.fn(),
+  autoTableSpy: vi.fn(),
+}));
 
 vi.mock("jspdf", () => {
   return {
