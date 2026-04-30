@@ -167,7 +167,7 @@ const App = () => (
               <Route path="/preventif/new" element={<PreventifForm />} />
               <Route path="/preventif/:id" element={<PreventifDetail />} />
               <Route path="/preventif/:id/edit" element={<PreventifForm />} />
-              <Route path="/maintenance/shift" element={<MaintenancierShiftView />} />
+              {/* /maintenance/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
               <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/equipements" element={<EquipmentsList />} />
@@ -190,7 +190,7 @@ const App = () => (
               <Route path="/gpao/produits/:id" element={<ProductDetail />} />
               <Route path="/gpao/articles" element={<ArticlesList />} />
               <Route path="/gpao/articles/:id" element={<ArticleDetail />} />
-              <Route path="/gpao/shift" element={<ShiftScreen />} />
+              {/* /gpao/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
               <Route path="/gpao/consommations" element={<ConsumptionPage />} />
               <Route path="/gpao/arrets" element={<StopsPage />} />
               <Route path="/gpao/recettes" element={<RecipesPage />} />
@@ -227,7 +227,7 @@ const App = () => (
               {/* Qualité & Traçabilité */}
               <Route path="/qualite" element={<QualiteDashboard />} />
               <Route path="/qualite/of" element={<QualiteOf />} />
-              <Route path="/qualite/shift" element={<QualiteShiftScreen />} />
+              {/* /qualite/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
               <Route path="/qualite/indicateurs" element={<QualiteIndicateurs />} />
               <Route path="/qualite/controles" element={<QualiteControles />} />
               <Route path="/qualite/non-conformites" element={<QualiteNonConformites />} />
