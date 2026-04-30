@@ -19,6 +19,7 @@ import { exportToCsv } from "@/lib/exportCsv";
 import { logAudit } from "@/lib/audit";
 import { parseDecimal } from "@/pages/qualite/QualiteIndicateurs";
 import { notifyCheckOutOfTolerance } from "@/lib/qualityNotifications";
+import { useActiveQualityShift } from "@/hooks/useActiveQualityShift";
 
 const ALL = "__all__";
 const NONE = "__none__";
@@ -196,6 +197,7 @@ export default function QualiteControles() {
   const { user } = useAuth();
   const { canCreate } = usePermissions();
   const { toast } = useToast();
+  const { shift: activeQualityShift } = useActiveQualityShift();
 
   const [rows, setRows] = useState<QcRow[]>([]);
   const [ofs, setOfs] = useState<OFRow[]>([]);
@@ -294,6 +296,19 @@ export default function QualiteControles() {
     if (err) { toast({ title: err, variant: "destructive" }); return; }
     setSaving(true);
     const t = currentIndicator!.indicator_type;
+    // Auto-fill quality shift context if controller has an active shift
+    let prodShiftId: string | null = null;
+    if (activeQualityShift && currentOf?.line_id) {
+      const { data: prodShift } = await (supabase as any)
+        .from("shifts")
+        .select("id")
+        .eq("line_id", currentOf.line_id)
+        .eq("is_active", true)
+        .eq("date_shift", new Date().toISOString().slice(0, 10))
+        .limit(1)
+        .maybeSingle();
+      prodShiftId = prodShift?.id ?? null;
+    }
     const payload: any = {
       of_id: form.of_id,
       product_id: currentOf?.product_id ?? null,
@@ -309,6 +324,9 @@ export default function QualiteControles() {
       max_value: currentIndicator!.max_value,
       comment: form.comment.trim(),
       controlled_by: user?.id ?? null,
+      quality_shift_id: activeQualityShift?.id ?? null,
+      shift_id: prodShiftId,
+      team_id: activeQualityShift?.shift_team_id ?? null,
       status: "submitted",
       validation_status: "not_required",
     };

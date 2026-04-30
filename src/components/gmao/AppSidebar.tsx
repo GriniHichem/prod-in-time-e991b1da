@@ -10,7 +10,7 @@ import {
   IconConsumption, IconStop, IconSettings, IconLogout,
   IconMaintenance, IconProduction,
 } from "@/components/icons/IndustrialIcons";
-import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText, Lock, CheckSquare, Cog } from "lucide-react";
+import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText, Lock, CheckSquare, Cog, Timer } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
   SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
@@ -49,6 +49,7 @@ const qualiteItems = [
   { title: "Dashboard", url: "/qualite", icon: IconChart },
   { title: "OF qualité", url: "/qualite/of", icon: IconOrder },
   { title: "Indicateurs", url: "/qualite/indicateurs", icon: IconAnalytics },
+  { title: "Shift contrôle", url: "/qualite/shift", icon: Timer },
   { title: "Contrôles", url: "/qualite/controles", icon: ClipboardCheck },
   { title: "Non-conformités", url: "/qualite/non-conformites", icon: AlertTriangle },
   { title: "Actions", url: "/qualite/actions", icon: Wrench },

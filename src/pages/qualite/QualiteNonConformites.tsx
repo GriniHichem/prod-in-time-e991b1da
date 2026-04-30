@@ -18,6 +18,7 @@ import { exportToCsv } from "@/lib/exportCsv";
 import { logAudit } from "@/lib/audit";
 import { parseDecimal } from "@/pages/qualite/QualiteIndicateurs";
 import { notifyNcCreated, notifyNcBlockedLot } from "@/lib/qualityNotifications";
+import { useActiveQualityShift } from "@/hooks/useActiveQualityShift";
 
 const ALL = "__all__";
 const NONE = "__none__";
@@ -260,6 +261,7 @@ const labelOf = (r?: { name?: string | null; designation?: string | null; code?:
 export default function QualiteNonConformites() {
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
+  const { shift: activeQualityShift } = useActiveQualityShift();
   const [searchParams] = useSearchParams();
 
   const canManage =
@@ -357,6 +359,22 @@ export default function QualiteNonConformites() {
     if (err) { toast({ title: err, variant: "destructive" }); return; }
     setSaving(true);
     const payload = buildNcInsertPayload(form, user?.id ?? null, statusToSet);
+    // Auto-fill quality shift context if controller has an active shift
+    if (activeQualityShift) {
+      (payload as any).quality_shift_id = activeQualityShift.id;
+      if (!payload.team_id) (payload as any).team_id = activeQualityShift.shift_team_id ?? null;
+      if (!payload.shift_id && payload.production_line_id) {
+        const { data: prodShift } = await (supabase as any)
+          .from("shifts")
+          .select("id")
+          .eq("line_id", payload.production_line_id)
+          .eq("is_active", true)
+          .eq("date_shift", new Date().toISOString().slice(0, 10))
+          .limit(1)
+          .maybeSingle();
+        if (prodShift?.id) (payload as any).shift_id = prodShift.id;
+      }
+    }
     const { data, error } = await (supabase as any)
       .from("quality_non_conformities").insert(payload).select().single();
     if (error) {

@@ -84,6 +84,7 @@ import QualiteActions from "@/pages/qualite/QualiteActions";
 import QualiteRecettesNomenclatures from "@/pages/qualite/QualiteRecettesNomenclatures";
 import QualiteTracabilite from "@/pages/qualite/QualiteTracabilite";
 import QualiteRapports from "@/pages/qualite/QualiteRapports";
+import QualiteShiftScreen from "@/pages/qualite/QualiteShiftScreen";
 
 const queryClient = new QueryClient();
 
@@ -200,6 +201,7 @@ const App = () => (
               {/* Qualité & Traçabilité */}
               <Route path="/qualite" element={<QualiteDashboard />} />
               <Route path="/qualite/of" element={<QualiteOf />} />
+              <Route path="/qualite/shift" element={<QualiteShiftScreen />} />
               <Route path="/qualite/indicateurs" element={<QualiteIndicateurs />} />
               <Route path="/qualite/controles" element={<QualiteControles />} />
               <Route path="/qualite/non-conformites" element={<QualiteNonConformites />} />
