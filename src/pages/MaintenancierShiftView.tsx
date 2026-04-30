@@ -59,47 +59,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 export default function MaintenancierShiftView() {
   const { user } = useAuth();
   const navigate = useNavWithFrom();
-  const [plans, setPlans] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    loadShiftTasks();
-  }, [user]);
-
-  const loadShiftTasks = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    const { data: assignedPlanIds } = await supabase
-      .from("preventive_plan_assignees")
-      .select("plan_id")
-      .eq("user_id", user.id);
-
-    const planIds = (assignedPlanIds || []).map((a: any) => a.plan_id);
-
-    let loadedPlans: any[] = [];
-    if (planIds.length > 0) {
-      const { data } = await supabase
-        .from("preventive_plans")
-        .select("*, machines(id, code, designation), production_lines(id, code, designation)")
-        .in("id", planIds)
-        .eq("statut_plan", "valide")
-        .eq("is_active", true);
-      loadedPlans = data || [];
-    }
-
-    const { data: loadedTickets } = await supabase
-      .from("tickets")
-      .select("*, machines(id, code, designation), production_lines(id, code, designation)")
-      .in("statut", ["ouvert", "pris_en_charge"])
-      .or(`assignee_id.eq.${user.id},assignee_id.is.null`);
-
-    setPlans(loadedPlans);
-    setTickets(loadedTickets || []);
-    setLoading(false);
-  };
+  const { tickets, plans, loading, restrictedToShiftLines } = useMaintenanceShiftWorkload();
 
   // Collect all machine IDs for image fetching
   const allMachineIds = useMemo(() => {
