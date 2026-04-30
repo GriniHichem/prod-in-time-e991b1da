@@ -231,7 +231,11 @@ export default function InterventionHistory() {
     filterShift !== ANY ||
     filterMachine !== ANY ||
     filterLine !== ANY ||
-    filterTicket !== ANY;
+    filterTicket !== ANY ||
+    !!dateFrom ||
+    !!dateTo ||
+    sortField !== "date" ||
+    sortDir !== "desc";
 
   function resetFilters() {
     setSearch("");
@@ -239,6 +243,19 @@ export default function InterventionHistory() {
     setFilterMachine(ANY);
     setFilterLine(ANY);
     setFilterTicket(ANY);
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setSortField("date");
+    setSortDir("desc");
+  }
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "machine" ? "asc" : "desc");
+    }
   }
 
   async function openAudit(row: InterventionRow) {
