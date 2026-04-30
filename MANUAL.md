@@ -1210,7 +1210,9 @@ Disponible pour : OF, Articles (et autres entités via `CsvImporter`).
 | 1.0 | 05/04/2026 | Version initiale (descriptif) |
 | 2.0 | 26/04/2026 | Réécriture exhaustive : workflows pas-à-pas, validations, exceptions, messages d'erreur exacts, cas particuliers, workflows transverses, annexes routes/tables/triggers |
 | **2.1** | **28/04/2026** | Ajout du chapitre **Notifications & Emails (SMTP self-hosted)** : configuration `/parametres/smtp`, règles `/parametres/notifications`, edge functions, cron quotidien, tables `notifications` / `notification_rules` / `notification_email_log` |
+| **2.2** | **30/04/2026** | Ajout du **module Qualité** (§4.9) et du **paramétrage Qualité complet** (§6.5) : hub `/parametres/qualite`, CRUD des référentiels (unités, NC, défauts, motifs, actions), **points de contrôle Master/Detail** avec scope et liaisons multi-lignes/multi-OF. **Fusion Recettes ↔ BOM Qualité** : `recipe_lines` étendues (`item_type`, `waste_percent`, `is_quality_sensitive`), sélection de version obligatoire à la création d'OF, RPC `get_recipe_for_of`, onglet Qualité OF avec recette suivie. Ajout du hub **Contrôle d'accès** (`/parametres/access-control`) avec export portabilité JSON/SQL. |
 
 ---
 
-*Document généré pour **PROD IN TIME — GMAO & GPAO** · Version manuel 2.1 · 28/04/2026*
+*Document généré pour **PROD IN TIME — GMAO · GPAO · Qualité** · Version manuel 2.2 · 30/04/2026*
+
