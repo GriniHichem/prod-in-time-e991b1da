@@ -881,6 +881,353 @@ export type Database = {
           },
         ]
       }
+      inventory_assignment_scopes: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          family_id: string
+          id: string
+          include_children: boolean
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          family_id: string
+          id?: string
+          include_children?: boolean
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          include_children?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_assignment_scopes_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_assignment_scopes_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_assignments: {
+        Row: {
+          agent_id: string
+          campaign_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["inventory_assignment_role"]
+        }
+        Insert: {
+          agent_id: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          role: Database["public"]["Enums"]["inventory_assignment_role"]
+        }
+        Update: {
+          agent_id?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["inventory_assignment_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_assignments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_campaign_scopes: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          family_id: string
+          id: string
+          include_children: boolean
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          family_id: string
+          id?: string
+          include_children?: boolean
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          family_id?: string
+          id?: string
+          include_children?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_campaign_scopes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_campaign_scopes_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_campaigns: {
+        Row: {
+          code: string | null
+          created_at: string
+          created_by: string | null
+          date_cloture: string | null
+          date_debut: string | null
+          date_fin_prevue: string | null
+          description: string | null
+          id: string
+          label: string
+          motif: string | null
+          responsable_id: string | null
+          scope_organes: boolean
+          scope_pdr: boolean
+          status: Database["public"]["Enums"]["inventory_campaign_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_cloture?: string | null
+          date_debut?: string | null
+          date_fin_prevue?: string | null
+          description?: string | null
+          id?: string
+          label: string
+          motif?: string | null
+          responsable_id?: string | null
+          scope_organes?: boolean
+          scope_pdr?: boolean
+          status?: Database["public"]["Enums"]["inventory_campaign_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_cloture?: string | null
+          date_debut?: string | null
+          date_fin_prevue?: string | null
+          description?: string | null
+          id?: string
+          label?: string
+          motif?: string | null
+          responsable_id?: string | null
+          scope_organes?: boolean
+          scope_pdr?: boolean
+          status?: Database["public"]["Enums"]["inventory_campaign_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      inventory_counts: {
+        Row: {
+          agent_id: string
+          assignment_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          qty_comptee: number
+          role: Database["public"]["Enums"]["inventory_assignment_role"]
+          round: number
+          target_id: string
+          validated_at: string
+        }
+        Insert: {
+          agent_id: string
+          assignment_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          qty_comptee: number
+          role: Database["public"]["Enums"]["inventory_assignment_role"]
+          round?: number
+          target_id: string
+          validated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          qty_comptee?: number
+          role?: Database["public"]["Enums"]["inventory_assignment_role"]
+          round?: number
+          target_id?: string
+          validated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_counts_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_results: {
+        Row: {
+          campaign_id: string
+          decided_at: string | null
+          decision: Database["public"]["Enums"]["inventory_decision"]
+          ecart_ab: number | null
+          ecart_ac: number | null
+          ecart_bc: number | null
+          qty_a: number | null
+          qty_b: number | null
+          qty_c: number | null
+          qty_finale: number | null
+          round: number
+          target_id: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          decided_at?: string | null
+          decision?: Database["public"]["Enums"]["inventory_decision"]
+          ecart_ab?: number | null
+          ecart_ac?: number | null
+          ecart_bc?: number | null
+          qty_a?: number | null
+          qty_b?: number | null
+          qty_c?: number | null
+          qty_finale?: number | null
+          round?: number
+          target_id: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          decided_at?: string | null
+          decision?: Database["public"]["Enums"]["inventory_decision"]
+          ecart_ab?: number | null
+          ecart_ac?: number | null
+          ecart_bc?: number | null
+          qty_a?: number | null
+          qty_b?: number | null
+          qty_c?: number | null
+          qty_finale?: number | null
+          round?: number
+          target_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_results_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_results_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: true
+            referencedRelation: "inventory_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_targets: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          current_round: number
+          entity_code: string | null
+          entity_id: string
+          entity_label: string | null
+          entity_type: Database["public"]["Enums"]["inventory_entity_type"]
+          family_id: string | null
+          id: string
+          qty_systeme: number
+          status: Database["public"]["Enums"]["inventory_target_status"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          current_round?: number
+          entity_code?: string | null
+          entity_id: string
+          entity_label?: string | null
+          entity_type: Database["public"]["Enums"]["inventory_entity_type"]
+          family_id?: string | null
+          id?: string
+          qty_systeme?: number
+          status?: Database["public"]["Enums"]["inventory_target_status"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          current_round?: number
+          entity_code?: string | null
+          entity_id?: string
+          entity_label?: string | null
+          entity_type?: Database["public"]["Enums"]["inventory_entity_type"]
+          family_id?: string | null
+          id?: string
+          qty_systeme?: number
+          status?: Database["public"]["Enums"]["inventory_target_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_targets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_targets_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       line_products: {
         Row: {
           created_at: string
@@ -5403,6 +5750,32 @@ export type Database = {
         }
         Returns: boolean
       }
+      inv_assignment_authorized_families: {
+        Args: { p_assignment_id: string }
+        Returns: string[]
+      }
+      inv_campaign_authorized_families: {
+        Args: { p_campaign_id: string }
+        Returns: string[]
+      }
+      inv_close_campaign: {
+        Args: { p_campaign_id: string; p_motif?: string }
+        Returns: undefined
+      }
+      inv_ensure_targets: { Args: { p_campaign_id: string }; Returns: number }
+      inv_family_descendants: {
+        Args: { p_family_id: string }
+        Returns: string[]
+      }
+      inv_open_campaign: { Args: { p_campaign_id: string }; Returns: undefined }
+      inv_recompute_result: {
+        Args: { p_target_id: string }
+        Returns: undefined
+      }
+      inv_register_count: {
+        Args: { p_notes?: string; p_qty: number; p_target_id: string }
+        Returns: string
+      }
       is_audit_enabled: {
         Args: { _module: string; _role: string }
         Returns: boolean
@@ -5523,6 +5896,26 @@ export type Database = {
         | "annulee"
         | "transferee"
         | "liberee"
+      inventory_assignment_role: "agent_a" | "agent_b" | "agent_c"
+      inventory_campaign_status:
+        | "draft"
+        | "en_cours"
+        | "arbitrage"
+        | "cloturee"
+        | "annulee"
+      inventory_decision:
+        | "en_attente"
+        | "conforme_ab"
+        | "conforme_c_eq_a"
+        | "conforme_c_eq_b"
+        | "recompte_ab"
+      inventory_entity_type: "pdr" | "organe"
+      inventory_target_status:
+        | "a_compter"
+        | "en_arbitrage"
+        | "conforme"
+        | "a_recompter"
+        | "cloture"
       machine_statut: "en_marche" | "arret" | "maintenance"
       mouvement_type: "entree" | "sortie" | "correction" | "inventaire"
       nc_decision:
@@ -5849,6 +6242,29 @@ export const Constants = {
         "annulee",
         "transferee",
         "liberee",
+      ],
+      inventory_assignment_role: ["agent_a", "agent_b", "agent_c"],
+      inventory_campaign_status: [
+        "draft",
+        "en_cours",
+        "arbitrage",
+        "cloturee",
+        "annulee",
+      ],
+      inventory_decision: [
+        "en_attente",
+        "conforme_ab",
+        "conforme_c_eq_a",
+        "conforme_c_eq_b",
+        "recompte_ab",
+      ],
+      inventory_entity_type: ["pdr", "organe"],
+      inventory_target_status: [
+        "a_compter",
+        "en_arbitrage",
+        "conforme",
+        "a_recompter",
+        "cloture",
       ],
       machine_statut: ["en_marche", "arret", "maintenance"],
       mouvement_type: ["entree", "sortie", "correction", "inventaire"],
