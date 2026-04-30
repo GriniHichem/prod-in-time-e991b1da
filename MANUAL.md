@@ -1,7 +1,7 @@
 # 📘 Manuel Utilisateur — PROD IN TIME (GMAO · GPAO)
 
-> Application industrielle intégrée de **gestion de maintenance** (GMAO) et de **gestion de production** (GPAO).
-> Version manuel : **2.0** — Mise à jour : 26/04/2026
+> Application industrielle intégrée de **gestion de maintenance** (GMAO), **gestion de production** (GPAO) et **qualité**.
+> Version manuel : **2.2** — Mise à jour : 30/04/2026
 
 ---
 
@@ -653,14 +653,23 @@ KPIs production temps réel : OF en cours / terminés / planifiés, taux de rend
 
 ---
 
-### 4.5 Recettes
+### 4.5 Recettes (unifiées avec la nomenclature BOM Qualité)
 
 **Route** : `/gpao/recettes`
 
-- Association produit → liste d'articles avec quantités et unités.
-- **Versioning** : nouvelle version créée à chaque modification significative.
-- Statut **actif/inactif**.
-- Une recette inactive ne peut pas être assignée à un nouvel OF.
+Depuis la version 2.2 du manuel, **les recettes de production et les nomenclatures (BOM) du module Qualité sont fusionnées** : une recette porte à la fois la composition matière (ex-BOM) et le procédé.
+
+- Association produit → liste de **lignes de recette** avec :
+  - Article, quantité, unité.
+  - **Type d'article** (`raw_material`, `packaging`, `label`, `carton`, `pallet`, `consumable`).
+  - **% de perte** (`waste_percent`).
+  - Drapeaux **obligatoire** et **sensible qualité** (`is_quality_sensitive`).
+- **Versioning hiérarchique** : plusieurs versions actives possibles (Brouillon / Active / Archivée). La duplication crée une nouvelle version éditable.
+- **Sélection obligatoire de la version** lors de la création d'un OF (`/gpao/of/new`). La version reste **verrouillée** sur l'OF pour traçabilité.
+- RPC `get_recipe_for_of(of_id)` : renvoie le snapshot complet (composants, étapes, CCP, composants sensibles) suivi par l'OF.
+- Compatibilité ascendante : un trigger renseigne automatiquement `bom_id` dans `ordres_fabrication` pour les anciens rapports.
+
+> Voir aussi [§4.9 Module Qualité](#49-module-qualité) pour les onglets Qualité de l'OF.
 
 ---
 
