@@ -261,6 +261,7 @@ const labelOf = (r?: { name?: string | null; designation?: string | null; code?:
 export default function QualiteNonConformites() {
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
+  const { shift: activeQualityShift } = useActiveQualityShift();
   const [searchParams] = useSearchParams();
 
   const canManage =
