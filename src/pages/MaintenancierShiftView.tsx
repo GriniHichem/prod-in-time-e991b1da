@@ -209,6 +209,11 @@ export default function MaintenancierShiftView() {
           <p className="text-xs md:text-sm text-muted-foreground capitalize truncate">{today}</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {restrictedToShiftLines && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
+              <Factory className="h-3 w-3" /> Filtré shift
+            </Badge>
+          )}
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
             <span className="text-xs font-medium tabular-nums">{tickets.length} curatif</span>
