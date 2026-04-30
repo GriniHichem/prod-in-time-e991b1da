@@ -117,11 +117,12 @@ export default function QualiteShiftScreen() {
       if (linesErr) throw linesErr;
 
       await logAudit({
-        action: "quality_shift_open",
-        module: "qualite",
+        action_type: "create",
+        module: "parametres" as any,
         entity_type: "quality_shift",
         entity_id: newId,
-        description: `Ouverture shift qualité (${startLineIds.length} ligne(s))`,
+        action_label: "Ouverture shift qualité",
+        new_values: { lines: startLineIds, team_id: startTeamId || null },
       });
       toast({ title: "Shift qualité démarré" });
       setOpenStart(false);
