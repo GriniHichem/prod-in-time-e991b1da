@@ -88,6 +88,13 @@ import QualiteRecettesNomenclatures from "@/pages/qualite/QualiteRecettesNomencl
 import QualiteTracabilite from "@/pages/qualite/QualiteTracabilite";
 import QualiteRapports from "@/pages/qualite/QualiteRapports";
 import QualiteShiftScreen from "@/pages/qualite/QualiteShiftScreen";
+import ProductionShiftDeclare from "@/pages/shift/ProductionShiftDeclare";
+import ProductionShiftStop from "@/pages/shift/ProductionShiftStop";
+import ProductionShiftTicket from "@/pages/shift/ProductionShiftTicket";
+import MaintenanceShiftIntervention from "@/pages/shift/MaintenanceShiftIntervention";
+import QualityShiftCheck from "@/pages/shift/QualityShiftCheck";
+import QualityShiftNc from "@/pages/shift/QualityShiftNc";
+import QualityShiftLines from "@/pages/shift/QualityShiftLines";
 
 const queryClient = new QueryClient();
 
