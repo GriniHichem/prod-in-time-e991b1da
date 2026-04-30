@@ -95,6 +95,7 @@ import MaintenanceShiftIntervention from "@/pages/shift/MaintenanceShiftInterven
 import QualityShiftCheck from "@/pages/shift/QualityShiftCheck";
 import QualityShiftNc from "@/pages/shift/QualityShiftNc";
 import QualityShiftLines from "@/pages/shift/QualityShiftLines";
+import { ShiftHomePage } from "@/components/shift/ShiftHomePage";
 
 const queryClient = new QueryClient();
 
@@ -158,18 +159,18 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            {/* Isolated shift apps — kiosk-style, no global sidebar */}
-            {/* Production */}
-            <Route path="/gpao/shift" element={<ProtectedShiftRoute kind="production" allowWithoutShift><ShiftScreen /></ProtectedShiftRoute>} />
+            {/* Isolated kiosk shift apps — no global sidebar (operator-only) */}
+            {/* Production kiosk */}
+            <Route path="/gpao/shift/live" element={<ProtectedShiftRoute kind="production" allowWithoutShift><ShiftScreen /></ProtectedShiftRoute>} />
             <Route path="/gpao/shift/declarer" element={<ProtectedShiftRoute kind="production"><ProductionShiftDeclare /></ProtectedShiftRoute>} />
             <Route path="/gpao/shift/arret" element={<ProtectedShiftRoute kind="production"><ProductionShiftStop /></ProtectedShiftRoute>} />
             <Route path="/gpao/shift/ticket" element={<ProtectedShiftRoute kind="production"><ProductionShiftTicket /></ProtectedShiftRoute>} />
-            {/* Maintenance */}
-            <Route path="/maintenance/shift" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenancierShiftView /></ProtectedShiftRoute>} />
+            {/* Maintenance kiosk */}
+            <Route path="/maintenance/shift/live" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenancierShiftView /></ProtectedShiftRoute>} />
             <Route path="/maintenance/shift/intervention" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenanceShiftIntervention /></ProtectedShiftRoute>} />
             <Route path="/maintenance/shift/intervention/:ticketId" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenanceShiftIntervention /></ProtectedShiftRoute>} />
-            {/* Quality */}
-            <Route path="/qualite/shift" element={<ProtectedShiftRoute kind="quality" allowWithoutShift><QualiteShiftScreen /></ProtectedShiftRoute>} />
+            {/* Quality kiosk */}
+            <Route path="/qualite/shift/live" element={<ProtectedShiftRoute kind="quality" allowWithoutShift><QualiteShiftScreen /></ProtectedShiftRoute>} />
             <Route path="/qualite/shift/check" element={<ProtectedShiftRoute kind="quality"><QualityShiftCheck /></ProtectedShiftRoute>} />
             <Route path="/qualite/shift/nc" element={<ProtectedShiftRoute kind="quality"><QualityShiftNc /></ProtectedShiftRoute>} />
             <Route path="/qualite/shift/lignes" element={<ProtectedShiftRoute kind="quality"><QualityShiftLines /></ProtectedShiftRoute>} />
@@ -193,7 +194,15 @@ const App = () => (
               <Route path="/preventif/new" element={<PreventifForm />} />
               <Route path="/preventif/:id" element={<PreventifDetail />} />
               <Route path="/preventif/:id/edit" element={<PreventifForm />} />
-              {/* /maintenance/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
+              {/* Maintenance shift home — managers see console, operators redirected to /maintenance/shift/live */}
+              <Route path="/maintenance/shift" element={
+                <ShiftHomePage
+                  kind="maintenance"
+                  operatorRedirect="/maintenance/shift/live"
+                  managerRoles={["admin", "resp_maintenance"]}
+                  operatorRoles={["maintenancier"]}
+                />
+              } />
               <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/equipements" element={<EquipmentsList />} />
@@ -216,7 +225,15 @@ const App = () => (
               <Route path="/gpao/produits/:id" element={<ProductDetail />} />
               <Route path="/gpao/articles" element={<ArticlesList />} />
               <Route path="/gpao/articles/:id" element={<ArticleDetail />} />
-              {/* /gpao/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
+              {/* Production shift home — managers see console, operators redirected to /gpao/shift/live */}
+              <Route path="/gpao/shift" element={
+                <ShiftHomePage
+                  kind="production"
+                  operatorRedirect="/gpao/shift/live"
+                  managerRoles={["admin", "resp_production"]}
+                  operatorRoles={["chef_ligne", "operateur"]}
+                />
+              } />
               <Route path="/gpao/consommations" element={<ConsumptionPage />} />
               <Route path="/gpao/arrets" element={<StopsPage />} />
               <Route path="/gpao/recettes" element={<RecipesPage />} />
@@ -253,7 +270,15 @@ const App = () => (
               {/* Qualité & Traçabilité */}
               <Route path="/qualite" element={<QualiteDashboard />} />
               <Route path="/qualite/of" element={<QualiteOf />} />
-              {/* /qualite/shift moved to isolated shift app (see ProtectedShiftRoute below) */}
+              {/* Quality shift home — managers see console, controllers redirected to /qualite/shift/live */}
+              <Route path="/qualite/shift" element={
+                <ShiftHomePage
+                  kind="quality"
+                  operatorRedirect="/qualite/shift/live"
+                  managerRoles={["admin", "responsable_controle_qualite", "directeur_qualite"]}
+                  operatorRoles={["controleur_qualite"]}
+                />
+              } />
               <Route path="/qualite/indicateurs" element={<QualiteIndicateurs />} />
               <Route path="/qualite/controles" element={<QualiteControles />} />
               <Route path="/qualite/non-conformites" element={<QualiteNonConformites />} />

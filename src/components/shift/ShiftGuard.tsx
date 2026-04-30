@@ -17,7 +17,7 @@ interface ShiftGuardProps {
  * allowWithoutShift={true}.
  */
 export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardProps) {
-  const { kind, productionShift, qualityShift, loading } = useActiveShift();
+  const { kind, productionShift, maintenanceShift, qualityShift, loading } = useActiveShift();
 
   if (loading) {
     return (
@@ -28,17 +28,16 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
     );
   }
 
-  // Maintenance never has a DB shift — always allowed.
-  if (kind === "maintenance") return <>{children}</>;
-
   const hasActive =
     (kind === "production" && !!productionShift) ||
+    (kind === "maintenance" && !!maintenanceShift) ||
     (kind === "quality" && !!qualityShift);
 
   if (hasActive || allowWithoutShift) return <>{children}</>;
 
   const homeUrl =
     kind === "production" ? "/gpao/shift" :
+    kind === "maintenance" ? "/maintenance/shift" :
     kind === "quality" ? "/qualite/shift" : "/apps";
 
   return (
@@ -46,13 +45,13 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
       <CardContent className="p-8 text-center space-y-4">
         <ClipboardCheck className="h-12 w-12 text-muted-foreground/40 mx-auto" />
         <div>
-          <h2 className="text-lg font-semibold">Aucun shift actif</h2>
+          <h2 className="text-lg font-semibold">Aucune session de shift active</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Vous devez démarrer votre shift avant d'accéder à cette page.
+            Demandez à votre responsable d'ouvrir votre session de shift pour accéder à cette page.
           </p>
         </div>
-        <Button asChild>
-          <Link to={homeUrl}>Démarrer mon shift</Link>
+        <Button asChild variant="outline">
+          <Link to={homeUrl}>Retour à l'accueil shift</Link>
         </Button>
       </CardContent>
     </Card>

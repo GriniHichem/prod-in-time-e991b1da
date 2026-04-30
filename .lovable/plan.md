@@ -1,197 +1,123 @@
+# Plan — Apps Shift LIVE pilotées par les responsables
 
-# Isolation des 3 Shifts en Apps Autonomes — Plan en 3 Phases
+## Objectif
 
-## Objectif global
+Rendre les 3 apps shift (`/gpao/shift`, `/maintenance/shift`, `/qualite/shift`) utilisables comme des **postes opérationnels live** :
 
-Transformer les 3 écrans Shift (`/gpao/shift`, `/maintenance/shift`, `/qualite/shift`) en **applications opérationnelles isolées** où l'utilisateur en quart agit uniquement sur les tâches/demandes de **son shift actif**, sans accès aux paramétrages ni aux modules transverses.
+- Le **responsable production** ouvre/configure la session de shift production → le chef de ligne / opérateur n'a plus qu'à exécuter dedans.
+- Le **responsable maintenance** ouvre la session shift maintenance → le maintenancier exécute ses tickets / préventifs dedans.
+- Le **responsable / superviseur qualité** ouvre la session shift contrôle → le contrôleur qualité exécute ses contrôles + NC dedans.
 
-Principes communs :
-- Layout dédié **ShiftLayout** (sans sidebar complète) → focus opérationnel "kiosque".
-- Verrou de contexte : toute action (ticket, déclaration, contrôle, NC, conso) **hérite automatiquement** du `shift_id` actif du user.
-- Aucune nouvelle table. On exploite l'existant (`shifts`, `quality_shifts`, `tickets`, `interventions`, `quality_checks`, `quality_non_conformities`, `consumptions`, `production_stops`, `preventive_plans`).
-- Conformité : audit log sur chaque action, RLS inchangées, rôles existants respectés.
+L'opérateur connecté à une app shift ne voit **que cette app** (pas de sidebar, pas de paramètres, pas d'autres modules), tout en restant **conforme à la logique existante** (RLS, audit, OF, équipes, indicateurs, tickets, RBAC).
 
----
-
-## Phase 1 — Fondations communes (layout + garde de shift)
-
-**But** : créer l'infrastructure partagée des 3 apps shift sans changer la logique métier.
-
-### Livrables
-
-1. **`src/components/shift/ShiftLayout.tsx`** — Layout minimal :
-   - Topbar compacte : logo + nom du shift app + badge équipe/horaire + bouton "Quitter le shift" (retour `/apps`).
-   - Pas de sidebar globale ; navigation interne par onglets/cartes.
-   - Footer sticky : compteur live (durée écoulée, KPIs courts).
-
-2. **`src/components/shift/ShiftGuard.tsx`** — Wrapper qui :
-   - Vérifie qu'un shift actif existe (production / maintenance / qualité).
-   - Si non actif → écran "Démarrer mon shift" (bloque tout le reste).
-   - Injecte le contexte shift via React Context → tous les enfants y accèdent.
-
-3. **`src/contexts/ActiveShiftContext.tsx`** — Contexte unifié :
-   ```ts
-   { kind: "production" | "maintenance" | "quality", shift, refresh, close }
-   ```
-   Maintenance = vue dérivée (pas d'objet shift en base, on s'appuie sur l'utilisateur connecté + assignations).
-
-4. **Routes wrappées** dans `App.tsx` :
-   - `/gpao/shift/*` → `ShiftLayout` + `ShiftGuard kind="production"`
-   - `/maintenance/shift/*` → `ShiftLayout` + `ShiftGuard kind="maintenance"`
-   - `/qualite/shift/*` → `ShiftLayout` + `ShiftGuard kind="quality"`
-
-5. **Page `/apps`** : marquer les 3 shifts comme "Apps Live" et ajouter un message d'avertissement sur clic ("Vous entrez en mode opérationnel — vos actions seront liées à votre shift").
-
-### Sécurité / conformité
-- RLS inchangées.
-- Audit : un événement `shift_app_entered` / `shift_app_exited` par session.
+**Pas d'offline / IndexedDB / queue / PDF locale** — tout reste online et live (on retire la couche ajoutée par erreur en Phase 3).
 
 ---
 
-## Phase 2 — Actions in-shift cadrées (héritage automatique du contexte) ✅ LIVRÉE
+## Phase 1 — Nettoyage + rôles "ouvreur de session"
 
-**Livré** :
-- `ShiftDock` (bottom dock 56px touch targets) intégré au `ShiftLayout`.
-- Production : `/gpao/shift/declarer` (auto-déclaration heure-1), `/gpao/shift/arret`, `/gpao/shift/ticket` — tous auto-injectent `shift_id`, `line_id`, `of_id`.
-- Maintenance : `/maintenance/shift/intervention[/:ticketId]` — liste de tickets ouverts/assignés + formulaire plein-écran avec checkbox "clôturer maintenant" (cause racine + solution obligatoires si coché).
-- Qualité : `/qualite/shift/check` (auto `quality_shift_id`+`team_id`+`shift_id`+`production_line_id`, support numeric/boolean/select/text via `get_quality_indicators_for_of`), `/qualite/shift/nc`, `/qualite/shift/lignes`.
-- Toutes les actions tracées via `logAudit` avec `entity_type` métier et label "(kiosque shift)".
+But : remettre les bases au propre et donner aux responsables le pouvoir d'**ouvrir une session shift pour un opérateur**.
 
+1. **Retirer la couche offline non demandée**
+   - Supprimer : `src/lib/shiftOfflineQueue.ts`, `src/hooks/useShiftOfflineQueue.ts`, `src/components/shift/ShiftQueueBadge.tsx`, `src/lib/shiftReportPdf.ts`, `src/test/shift/offline-queue.test.ts`, `src/test/shift/report-pdf.test.ts`.
+   - Retirer `idb-keyval`, `jspdf`, `jspdf-autotable` de `package.json`.
+   - Nettoyer `ShiftLayout.tsx` (retirer `ShiftQueueBadge` + `useShiftSessionTimeout` lié à l'offline).
+   - Garder uniquement : badge LIVE, équipe, durée écoulée, indicateur Wifi online/offline (visuel seul), bouton plein écran, bouton Quitter.
 
+2. **Logique "ouverture de session par responsable"**
+   - **Production** : table `shifts` existe déjà avec `chef_ligne_id`. Permettre à `resp_production` (et `admin`) d'ouvrir un shift **pour** un chef_ligne donné (sélection user + équipe + ligne + OF + créneau). Le chef_ligne, en se connectant, retrouve sa session déjà ouverte via `useActiveProductionShift` (déjà filtré par `chef_ligne_id = user.id`).
+   - **Qualité** : `quality_shifts` existe avec `controleur_id`. Permettre à `resp_controle_qualite` / `directeur_qualite` (et `admin`) d'ouvrir un shift **pour** un contrôleur donné.
+   - **Maintenance** : pas de table dédiée — créer `maintenance_shifts` (id, date_shift, shift_type, shift_team_id, maintenancier_id, line_ids[], heure_debut, heure_fin, is_active, observations, opened_by, audit). RLS : maintenancier voit son shift, resp_maintenance/admin voit tout. Ouvert par `resp_maintenance`.
 
-**But** : tous les "actes métier" lancés depuis une app shift sont auto-rattachés et limités au périmètre du shift.
+3. **UI "Console responsable"** (dans le module standard, pas dans le kiosque)
+   - `/gpao/shift` (vue responsable) : tableau des sessions du jour + bouton "Ouvrir une session pour…".
+   - `/maintenance/shift` (vue responsable) : idem pour les maintenanciers de service.
+   - `/qualite/shift` (vue responsable) : idem pour les contrôleurs.
+   - L'écran kiosque (mode plein) reste séparé sur les mêmes URLs mais s'affiche **seulement si l'utilisateur est l'opérateur cible** d'une session ouverte. Sinon on affiche la console responsable.
 
-### Shift Production (`/gpao/shift`)
-Sous-routes ajoutées (rendues dans le layout shift, sans quitter l'app) :
-- **Déclaration horaire** (existe — extraire en sous-page `/gpao/shift/declarer`).
-- **Conso** (existe — `/gpao/shift/conso`), pré-filtrée sur l'OF du shift.
-- **Déclarer un arrêt** (`/gpao/shift/arret`) → auto `shift_id`, `line_id`, `of_id`.
-- **Ouvrir un ticket maintenance** (`/gpao/shift/ticket`) → ticket avec lien `production_shift_id`, machine/ligne pré-remplies.
-- **Clôture** : observations obligatoires (existant) + bilan auto.
+4. **Garde-fou rôles**
+   - `ShiftGuard` : déjà présent. Étendre pour distinguer "rôle responsable" → console, "rôle opérateur avec session active" → kiosque, "opérateur sans session" → écran "demandez à votre responsable d'ouvrir votre shift".
 
-Restrictions :
-- Aucun lien vers `/parametres`, `/machines`, `/recettes` etc. (cachés par le layout).
-- Le sélecteur d'OF/ligne se limite à ceux du shift démarré.
-
-### Shift Maintenance (`/maintenance/shift`)
-Sous-routes :
-- **Curatif** (existe) — Tickets ouverts/assignés au user.
-- **Préventif** (existe) — Plans assignés.
-- **Démarrer / clore une intervention** (`/maintenance/shift/intervention/:ticketId`) → formulaire dédié plein écran avec champs minimums (durée, cause, solution, PDR consommées).
-- **Demande PDR rapide** (`/maintenance/shift/pdr/:ticketId`) → mouvement de stock pré-rempli.
-- **Bilan de quart** : à la fin, page récap (interventions clôturées, durée totale, PDR consommées) + export PDF/CSV optionnel.
-
-Restrictions :
-- Pas d'accès aux fiches machine/équipement/PDR en édition. Lecture seule via drawer in-app.
-
-### Shift Qualité (`/qualite/shift`)
-Sous-routes :
-- **Saisir un contrôle** (`/qualite/shift/controle`) — formulaire pré-rempli avec `quality_shift_id`, `shift_id` lié, `team_id`, OF déduit des lignes couvertes.
-- **Déclarer une NC** (`/qualite/shift/nc`) — pré-rempli idem.
-- **Plan de contrôles dus** : liste des indicateurs requis pour les OFs en cours sur les lignes couvertes (utilise `get_quality_indicators_for_of`).
-- **Rafraîchir liens production** (existe).
-- **Bilan quart** : KPIs (existe) + export.
-
-Restrictions :
-- Pas d'accès admin qualité (référentiels, indicateurs, assignments).
-- L'écran ne montre que les OFs/lignes du shift.
-
-### Sécurité / conformité
-- Côté serveur : triggers existants (`quality_shift_lines_attach_links`, `quality_shifts_close_validate`) suffisent. Ajouter (si absent) un trigger qui **interdit** la création d'un `quality_check` / NC sans `quality_shift_id` quand l'auteur a un shift actif → migration SQL légère.
-- Triggers similaires côté production : un ticket créé depuis l'app production-shift doit porter `production_shift_id` (champ déjà existant si présent, sinon ajouté en migration).
-- Audit : chaque action porte la mention "via shift app" dans `metadata`.
+**Livrables Phase 1** : code offline supprimé, table `maintenance_shifts` créée + RLS, 3 dialogs "Ouvrir session" pour les 3 responsables, routing kiosque/console basé sur rôle + session active.
 
 ---
 
-## Phase 3 — Polish opérationnel (UX kiosque + offline-friendly) ✅ LIVRÉE
+## Phase 2 — Apps shift LIVE finalisées
 
-**Livré** :
-- `src/lib/shiftOfflineQueue.ts` — file IndexedDB (idb-keyval) avec `enqueue`, `flush`, `insertOrQueue` (fallback automatique online → queue si réseau down).
-- `src/hooks/useShiftOfflineQueue.ts` — vue réactive + auto-flush sur l'évènement `online` + polling 15s.
-- `src/components/shift/ShiftQueueBadge.tsx` — badge "X en attente" + bouton sync, intégré dans la topbar `ShiftLayout`.
-- `src/lib/shiftReportPdf.ts` — bilan PDF (jsPDF + autotable) générique pour les 3 types de shift, multi-sections + KPIs + observations.
-- `src/hooks/useShiftSessionTimeout.ts` — toast d'avertissement après 8h (jamais d'auto-clôture).
-- Tests : `src/test/shift/offline-queue.test.ts` (6 ✓), `src/test/shift/report-pdf.test.ts` (2 ✓).
+But : que chaque opérateur, dans son app, fasse **tout son travail de shift** sans toucher au reste.
 
-**Reste optionnel** : intégration des appels `insertOrQueue` dans les sous-pages shift existantes (les inserts y sont actuellement directs), mode plein écran déjà présent dans `ShiftLayout`.
+1. **App Shift Production (chef_ligne)**
+   - Header LIVE déjà OK.
+   - Onglets/dock : Déclarer heure / Arrêt / Ticket maintenance / Consommations / Observations.
+   - Toutes les actions héritent automatiquement : `shift_id`, `team_id`, `line_id`, `of_id`.
+   - Bouton "Clôturer mon shift" → demande confirmation + observations, puis remet l'utilisateur sur écran "session terminée, contactez votre responsable".
 
-**But** : rendre les apps utilisables en atelier, écrans tablette, conditions de bruit et coupures réseau.
+2. **App Shift Maintenance (maintenancier)**
+   - Onglets : Mes tickets ouverts / Mes plans préventifs du jour / Créer ticket / Journal du shift.
+   - Liste filtrée sur `assigned_to = user.id` + lignes de la session.
+   - Intervention : ouvre ticket → saisie cause/solution/PDR consommées → clôture (audit lié au `maintenance_shift_id`).
+   - Bouton "Clôturer mon shift".
 
-### Livrables
+3. **App Shift Qualité (contrôleur)**
+   - Onglets : Contrôles à faire / Saisir contrôle / Déclarer NC / Mes lignes.
+   - Liste contrôles dérivée des indicateurs assignés aux OF actifs des lignes du shift.
+   - Tous les inserts → `quality_shift_id`, `team_id`, `production_line_id`, `of_id` auto-injectés (déjà fait, à garder).
+   - Bouton "Clôturer mon shift".
 
-1. **UX kiosque**
-   - Mode plein écran (bouton "Plein écran" → `requestFullscreen()`).
-   - Cibles tactiles ≥ 56px, typographie agrandie, contrastes renforcés (déjà cohérent avec mémoire "Industrial Aesthetic").
-   - Dock d'actions rapides en bas d'écran (FAB segmenté : Déclarer / Ticket / Arrêt / Clôturer).
-   - Verrouillage de session : timeout 8h auto-clôture avec confirmation.
+4. **Cohérence transverse**
+   - Tous les inserts passent par les `supabase.from(...).insert(...)` standards (pas de queue), avec `logAudit(...)` et le label `(shift live)`.
+   - Realtime : abonner les listes (tickets, contrôles, déclarations) via `supabase.channel` pour rafraîchissement live sans rechargement.
+   - Conserver les tests existants, retirer ceux liés à l'offline.
 
-2. **Live & feedback**
-   - Realtime sur la table du shift courant (`shifts` ou `quality_shifts`) → KPIs en direct.
-   - Toasts succès courts et discrets ; jamais de modal bloquante hors clôture.
-   - Indicateur connectivité (pastille verte/rouge dans la topbar).
-
-3. **Résilience réseau**
-   - File d'attente locale (IndexedDB via `idb-keyval`) pour les déclarations, contrôles, NC saisis hors-ligne.
-   - Synchronisation au retour réseau, badge "X actions en attente".
-   - Pas de modification de schéma — c'est purement client.
-
-4. **Bilan & export**
-   - À la clôture : page récap exportable (PDF via jsPDF déjà installé, ou CSV).
-   - Email automatique au responsable hiérarchique (utilise edge function `send-email` existante).
-
-5. **Tests**
-   - `src/test/shift/shift-guard.test.tsx` — bloque sans shift actif.
-   - `src/test/shift/shift-context-inheritance.test.ts` — création ticket/check porte bien le `shift_id`.
-   - `src/test/shift/shift-app-isolation.test.tsx` — pas de liens vers paramétrage rendus.
-
-### Documentation
-- Maj `MANUAL.md` : 3 sections "Comment utiliser l'app Shift X".
-- Maj mémoires : nouvelle entrée `mem://features/shift-apps-isolation`.
+**Livrables Phase 2** : 3 apps shift complètes, opérationnelles, live, isolées du reste de l'app.
 
 ---
 
-## Découpage technique (récap fichiers)
+## Phase 3 — Supervision live côté responsables + clôture
 
-```
-Phase 1
-  src/components/shift/ShiftLayout.tsx         (new)
-  src/components/shift/ShiftGuard.tsx          (new)
-  src/contexts/ActiveShiftContext.tsx          (new)
-  src/hooks/useActiveProductionShift.ts        (new, miroir de useActiveQualityShift)
-  src/hooks/useActiveMaintenanceContext.ts     (new)
-  src/App.tsx                                   (routes wrappées)
-  src/pages/Apps.tsx                            (mention mode opérationnel)
+But : donner aux responsables une **vue temps réel** de leurs équipes en shift et la main sur la clôture.
 
-Phase 2
-  src/pages/gpao/shift/ShiftHome.tsx           (refactor de ShiftScreen actuel)
-  src/pages/gpao/shift/ShiftDeclare.tsx        (sous-page)
-  src/pages/gpao/shift/ShiftConso.tsx
-  src/pages/gpao/shift/ShiftTicket.tsx
-  src/pages/gpao/shift/ShiftStop.tsx
-  src/pages/maintenance/shift/ShiftHome.tsx    (refactor MaintenancierShiftView)
-  src/pages/maintenance/shift/InterventionRun.tsx
-  src/pages/maintenance/shift/PdrQuickConsume.tsx
-  src/pages/qualite/shift/QualiteShiftHome.tsx (refactor QualiteShiftScreen)
-  src/pages/qualite/shift/CheckEntry.tsx
-  src/pages/qualite/shift/NcEntry.tsx
-  supabase/migrations/<ts>_shift_context_enforcement.sql
-                                               (triggers anti-orphelin + colonnes manquantes éventuelles)
+1. **Console responsable enrichie** (3 modules)
+   - KPIs live : nb sessions ouvertes, déclarations/heure, tickets ouverts, NC déclarées, taux conformité.
+   - Tableau sessions actives avec : opérateur, équipe, ligne(s), OF, durée, dernière action, bouton "Voir le détail" / "Forcer clôture".
+   - Realtime sur `shifts`, `quality_shifts`, `maintenance_shifts` + tables filles.
 
-Phase 3
-  src/components/shift/ShiftQuickDock.tsx
-  src/components/shift/ShiftConnectivityBadge.tsx
-  src/lib/shiftOfflineQueue.ts                 (IndexedDB)
-  src/lib/shiftReportPdf.ts
-  src/test/shift/*.test.{ts,tsx}
-  MANUAL.md                                    (sections shift apps)
+2. **Clôture & bilan**
+   - Clôture par l'opérateur OU par le responsable (forçage avec motif → audit obligatoire).
+   - Bilan de fin de shift généré **côté serveur via une vue / RPC** (`shift_summary`, `quality_shift_summary`, `maintenance_shift_summary`) — affiché en HTML imprimable navigateur (window.print) au lieu d'une PDF locale. Pas de jsPDF.
+
+3. **Notifications**
+   - Réutiliser le système existant : règles auto pour `shift_opened`, `shift_closed`, `shift_overrun` (>9h), `shift_no_declaration` (>2h sans déclaration). Les responsables sont notifiés via le bell existant.
+
+4. **Audit & RBAC**
+   - Vérifier que `resp_production`, `resp_maintenance`, `resp_controle_qualite` ont bien `can_create` sur les tables shift correspondantes ; mise à jour `RolesMatrix` si besoin.
+   - Toute ouverture/clôture/forçage logguée dans `audit_logs` avec `reason` obligatoire pour les forçages.
+
+**Livrables Phase 3** : supervision live, clôture contrôlée, bilan imprimable HTML, notifications + audit alignés.
+
+---
+
+## Détails techniques
+
+```text
+Routing
+/gpao/shift           ──▶ si resp_production/admin  ─▶ Console responsable production
+                          si chef_ligne + session   ─▶ Kiosque ShiftLayout (LIVE)
+                          sinon                     ─▶ "Pas de session ouverte"
+
+/maintenance/shift    ──▶ idem avec resp_maintenance / maintenancier
+/qualite/shift        ──▶ idem avec resp_controle_qualite / controleur_qualite
 ```
 
----
+```text
+Tables touchées
+shifts                    (existante, +colonne opened_by uuid)
+quality_shifts            (existante, +colonne opened_by uuid)
+maintenance_shifts        (NOUVELLE) + RLS via has_role()
+audit_logs                (réutilisée)
+```
 
-## Hors scope
-- Aucune refonte du modèle de rôles / permissions.
-- Aucune nouvelle table métier (uniquement éventuellement 1–2 colonnes pour traçabilité shift).
-- Pas de modification des écrans complets `Tickets`, `Contrôles`, `NC` hors-shift — ils restent pour les responsables.
+Composants à supprimer : `ShiftQueueBadge`, `useShiftOfflineQueue`, `shiftOfflineQueue.ts`, `shiftReportPdf.ts`, tests offline + pdf.
+Composants à créer : `RespShiftConsole.tsx` (×3 ou générique avec `kind`), `OpenShiftDialog.tsx` (×3 ou générique), `ShiftLiveStats.tsx`.
 
-## Validation suggérée
-Après chaque phase, on déploie + on fait tester par un opérateur réel sur tablette avant d'attaquer la suivante.
+Aucun changement structurel sur la sidebar standard, les paramètres, le RBAC global, ou les autres modules : les apps shift restent un overlay isolé via `ProtectedShiftRoute` déjà en place.

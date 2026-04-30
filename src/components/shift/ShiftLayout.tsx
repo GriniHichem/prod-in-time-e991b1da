@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { LogOut, Maximize2, Minimize2, Wifi, WifiOff } from "lucide-react";
 import { useActiveShift, ShiftKind } from "@/contexts/ActiveShiftContext";
 import { ShiftDock } from "@/components/shift/ShiftDock";
-import { ShiftQueueBadge } from "@/components/shift/ShiftQueueBadge";
 import logoEntreprise from "@/assets/logo-entreprise.jpg";
 
 const TITLES: Record<ShiftKind, string> = {
@@ -21,7 +20,7 @@ const ACCENTS: Record<ShiftKind, string> = {
 };
 
 export function ShiftLayout({ children }: { children: ReactNode }) {
-  const { kind, productionShift, qualityShift } = useActiveShift();
+  const { kind, productionShift, maintenanceShift, qualityShift } = useActiveShift();
   const navigate = useNavigate();
   const [fullscreen, setFullscreen] = useState(false);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -52,6 +51,7 @@ export function ShiftLayout({ children }: { children: ReactNode }) {
 
   const startedAt =
     kind === "production" ? productionShift?.heure_debut :
+    kind === "maintenance" ? maintenanceShift?.heure_debut :
     kind === "quality" ? qualityShift?.heure_debut : null;
 
   const elapsedLabel = (() => {
@@ -65,6 +65,7 @@ export function ShiftLayout({ children }: { children: ReactNode }) {
 
   const teamLabel =
     kind === "production" ? productionShift?.team?.code :
+    kind === "maintenance" ? maintenanceShift?.team?.code :
     kind === "quality" ? qualityShift?.team?.code : null;
 
   return (
@@ -93,7 +94,6 @@ export function ShiftLayout({ children }: { children: ReactNode }) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-1.5">
-            <ShiftQueueBadge />
             {online ? (
               <Wifi className="h-4 w-4 text-success" aria-label="En ligne" />
             ) : (
