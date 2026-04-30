@@ -460,6 +460,17 @@ export default function OfDetail() {
             onChanged={load}
           />
         </TabsContent>
+
+        {/* === PLAN DE SHIFTS === */}
+        <TabsContent value="shift_plan">
+          <OfShiftPlanTab
+            ofId={of.id}
+            ofStatut={of.statut}
+            autoGenerate={of.auto_generate_shifts ?? true}
+            ofCreatedBy={of.created_by ?? null}
+            onChange={load}
+          />
+        </TabsContent>
       </Tabs>
       {/* Shift Detail Dialog */}
       <Dialog open={!!detailShift} onOpenChange={(open) => !open && setDetailShift(null)}>
