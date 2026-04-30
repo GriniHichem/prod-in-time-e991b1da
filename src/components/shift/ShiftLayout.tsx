@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Maximize2, Minimize2, Wifi, WifiOff } from "lucide-react";
 import { useActiveShift, ShiftKind } from "@/contexts/ActiveShiftContext";
+import { ShiftDock } from "@/components/shift/ShiftDock";
 import logoEntreprise from "@/assets/logo-entreprise.jpg";
 
 const TITLES: Record<ShiftKind, string> = {
