@@ -66,12 +66,14 @@ export default function OrganesList() {
           </h1>
           <p className="text-sm text-muted-foreground">Sous-ensembles fonctionnels des machines et équipements</p>
         </div>
-        {canCreate("organes") && (
+        <div className="flex items-center gap-2">
           <ListScanButton allowedTypes={["organe"]} routeFor={(e) => `/organes/${e.entity_id}`} />
-          <Button onClick={() => navigate("/organes/new")}>
-            <Plus className="h-4 w-4 mr-2" /> Nouvel organe
-          </Button>
-        )}
+          {canCreate("organes") && (
+            <Button onClick={() => navigate("/organes/new")}>
+              <Plus className="h-4 w-4 mr-2" /> Nouvel organe
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
