@@ -287,6 +287,9 @@ export function AppTopBar() {
           <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={gmaoItems} active={isGmaoActive} />
           <MegaMenu label="Production" GroupIcon={IconProduction} items={gpaoItems} active={isGpaoActive} />
           <MegaMenu label="Qualité" GroupIcon={ClipboardCheck} items={qualiteItems} active={isQualiteActive} />
+          {showInventaire && (
+            <MegaMenu label="Inventaire" GroupIcon={ClipboardList} items={inventaireItems} active={isInventaireActive} />
+          )}
           <MegaMenu label="Configuration" GroupIcon={Cog} items={configItems} active={isConfigActive} />
         </nav>
 
