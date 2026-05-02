@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Search, X, ShieldCheck, Bell, ClipboardCheck, AlertTriangle, Wrench, FileText, GitBranch } from "lucide-react";
+import { Search, X, ShieldCheck, Bell, ClipboardCheck, ClipboardList, AlertTriangle, Wrench, FileText, GitBranch } from "lucide-react";
 import {
   IconDashboard, IconMachine, IconEquipment, IconFactory, IconSpare,
   IconTicket, IconPreventive, IconShift, IconAnalytics, IconChart,
@@ -19,7 +19,7 @@ type AppModule = {
   description: string;
   url: string;
   icon: React.FC<{ size?: number; className?: string }>;
-  category: "Maintenance" | "Production" | "Qualité" | "Configuration";
+  category: "Maintenance" | "Production" | "Qualité" | "Inventaire" | "Configuration";
   permissionModule?: string;
   badge?: string;
   accent: string; // tailwind gradient classes
@@ -61,6 +61,10 @@ const MODULES: AppModule[] = [
   { title: "Shift contrôle", description: "Saisie temps réel par contrôleur qualité", url: "/qualite/shift", icon: IconShift, category: "Qualité", permissionModule: "qualite", badge: "Live", accent: "from-rose-500/15 to-rose-500/5 text-rose-500" },
   { title: "Rapports qualité", description: "Conformité, NC, actions, théorique vs réel", url: "/qualite/rapports", icon: FileText as unknown as React.FC<{ size?: number; className?: string }>, category: "Qualité", permissionModule: "qualite", accent: "from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-500" },
 
+  // ===== Inventaire =====
+  { title: "Dashboard Inventaire", description: "Vue d'ensemble des campagnes d'inventaire", url: "/inventaire", icon: IconDashboard, category: "Inventaire", accent: "from-sky-500/15 to-sky-500/5 text-sky-500" },
+  { title: "Campagnes d'inventaire", description: "Double comptage A/B avec arbitrage C", url: "/inventaire/campagnes", icon: ClipboardCheck as unknown as React.FC<{ size?: number; className?: string }>, category: "Inventaire", accent: "from-emerald-500/15 to-emerald-500/5 text-emerald-500" },
+
   // ===== Configuration =====
   { title: "Sécurité & Accès", description: "Hub centralisé : utilisateurs, rôles, permissions, audit, self-hosting", url: "/securite", icon: ShieldCheck as unknown as React.FC<{ size?: number; className?: string }>, category: "Configuration", accent: "from-indigo-500/15 to-indigo-500/5 text-indigo-500" },
   { title: "Paramètres", description: "Référentiels, utilisateurs et configuration", url: "/parametres", icon: IconSettings, category: "Configuration", accent: "from-slate-500/15 to-slate-500/5 text-slate-400" },
@@ -68,12 +72,13 @@ const MODULES: AppModule[] = [
   { title: "Notifications", description: "Centre d'alertes, règles par rôle et événements", url: "/notifications", icon: Bell as unknown as React.FC<{ size?: number; className?: string }>, category: "Configuration", accent: "from-amber-500/15 to-amber-500/5 text-amber-500" },
 ];
 
-const CATEGORIES: Array<AppModule["category"] | "Tous"> = ["Tous", "Maintenance", "Production", "Qualité", "Configuration"];
+const CATEGORIES: Array<AppModule["category"] | "Tous"> = ["Tous", "Maintenance", "Production", "Qualité", "Inventaire", "Configuration"];
 
 const CATEGORY_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
   Maintenance: IconMaintenance,
   Production: IconProduction,
   Qualité: ShieldCheck as unknown as React.FC<{ size?: number; className?: string }>,
+  Inventaire: ClipboardList as unknown as React.FC<{ size?: number; className?: string }>,
   Configuration: IconSettings,
 };
 
