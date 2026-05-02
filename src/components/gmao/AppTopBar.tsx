@@ -61,6 +61,11 @@ const qualiteItems = [
   { title: "Rapports", url: "/qualite/rapports", icon: FileBarChart },
 ];
 
+const inventaireItems = [
+  { title: "Dashboard", url: "/inventaire", icon: IconDashboard },
+  { title: "Campagnes", url: "/inventaire/campagnes", icon: ClipboardList },
+];
+
 const configItems = [
   { title: "Paramètres", url: "/parametres", icon: IconSettings },
   { title: "Sécurité & Accès", url: "/securite", icon: Lock },
