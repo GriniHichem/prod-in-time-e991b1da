@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { Menu, ChevronDown, LayoutGrid, ClipboardCheck, AlertTriangle, ListChecks, FileBarChart, GitBranch, Lock, CheckSquare, Cog, Activity, Sliders } from "lucide-react";
+import { Menu, ChevronDown, LayoutGrid, ClipboardCheck, AlertTriangle, ListChecks, FileBarChart, GitBranch, Lock, CheckSquare, Cog, Activity, Sliders, ClipboardList } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SearchTrigger } from "@/components/search/SearchTrigger";
+
 
 const gmaoItems = [
   { title: "Dashboard", url: "/", icon: IconDashboard },
@@ -58,6 +59,11 @@ const qualiteItems = [
   { title: "Recettes & BOM", url: "/qualite/recettes-nomenclatures", icon: IconRecipe },
   { title: "Traçabilité", url: "/qualite/tracabilite", icon: GitBranch },
   { title: "Rapports", url: "/qualite/rapports", icon: FileBarChart },
+];
+
+const inventaireItems = [
+  { title: "Dashboard", url: "/inventaire", icon: IconDashboard },
+  { title: "Campagnes", url: "/inventaire/campagnes", icon: ClipboardList },
 ];
 
 const configItems = [
@@ -198,6 +204,8 @@ function MobileNav() {
         <div className="my-3 h-px bg-border/60" />
         {renderItems("Qualité", qualiteItems)}
         <div className="my-3 h-px bg-border/60" />
+        {renderItems("Inventaire", inventaireItems)}
+        <div className="my-3 h-px bg-border/60" />
         {renderItems("Configuration", configItems)}
       </SheetContent>
     </Sheet>
@@ -212,7 +220,12 @@ export function AppTopBar() {
   const isGmaoActive = gmaoItems.some((i) => isActive(location.pathname, i.url));
   const isGpaoActive = gpaoItems.some((i) => isActive(location.pathname, i.url));
   const isQualiteActive = qualiteItems.some((i) => isActive(location.pathname, i.url));
+  const isInventaireActive = inventaireItems.some((i) => isActive(location.pathname, i.url));
   const isConfigActive = configItems.some((i) => isActive(location.pathname, i.url));
+
+  const showInventaire = roles.includes("admin" as any)
+    || roles.includes("responsable_inventaire" as any)
+    || roles.includes("agent_inventaire" as any);
 
   const displayName = profile
     ? `${profile.first_name} ${profile.last_name}`.trim() || "Utilisateur"
@@ -274,6 +287,9 @@ export function AppTopBar() {
           <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={gmaoItems} active={isGmaoActive} />
           <MegaMenu label="Production" GroupIcon={IconProduction} items={gpaoItems} active={isGpaoActive} />
           <MegaMenu label="Qualité" GroupIcon={ClipboardCheck} items={qualiteItems} active={isQualiteActive} />
+          {showInventaire && (
+            <MegaMenu label="Inventaire" GroupIcon={ClipboardList} items={inventaireItems} active={isInventaireActive} />
+          )}
           <MegaMenu label="Configuration" GroupIcon={Cog} items={configItems} active={isConfigActive} />
         </nav>
 
