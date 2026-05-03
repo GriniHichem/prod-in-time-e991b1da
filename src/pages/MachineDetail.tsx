@@ -264,32 +264,57 @@ export default function MachineDetail() {
                     <TableHead>Désignation</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Qté recommandée</TableHead>
+                    <TableHead className="text-right">Positions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pdrList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell>
                     </TableRow>
                   ) : (
-                    pdrList.map((mp) => (
-                      <TableRow key={mp.id}>
-                        <TableCell className="font-mono">{mp.pdr?.reference}</TableCell>
-                        <TableCell>{mp.pdr?.designation}</TableCell>
-                        <TableCell className="tabular-nums">
-                          <span className={mp.pdr?.stock_actuel <= mp.pdr?.stock_min ? "text-destructive font-medium" : ""}>
-                            {mp.pdr?.stock_actuel}
-                          </span>
-                          <span className="text-muted-foreground"> / min {mp.pdr?.stock_min}</span>
-                        </TableCell>
-                        <TableCell className="tabular-nums">{mp.quantite_recommandee}</TableCell>
-                      </TableRow>
-                    ))
+                    pdrList.map((mp) => {
+                      const link = pdrLinks.find((l) => l.pdr_id === mp.pdr_id);
+                      return (
+                        <TableRow key={mp.id}>
+                          <TableCell className="font-mono">{mp.pdr?.reference}</TableCell>
+                          <TableCell>{mp.pdr?.designation}</TableCell>
+                          <TableCell className="tabular-nums">
+                            <span className={mp.pdr?.stock_actuel <= mp.pdr?.stock_min ? "text-destructive font-medium" : ""}>
+                              {mp.pdr?.stock_actuel}
+                            </span>
+                            <span className="text-muted-foreground"> / min {mp.pdr?.stock_min}</span>
+                          </TableCell>
+                          <TableCell className="tabular-nums">{mp.quantite_recommandee}</TableCell>
+                          <TableCell className="text-right">
+                            {link ? (
+                              <Button variant="outline" size="sm"
+                                onClick={() => setPositionDialog({ linkId: link.id, label: `${mp.pdr?.reference} — ${mp.pdr?.designation}` })}>
+                                <MapPin className="h-3.5 w-3.5 mr-1" /> Gérer positions
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <Dialog open={!!positionDialog} onOpenChange={(o) => !o && setPositionDialog(null)}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Positions d'installation — {positionDialog?.label}</DialogTitle>
+              </DialogHeader>
+              {positionDialog && (
+                <PdrPositionsManager linkId={positionDialog.linkId} pdrLabel={positionDialog.label} canEdit={canEdit("machines")} />
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="interventions">
