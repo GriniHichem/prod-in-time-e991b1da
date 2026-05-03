@@ -2732,8 +2732,86 @@ export type Database = {
           },
         ]
       }
+      pdr_install_positions: {
+        Row: {
+          compteur_manuel: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          designation: string
+          id: string
+          lifespan_mode: string
+          link_id: string
+          marker_x: number | null
+          marker_y: number | null
+          position_index: number
+          production_coefficient: number | null
+          production_rule: string | null
+          seuil_alerte_pct: number | null
+          seuil_max: number | null
+          seuil_min: number | null
+          statut: string
+          unite_mesure: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          compteur_manuel?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          designation: string
+          id?: string
+          lifespan_mode?: string
+          link_id: string
+          marker_x?: number | null
+          marker_y?: number | null
+          position_index: number
+          production_coefficient?: number | null
+          production_rule?: string | null
+          seuil_alerte_pct?: number | null
+          seuil_max?: number | null
+          seuil_min?: number | null
+          statut?: string
+          unite_mesure?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          compteur_manuel?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          designation?: string
+          id?: string
+          lifespan_mode?: string
+          link_id?: string
+          marker_x?: number | null
+          marker_y?: number | null
+          position_index?: number
+          production_coefficient?: number | null
+          production_rule?: string | null
+          seuil_alerte_pct?: number | null
+          seuil_max?: number | null
+          seuil_min?: number | null
+          statut?: string
+          unite_mesure?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdr_install_positions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_entity_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdr_instances: {
         Row: {
+          compteur_pose_at: number | null
           created_at: string | null
           date_installation: string
           date_remplacement: string | null
@@ -2745,10 +2823,12 @@ export type Database = {
           notes: string | null
           organe_id: string | null
           pdr_id: string
+          position_id: string | null
           statut: string
           ticket_id: string | null
         }
         Insert: {
+          compteur_pose_at?: number | null
           created_at?: string | null
           date_installation?: string
           date_remplacement?: string | null
@@ -2760,10 +2840,12 @@ export type Database = {
           notes?: string | null
           organe_id?: string | null
           pdr_id: string
+          position_id?: string | null
           statut?: string
           ticket_id?: string | null
         }
         Update: {
+          compteur_pose_at?: number | null
           created_at?: string | null
           date_installation?: string
           date_remplacement?: string | null
@@ -2775,6 +2857,7 @@ export type Database = {
           notes?: string | null
           organe_id?: string | null
           pdr_id?: string
+          position_id?: string | null
           statut?: string
           ticket_id?: string | null
         }
@@ -2806,6 +2889,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pdr"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdr_instances_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_install_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdr_instances_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_position_status"
+            referencedColumns: ["position_id"]
           },
         ]
       }
@@ -5644,7 +5741,49 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pdr_position_status: {
+        Row: {
+          compteur_actuel: number | null
+          compteur_max: number | null
+          compteur_restant: number | null
+          current_instance_id: string | null
+          date_dernier_changement: string | null
+          date_pose: string | null
+          designation: string | null
+          entity_id: string | null
+          entity_type: string | null
+          last_ticket_id: string | null
+          lifespan_mode: string | null
+          link_id: string | null
+          niveau: string | null
+          pct_consomme: number | null
+          pdr_id: string | null
+          position_id: string | null
+          production_coefficient: number | null
+          production_rule: string | null
+          seuil_alerte_pct: number | null
+          seuil_max: number | null
+          seuil_min: number | null
+          statut: string | null
+          unite_mesure: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdr_entity_links_pdr_id_fkey"
+            columns: ["pdr_id"]
+            isOneToOne: false
+            referencedRelation: "pdr"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdr_install_positions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "pdr_entity_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_manage_notification_rule: {
@@ -5679,6 +5818,7 @@ export type Database = {
         Returns: string
       }
       fts_build: { Args: { parts: string[] }; Returns: unknown }
+      get_position_counter: { Args: { p_position_id: string }; Returns: number }
       get_quality_indicators_for_of: {
         Args: { p_of_id: string }
         Returns: {

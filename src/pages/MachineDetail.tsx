@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory, Component, ImageIcon } from "lucide-react";
+import { ArrowLeft, Edit, FileText, Package, Wrench, CalendarCheck, Clock, Factory, Component, ImageIcon, MapPin } from "lucide-react";
 import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PdrPositionsManager } from "@/components/pdr/PdrPositionsManager";
 
 const ROLE_LABELS: Record<string, string> = {
   alimentation: "Alimentation", transformation: "Transformation", dosage: "Dosage",
@@ -40,6 +42,8 @@ export default function MachineDetail() {
   const [machine, setMachine] = useState<any>(null);
   const [tickets, setTickets] = useState<any[]>([]);
   const [pdrList, setPdrList] = useState<any[]>([]);
+  const [pdrLinks, setPdrLinks] = useState<any[]>([]);
+  const [positionDialog, setPositionDialog] = useState<{ linkId: string; label: string } | null>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [interventions, setInterventions] = useState<any[]>([]);
@@ -50,10 +54,11 @@ export default function MachineDetail() {
   useEffect(() => {
     if (!id) return;
     const load = async () => {
-      const [mRes, tRes, pdrRes, plansRes, docsRes, laRes, eqRes, oRes] = await Promise.all([
+      const [mRes, tRes, pdrRes, linksRes, plansRes, docsRes, laRes, eqRes, oRes] = await Promise.all([
         supabase.from("machines").select("*, machine_families(name)").eq("id", id).single(),
         supabase.from("tickets").select("*, panne_types(name)").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_pdr").select("*, pdr(*)").eq("machine_id", id),
+        (supabase.from("pdr_entity_links" as any) as any).select("id, pdr_id").eq("entity_type", "machine").eq("entity_id", id),
         supabase.from("preventive_plans").select("*").eq("machine_id", id),
         supabase.from("machine_documents").select("*").eq("machine_id", id).order("created_at", { ascending: false }),
         supabase.from("machine_line_assignments").select("*, production_lines(code, designation)").eq("machine_id", id).order("priority"),
@@ -63,6 +68,7 @@ export default function MachineDetail() {
       setMachine(mRes.data);
       setTickets(tRes.data || []);
       setPdrList(pdrRes.data || []);
+      setPdrLinks((linksRes.data as any) || []);
       setPlans(plansRes.data || []);
       setDocuments(docsRes.data || []);
       setLineAssignments(laRes.data || []);
@@ -258,32 +264,57 @@ export default function MachineDetail() {
                     <TableHead>Désignation</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Qté recommandée</TableHead>
+                    <TableHead className="text-right">Positions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pdrList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell>
                     </TableRow>
                   ) : (
-                    pdrList.map((mp) => (
-                      <TableRow key={mp.id}>
-                        <TableCell className="font-mono">{mp.pdr?.reference}</TableCell>
-                        <TableCell>{mp.pdr?.designation}</TableCell>
-                        <TableCell className="tabular-nums">
-                          <span className={mp.pdr?.stock_actuel <= mp.pdr?.stock_min ? "text-destructive font-medium" : ""}>
-                            {mp.pdr?.stock_actuel}
-                          </span>
-                          <span className="text-muted-foreground"> / min {mp.pdr?.stock_min}</span>
-                        </TableCell>
-                        <TableCell className="tabular-nums">{mp.quantite_recommandee}</TableCell>
-                      </TableRow>
-                    ))
+                    pdrList.map((mp) => {
+                      const link = pdrLinks.find((l) => l.pdr_id === mp.pdr_id);
+                      return (
+                        <TableRow key={mp.id}>
+                          <TableCell className="font-mono">{mp.pdr?.reference}</TableCell>
+                          <TableCell>{mp.pdr?.designation}</TableCell>
+                          <TableCell className="tabular-nums">
+                            <span className={mp.pdr?.stock_actuel <= mp.pdr?.stock_min ? "text-destructive font-medium" : ""}>
+                              {mp.pdr?.stock_actuel}
+                            </span>
+                            <span className="text-muted-foreground"> / min {mp.pdr?.stock_min}</span>
+                          </TableCell>
+                          <TableCell className="tabular-nums">{mp.quantite_recommandee}</TableCell>
+                          <TableCell className="text-right">
+                            {link ? (
+                              <Button variant="outline" size="sm"
+                                onClick={() => setPositionDialog({ linkId: link.id, label: `${mp.pdr?.reference} — ${mp.pdr?.designation}` })}>
+                                <MapPin className="h-3.5 w-3.5 mr-1" /> Gérer positions
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <Dialog open={!!positionDialog} onOpenChange={(o) => !o && setPositionDialog(null)}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Positions d'installation — {positionDialog?.label}</DialogTitle>
+              </DialogHeader>
+              {positionDialog && (
+                <PdrPositionsManager linkId={positionDialog.linkId} pdrLabel={positionDialog.label} canEdit={canEdit("machines")} />
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="interventions">

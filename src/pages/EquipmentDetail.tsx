@@ -8,12 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { ArrowLeft, Edit, Cog, Factory, Component } from "lucide-react";
+import { ArrowLeft, Edit, Cog, Factory, Component, Package, MapPin } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntityImages } from "@/hooks/useEntityImages";
 import { EntityImageUploader } from "@/components/images/EntityImageUploader";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { EntityDocumentManager } from "@/components/documents/EntityDocumentManager";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PdrPositionsManager } from "@/components/pdr/PdrPositionsManager";
 
 const TYPE_LABELS: Record<string, string> = {
   capteur: "Capteur", actionneur: "Actionneur", convoyeur: "Convoyeur",
@@ -44,6 +47,8 @@ export default function EquipmentDetail() {
   const { canEdit } = usePermissions();
   const [equip, setEquip] = useState<any>(null);
   const [organes, setOrganes] = useState<any[]>([]);
+  const [pdrLinks, setPdrLinks] = useState<any[]>([]);
+  const [positionDialog, setPositionDialog] = useState<{ linkId: string; label: string } | null>(null);
   const entityImages = useEntityImages("equipement", id);
   useEffect(() => {
     if (!id) return;
@@ -58,6 +63,10 @@ export default function EquipmentDetail() {
       .eq("equipement_id", id)
       .order("sort_order")
       .then(({ data }: any) => setOrganes(data || []));
+    (supabase.from("pdr_entity_links" as any) as any)
+      .select("id, pdr_id, quantite_recommandee, pdr(reference, designation, stock_actuel, stock_min)")
+      .eq("entity_type", "equipement").eq("entity_id", id)
+      .then(({ data }: any) => setPdrLinks(data || []));
   }, [id]);
 
   if (!equip) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
@@ -102,6 +111,7 @@ export default function EquipmentDetail() {
         <TabsList className="h-11">
           <TabsTrigger value="info" className="h-9">Informations</TabsTrigger>
           <TabsTrigger value="organes" className="h-9">Organes ({organes.length})</TabsTrigger>
+          <TabsTrigger value="pdr" className="h-9"><Package className="h-3.5 w-3.5 mr-1" /> PDR ({pdrLinks.length})</TabsTrigger>
           <TabsTrigger value="photos" className="h-9">Photos</TabsTrigger>
           <TabsTrigger value="documents" className="h-9">Documents</TabsTrigger>
         </TabsList>
@@ -201,6 +211,56 @@ export default function EquipmentDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pdr">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Référence</TableHead>
+                    <TableHead>Désignation</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Qté recommandée</TableHead>
+                    <TableHead className="text-right">Positions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pdrLinks.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell></TableRow>
+                  ) : pdrLinks.map((l: any) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-mono">{l.pdr?.reference}</TableCell>
+                      <TableCell>{l.pdr?.designation}</TableCell>
+                      <TableCell className="tabular-nums">
+                        <span className={l.pdr?.stock_actuel <= l.pdr?.stock_min ? "text-destructive font-medium" : ""}>{l.pdr?.stock_actuel}</span>
+                        <span className="text-muted-foreground"> / min {l.pdr?.stock_min}</span>
+                      </TableCell>
+                      <TableCell className="tabular-nums">{l.quantite_recommandee}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm"
+                          onClick={() => setPositionDialog({ linkId: l.id, label: `${l.pdr?.reference} — ${l.pdr?.designation}` })}>
+                          <MapPin className="h-3.5 w-3.5 mr-1" /> Gérer positions
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Dialog open={!!positionDialog} onOpenChange={(o) => !o && setPositionDialog(null)}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Positions d'installation — {positionDialog?.label}</DialogTitle>
+              </DialogHeader>
+              {positionDialog && (
+                <PdrPositionsManager linkId={positionDialog.linkId} pdrLabel={positionDialog.label} canEdit={canEdit("machines")} />
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="photos">

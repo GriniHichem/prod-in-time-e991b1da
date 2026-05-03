@@ -1,171 +1,169 @@
 
-# Module Inventaire — Plan détaillé
+# PDR — Suivi par positions d'installation (hybride)
 
-## Logique métier (inchangée, juste formalisée)
+## Principe directeur
+- Une **seule référence PDR stock** (ex. ROBINET-DN50) — jamais multipliée.
+- Le suivi physique se fait via **positions d'installation** rattachées à un lien `pdr_entity_links` (Machine ou Équipement).
+- Stock, mouvements, tickets, préventif et GPAO **inchangés**. La position devient un *attribut additionnel* de la consommation.
 
-```text
-Responsable Inventaire
-   └── crée une CAMPAGNE (périmètre: familles/sous-familles, cibles: PDR + Organes)
-        ├── assigne un SCOPE à Agent A  (familles/sous-familles autorisées)
-        ├── assigne un SCOPE à Agent B  (mêmes familles → double comptage)
-        └── (optionnel) prépare Agent C pour arbitrage
+## 1) Schéma base de données (nouvelle migration)
 
-Agents A & B  →  comptent indépendamment chaque article de leur scope
-                 (saisie qté + validation, puis VERROUILLAGE définitif)
-
-Système        →  calcule l'écart |A − B| par article
-                  ├── écart = 0       → conforme, qty_finale = A (= B)
-                  └── écart ≠ 0       → article ajouté à la liste C
-
-Agent C        →  recompte uniquement les articles en écart
-                  ├── C = A           → conforme, qty_finale = C
-                  ├── C = B           → conforme, qty_finale = C
-                  └── C ≠ A et C ≠ B  → article renvoyé en RECOMPTAGE A & B
-                                        (cycle round = 2, 3, …)
+### Table `pdr_install_positions`
+Une ligne = une position physique sur un actif pour une PDR donnée.
 ```
-
-Règles d'or transversales :
-- Saisie verrouillée dès validation (aucune modification possible, même par l'agent lui-même).
-- Recherche article par scan QR / code-barres / code ERP, **mais uniquement si l'article appartient au scope autorisé** de l'agent — sinon refus explicite.
-- Toute correction nécessite une demande d'annulation explicite par le Responsable Inventaire (audit obligatoire).
-
----
-
-## Architecture
-
-### Nouveaux rôles (enum `app_role`)
-- `responsable_inventaire`
-- `agent_inventaire`
-
-Un même utilisateur peut cumuler les deux. Le rôle d'arbitre (C) n'est **pas** un rôle distinct : c'est un `agent_inventaire` désigné comme arbitre sur une campagne donnée.
-
-### Tables
-
-```text
-inventory_campaigns
-  id, code (auto INV-AAAAMM-####), label, description
-  status: draft | en_cours | arbitrage | cloturee | annulee
-  scope_pdr boolean, scope_organes boolean
-  date_debut, date_fin_prevue, date_cloture
-  responsable_id, created_by, ...audit
-
-inventory_campaign_scopes        -- familles/sous-familles couvertes par la campagne
-  campaign_id, family_id, include_children boolean
-  -- (pour organes : pas de famille → géré via inventory_campaign_organe_targets)
-
-inventory_assignments            -- A et B (et C plus tard) sur la campagne
-  id, campaign_id, agent_id
-  role: agent_a | agent_b | agent_c
-  -- C est créé à la volée quand l'écart est détecté (passage en 'arbitrage')
-
-inventory_assignment_scopes      -- familles/sous-familles autorisées par agent
-  assignment_id, family_id, include_children boolean
-
-inventory_targets                -- snapshot des articles à compter (gelé à l'ouverture)
-  id, campaign_id
-  entity_type: pdr | organe
-  entity_id, entity_code, entity_label, family_id
-  qty_systeme numeric             -- stock théorique au moment du snapshot
-  current_round int default 1     -- 1, 2, 3… (cycles A/B re-comptage)
-  status: a_compter | en_arbitrage | conforme | a_recompter | cloture
-
-inventory_counts                 -- une ligne par (target, agent, round)
-  id, target_id, assignment_id, round int
-  qty_comptee numeric             -- 4 décimales (convention projet)
-  validated_at timestamptz NOT NULL  -- verrouillage : tout est posé d'un coup
-  notes
-  UNIQUE (target_id, assignment_id, round)
-
-inventory_results                -- résultat consolidé par target
-  target_id PK, campaign_id
-  qty_a, qty_b, qty_c             -- dernière valeur de chaque rôle (pour le round courant)
-  ecart_ab, ecart_ac, ecart_bc
-  qty_finale numeric              -- A (=B), ou C si C=A ou C=B
-  decision: conforme_ab | conforme_c_eq_a | conforme_c_eq_b | recompte_ab | en_attente
-  decided_at, decided_by
+id uuid pk
+link_id uuid fk → pdr_entity_links(id) on delete cascade   -- (pdr_id, entity_type, entity_id)
+position_index int not null         -- ordre d'affichage
+designation text not null
+description text
+marker_x numeric    -- coordonnées 0-100 sur image principale (null = pas de repère)
+marker_y numeric
+statut text not null default 'active'  -- active | inactive | supprimee
+-- Règles de durée de vie (par position, override possible du lien)
+lifespan_mode text not null default 'time'   -- time | production | mixte | none
+seuil_min numeric
+seuil_max numeric
+seuil_alerte_pct numeric default 80
+unite_mesure text                  -- 'h', 'jours', 'unités', etc.
+production_rule text               -- 'complete' | 'reparti' | 'coefficient' | 'manuel'
+production_coefficient numeric default 1
+compteur_manuel numeric            -- pour mode 'manuel'
+created_at, updated_at, created_by, updated_by
 ```
+Contraintes:
+- `unique (link_id, position_index)` 
+- check `statut in ('active','inactive','supprimee')`
+- check `lifespan_mode in ('time','production','mixte','none')`
+- check `production_rule in ('complete','reparti','coefficient','manuel') or null`
+- trigger validation: si `lifespan_mode in ('production','mixte')` alors `production_rule` requis ; `seuil_max >= seuil_min` ; pas de suppression physique si historique existe (voir §3).
 
-Conventions respectées : audit complet (`created_by`, `updated_by`, `motif`), précision numérique 4 décimales en grammes, codes auto-générés via trigger, RLS via `has_role()`.
+### Extension `pdr_instances` (suivi par position, additif)
+Ajouter colonnes nullables:
+```
+position_id uuid fk → pdr_install_positions(id) on delete set null
+compteur_pose_at numeric    -- snapshot du compteur production au moment de la pose
+```
+Aucune migration de données : les instances existantes restent rattachées seulement à machine/equipement/organe.
 
-### Fonctions / Triggers SQL
+### Vue `pdr_position_status` (read-only, calculée)
+Retourne pour chaque position active:
+- `current_pdr_instance_id`, `pdr_id`, `date_pose`
+- `compteur_actuel` (calculé selon `lifespan_mode` + `production_rule`)
+- `compteur_max` (= `seuil_max`)
+- `pct_consomme`, `compteur_restant`
+- `niveau` (`vert` <60%, `orange` 60-90%, `rouge` >90% ou dépassé)
+- `last_ticket_id`, `last_preventive_plan_id`
 
-- `inv_ensure_targets(campaign_id)` — snapshot initial des articles dans le périmètre, fige `qty_systeme`.
-- `inv_register_count(target_id, qty, notes)` — SECURITY DEFINER :
-  1. Vérifie que l'agent est assigné, que `target.family_id` est dans son `assignment_scopes`,
-  2. Refuse si un `inventory_counts` existe déjà pour `(target, agent, round)` → **verrouillage**,
-  3. Insère le count, recalcule `inventory_results`, met à jour `target.status`.
-- `inv_recompute_result(target_id)` — applique l'arbre de décision (A=B, C=A/B, sinon recompte) et incrémente `current_round` quand recompte A&B est requis.
-- Trigger `tg_lock_inventory_counts` — refuse tout `UPDATE`/`DELETE` sur `inventory_counts` (sauf admin via demande de validation).
-- `inv_close_campaign(campaign_id)` — refuse si des targets ne sont pas en `conforme_*` ; pousse `qty_finale` vers `pdr.stock_actuel` / mouvements `inventaire` (utilise les permissions existantes `can_inventory`).
+Calcul production:
+- récupère la somme `quantite_produite` de `production_declarations` validées (jointes via `shifts.line_id` → ligne de la machine) entre `date_pose` et `now()`
+- mode `complete` → somme brute
+- mode `reparti` → somme / nb positions actives sur la même PDR/lien
+- mode `coefficient` → somme × `production_coefficient`
+- mode `manuel` → `compteur_manuel`
+
+### Fonction `get_position_counter(position_id uuid) returns numeric`
+Encapsule la logique pour réutilisation côté UI / triggers d'alerte.
+
+### Audit
+Triggers `audit_logs` standard sur INSERT/UPDATE/DELETE de `pdr_install_positions` + sur changement de `position_id` dans `pdr_instances` (motif obligatoire pour soft-delete).
 
 ### RLS
-- `inventory_campaigns`, `inventory_assignments`, `inventory_*_scopes` : lecture/écriture pour `responsable_inventaire` + `admin`.
-- `inventory_targets`, `inventory_counts`, `inventory_results` : lecture pour les agents assignés, écriture **uniquement** via les RPC `inv_register_count`.
-- Audit `audit_logs` enrichi (module = `inventaire`).
+- SELECT : tout authentifié (cohérent avec `pdr_entity_links`).
+- INSERT/UPDATE/DELETE : `admin`, `resp_maintenance`, `maintenancier`, `gestionnaire_magasin` (mêmes rôles que `pdr_entity_links`).
 
----
+## 2) Onglet PDR enrichi (Machine + Équipement)
 
-## UI / Routes
+Fichiers : `src/pages/MachineDetail.tsx`, `src/pages/EquipmentDetail.tsx`.
+
+Pour chaque ligne PDR de l'onglet PDR existant, ajouter:
+- Switch **« Activer le suivi par positions »** (toggle = au moins 1 position existe).
+- Si activé : bouton **« Gérer positions »** ouvre un nouveau composant `PdrPositionsManager`.
+
+Nouveau composant `src/components/pdr/PdrPositionsManager.tsx`:
+- Tableau des positions (désignation, statut, compteur %, dernier changement).
+- Boutons : Ajouter / Modifier / Désactiver / Supprimer (logique).
+- Onglet « Image » : affiche l'image principale de l'actif (réutilise `useEntityImages`) avec markers SVG cliquables/draggables (coordonnées 0-100 %). Tooltip = désignation. Liste textuelle alternative en dessous (mobile-first).
+- Pour chaque position : édition inline du `lifespan_mode`, seuils, `production_rule`, coefficient, unité.
+
+Hook `src/hooks/usePdrPositions.ts` :
+- `usePdrPositions(linkId)` → liste + statuts calculés (via vue).
+- mutations : `createPosition`, `updatePosition`, `softDeletePosition`, `setPositionMarker`.
+
+## 3) Validations (côté DB + Zod côté UI)
+
+- Position `active` → `designation` non vide (DB + Zod).
+- Suppression physique impossible si `EXISTS (SELECT 1 FROM pdr_instances WHERE position_id = ...)` → forcer `statut = 'supprimee'` à la place. Trigger `BEFORE DELETE` qui RAISE EXCEPTION.
+- Compteurs jamais négatifs : check `compteur_manuel >= 0`, `seuil_min >= 0`, `seuil_max >= 0`.
+- `seuil_max >= seuil_min` (cohérent avec mémoire data-integrity-rules).
+- `lifespan_mode in ('production','mixte')` ⇒ `production_rule not null`.
+- Historique immuable : pas d'UPDATE/DELETE sur `pdr_instances` sauf champs métier explicites (déjà géré par RLS — vérifier et durcir via trigger si besoin).
+
+## 4) Intégration consommation PDR (workflow tickets / interventions)
+
+Quand une PDR est consommée dans une intervention sur une machine où `pdr_install_positions` existe :
+- Dans `intervention_pdr` form (UI) : si la PDR a des positions sur cet actif, **demander la position cible** (Select obligatoire).
+- À la création de `pdr_instances` : enregistrer `position_id` + `compteur_pose_at` (snapshot via `get_position_counter`).
+- L'instance précédente sur cette position passe automatiquement en `statut='replaced'` (pattern existant `pdr_instances.statut`).
+- **Stock inchangé** : la décrémentation reste pilotée par les mouvements existants.
+
+Fichiers concernés (lecture seule, ajout d'un champ Select) :
+- `src/pages/TicketDetail.tsx` (zone intervention_pdr)
+- `src/pages/InterventionJournal.tsx`
+
+## 5) Affichage statut position
+
+Dans `PdrPositionsManager` et dans la fiche PDR (`src/pages/PdrDetail.tsx` → nouvel onglet « Positions installées »):
+- PDR installée (lien vers fiche PDR)
+- Date dernière pose, dernier changement
+- Compteur actuel / max + barre de progression colorée (vert/orange/rouge)
+- % consommé, compteur restant
+- Lien vers dernier ticket / plan préventif (déjà disponibles via `pdr_instances.ticket_id` + jointure préventif)
+
+## 6) Déclenchement préventif (cohérent avec mémoire `pdr-lifespan-management`)
+
+Les positions en `niveau='rouge'` doivent apparaître dans le flux existant de génération de plans préventifs **draft** (réutilise la logique actuelle, juste élargie pour scanner aussi `pdr_install_positions` en plus de `pdr_instances`). Aucun nouveau workflow utilisateur — juste une source supplémentaire pour le job existant.
+
+## 7) Plan d'implémentation
 
 ```text
-/inventaire                        → Dashboard (campagnes en cours, KPI, écarts)
-/inventaire/campagnes              → Liste campagnes
-/inventaire/campagnes/nouvelle     → Création (Responsable)
-/inventaire/campagnes/:id          → Détail : périmètre, agents, avancement, écarts
-/inventaire/compter/:campaignId    → Écran agent (mobile-first)
-/parametres/inventaire             → (option) gabarits familles/scopes par défaut
+Étape 1 — Migration SQL
+  ├─ table pdr_install_positions + contraintes + RLS
+  ├─ alter pdr_instances add position_id, compteur_pose_at
+  ├─ vue pdr_position_status + fonction get_position_counter
+  └─ triggers validation + audit + soft-delete
+
+Étape 2 — Hooks et types
+  ├─ src/hooks/usePdrPositions.ts
+  └─ src/lib/pdrPositionStatus.ts (helpers couleurs/calculs front)
+
+Étape 3 — UI gestion positions
+  ├─ src/components/pdr/PdrPositionsManager.tsx
+  ├─ src/components/pdr/PositionImageMarkers.tsx (SVG sur image)
+  └─ src/components/pdr/PositionForm.tsx (création/édition)
+
+Étape 4 — Intégration onglets PDR existants
+  ├─ MachineDetail.tsx : switch + bouton Gérer positions
+  ├─ EquipmentDetail.tsx : idem
+  └─ PdrDetail.tsx : nouvel onglet « Positions installées »
+
+Étape 5 — Saisie consommation avec position
+  ├─ TicketDetail.tsx : Select position si applicable
+  └─ InterventionJournal.tsx : idem
+
+Étape 6 — Mise à jour mémoire
+  └─ mem://features/pdr-lifespan-management : ajouter section positions
 ```
 
-Écran agent (kiosque/mobile, conventions Shift Apps existantes) :
+## 8) Garanties non-régression
 
-```text
-[ Famille ▼ ] → [ Sous-famille ▼ ]   (uniquement celles autorisées)
-   └── liste articles à compter (badge : non compté / verrouillé)
-[ 🔍 Scanner ] (ScanButton existant, allowedTypes=['pdr','organe'])
-   └── si article hors scope → toast rouge "Hors périmètre autorisé"
-   └── si déjà compté        → ouverture en lecture seule
-   └── sinon                 → champ Qté + bouton "Valider et verrouiller"
-                               (confirmation modale, irréversible)
-```
+- **Stock** : aucune nouvelle écriture dans `pdr` ni `pdr_stock_movements`. Les positions ne touchent jamais le stock.
+- **Tickets / Interventions** : `position_id` est nullable et ignoré si absent → tout flux existant continue.
+- **GPAO** : lecture seule de `production_declarations` via vue. Aucune modification.
+- **Préventif** : la génération de drafts est étendue (additif), pas modifiée.
+- **Audit** : tous les CRUD positions + changements d'instance auditer via le pattern `audit_logs` existant (auteur, motif, valeurs avant/après).
 
-Écran responsable :
-- Vue tableau : article, qté A, qté B, écart, statut, bouton "Désigner C" (apparaît dès écart).
-- Onglet "Liste C" : articles à arbitrer ; après validation C, recalcul automatique.
-- Onglet "À recompter A&B" : génère un nouveau `round` et débloque la saisie pour A & B sur ces articles uniquement.
-- Bouton "Clôturer la campagne" (impossible tant qu'il reste un target non conforme).
+## 9) Points techniques notables
 
-### Sidebar
-- Nouveau groupe **Inventaire** (icône `ClipboardList`) visible si l'utilisateur a `responsable_inventaire`, `agent_inventaire`, ou `admin`.
-
----
-
-## Sécurité & garde-fous
-
-- Scan : on réutilise `resolveScannedCode` / `ScanButton` avec `allowedTypes=['pdr','organe']`. Une vérification serveur supplémentaire (RPC) refuse les articles hors scope.
-- Verrouillage : trigger SQL bloque `UPDATE/DELETE` sur `inventory_counts` ; le frontend affiche les counts validés en lecture seule (input désactivé + cadenas).
-- Aucun agent ne peut voir la quantité saisie par l'autre tant que la campagne est en `en_cours` (RLS filtrée par `assignment_id = mon_assignment`). Le responsable voit tout.
-- Auto-numérotation `INV-AAAAMM-####` via trigger (cohérent avec `OF-`, `TKT-`).
-- Audit de chaque comptage, écart détecté, recompte demandé, clôture campagne.
-
----
-
-## Tests (Vitest)
-
-- `inventory/scope.test.ts` — un agent ne peut compter que ses familles autorisées.
-- `inventory/lock.test.ts` — `UPDATE` sur un count validé est rejeté.
-- `inventory/decision-tree.test.ts` — arbre A=B, C=A, C=B, C≠A&B (round suivant).
-- `inventory/snapshot.test.ts` — `inv_ensure_targets` capture bien `qty_systeme` au moment T.
-- `inventory/scan-out-of-scope.test.ts` — refus serveur si scan hors périmètre.
-
----
-
-## Livrables
-
-1. Migration : tables + enums + triggers + RPC + RLS + ajout des 2 rôles à `app_role`.
-2. Hooks : `useInventoryCampaigns`, `useInventoryAgentScope`, `useInventoryTargets`, `useInventoryCounts` (realtime sur les écarts).
-3. Pages : Dashboard, Liste/Détail campagne, Écran agent, Écran arbitrage C.
-4. Sidebar + permissions (`usePermissions` enrichi avec module `inventaire`).
-5. Intégration `pdr_stock_movements` (type `inventaire`) à la clôture, via les permissions PDR existantes.
-6. Tests Vitest + mémoire projet (`mem://features/inventory-double-count`).
-
-Aucun changement de stratégie : double comptage A/B, arbitrage C avec règle C=A ou C=B, recompte A&B sinon, scope famille/sous-famille par agent, scan QR/code-barres autorisé uniquement dans le scope, saisie verrouillée après validation.
+- Les markers d'image utilisent des coordonnées **relatives 0-100** pour rester valides quel que soit le DPR/zoom.
+- Le calcul `production` joint `production_declarations → shifts → line_id` car la PDR est rattachée à une machine, qui est rattachée à une `production_lines`. Si la machine n'a pas de ligne, le mode `production` retombe sur compteur manuel + warning UI.
+- La vue `pdr_position_status` est recalculée à chaque SELECT (pas de matérialisation) — coût acceptable au volume attendu (<10k positions). Index sur `pdr_instances(position_id)` pour les jointures.
