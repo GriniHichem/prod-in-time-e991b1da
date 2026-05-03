@@ -213,6 +213,56 @@ export default function EquipmentDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="pdr">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Référence</TableHead>
+                    <TableHead>Désignation</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Qté recommandée</TableHead>
+                    <TableHead className="text-right">Positions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pdrLinks.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucune PDR liée</TableCell></TableRow>
+                  ) : pdrLinks.map((l: any) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="font-mono">{l.pdr?.reference}</TableCell>
+                      <TableCell>{l.pdr?.designation}</TableCell>
+                      <TableCell className="tabular-nums">
+                        <span className={l.pdr?.stock_actuel <= l.pdr?.stock_min ? "text-destructive font-medium" : ""}>{l.pdr?.stock_actuel}</span>
+                        <span className="text-muted-foreground"> / min {l.pdr?.stock_min}</span>
+                      </TableCell>
+                      <TableCell className="tabular-nums">{l.quantite_recommandee}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm"
+                          onClick={() => setPositionDialog({ linkId: l.id, label: `${l.pdr?.reference} — ${l.pdr?.designation}` })}>
+                          <MapPin className="h-3.5 w-3.5 mr-1" /> Gérer positions
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Dialog open={!!positionDialog} onOpenChange={(o) => !o && setPositionDialog(null)}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Positions d'installation — {positionDialog?.label}</DialogTitle>
+              </DialogHeader>
+              {positionDialog && (
+                <PdrPositionsManager linkId={positionDialog.linkId} pdrLabel={positionDialog.label} canEdit={canEdit("machines")} />
+              )}
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
         <TabsContent value="photos">
           <Card>
             <CardHeader><CardTitle className="text-base">Photos</CardTitle></CardHeader>
