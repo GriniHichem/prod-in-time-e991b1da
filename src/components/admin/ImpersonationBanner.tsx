@@ -1,0 +1,34 @@
+import { Eye, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
+
+export function ImpersonationBanner() {
+  const { impersonation, stopImpersonation } = useImpersonation();
+  if (!impersonation) return null;
+
+  const name = `${impersonation.targetProfile?.first_name ?? ""} ${impersonation.targetProfile?.last_name ?? ""}`.trim() || "Utilisateur";
+  const roles = impersonation.targetRoles.length > 0
+    ? impersonation.targetRoles.map((r) => r.replace(/_/g, " ")).join(", ")
+    : "aucun rôle";
+
+  return (
+    <div
+      className="sticky top-0 z-50 w-full border-b bg-orange-500/15 text-orange-900 dark:text-orange-100 backdrop-blur-md"
+      style={{ borderColor: "hsl(25 95% 53% / 0.4)" }}
+      role="status"
+    >
+      <div className="flex items-center gap-3 px-3 md:px-5 py-2 text-[13px]">
+        <span className="inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] bg-orange-500 text-white rounded px-2 py-0.5">
+          <Eye className="h-3 w-3" /> Aperçu
+        </span>
+        <span className="flex-1 min-w-0 truncate">
+          <strong>{name}</strong> <span className="opacity-70">— {roles}</span>
+          <span className="hidden sm:inline opacity-70"> · Aucune modification ne sera enregistrée.</span>
+        </span>
+        <Button size="sm" variant="outline" className="h-7 gap-1 bg-background/60" onClick={stopImpersonation}>
+          <X className="h-3.5 w-3.5" /> Quitter
+        </Button>
+      </div>
+    </div>
+  );
+}

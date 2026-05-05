@@ -1,6 +1,8 @@
 import { NavLink as RRNavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ImpersonationDialog } from "@/components/admin/ImpersonationDialog";
+import { Eye } from "lucide-react";
 import logoEntreprise from "@/assets/logo-entreprise.jpg";
 import {
   IconDashboard, IconMachine, IconEquipment, IconFactory, IconSpare,
@@ -215,7 +217,9 @@ function MobileNav() {
 export function AppTopBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, roles, signOut } = useAuth();
+  const { profile, roles, realRoles, signOut } = useAuth();
+  const [impersonationOpen, setImpersonationOpen] = useState(false);
+  const isRealAdmin = realRoles.includes("admin" as any);
 
   const isGmaoActive = gmaoItems.some((i) => isActive(location.pathname, i.url));
   const isGpaoActive = gpaoItems.some((i) => isActive(location.pathname, i.url));
@@ -300,6 +304,18 @@ export function AppTopBar() {
         <div className="flex items-center gap-2">
           <SearchTrigger variant="input" className="hidden md:flex" />
           <SearchTrigger variant="icon" className="md:hidden" />
+          {isRealAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setImpersonationOpen(true)}
+              className="h-9 px-2.5 gap-1.5 text-[12px] font-semibold text-orange-600 hover:bg-orange-500/10 hover:text-orange-700"
+              title="Voir l'app comme un autre utilisateur"
+            >
+              <Eye size={15} />
+              <span className="hidden lg:inline">Voir comme</span>
+            </Button>
+          )}
           <NotificationBell />
 
           <div className="h-7 w-px bg-border/60 mx-1.5" />
@@ -352,6 +368,7 @@ export function AppTopBar() {
           </DropdownMenu>
         </div>
       </div>
+      {isRealAdmin && <ImpersonationDialog open={impersonationOpen} onOpenChange={setImpersonationOpen} />}
     </header>
   );
 }
