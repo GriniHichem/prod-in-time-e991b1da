@@ -64,6 +64,8 @@ export default function UsersAdmin() {
   const [newPassword, setNewPassword] = useState("");
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
+  const [newPoste, setNewPoste] = useState("");
+  const [newRole, setNewRole] = useState("");
   const [creating, setCreating] = useState(false);
 
   const load = async () => {
@@ -141,31 +143,31 @@ export default function UsersAdmin() {
 
   const handleCreateUser = async () => {
     if (!newEmail || !newPassword || !newFirstName || !newLastName) {
-      toast({ title: "Veuillez remplir tous les champs", variant: "destructive" });
+      toast({ title: "Veuillez remplir tous les champs obligatoires", variant: "destructive" });
       return;
     }
     setCreating(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email: newEmail,
-        password: newPassword,
-        options: {
-          data: { first_name: newFirstName, last_name: newLastName },
-          emailRedirectTo: window.location.origin,
+      const { data, error } = await supabase.functions.invoke("admin-create-user", {
+        body: {
+          email: newEmail,
+          password: newPassword,
+          first_name: newFirstName,
+          last_name: newLastName,
+          poste: newPoste || null,
+          role: newRole || null,
         },
       });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
       toast({
         title: "Utilisateur créé",
-        description: "Un email de confirmation a été envoyé à " + newEmail,
+        description: (data as any)?.warning ?? `${newEmail} est actif et prêt à se connecter.`,
       });
       setCreateDialogOpen(false);
-      setNewEmail("");
-      setNewPassword("");
-      setNewFirstName("");
-      setNewLastName("");
-      // Reload after a short delay to allow trigger to create profile
-      setTimeout(load, 2000);
+      setNewEmail(""); setNewPassword(""); setNewFirstName("");
+      setNewLastName(""); setNewPoste(""); setNewRole("");
+      load();
     } catch (error: any) {
       toast({ title: "Erreur", description: error.message, variant: "destructive" });
     } finally {
@@ -224,6 +226,21 @@ export default function UsersAdmin() {
                 <div className="space-y-2">
                   <Label>Mot de passe *</Label>
                   <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="h-12" minLength={6} placeholder="Min. 6 caractères" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Poste</Label>
+                  <Input value={newPoste} onChange={(e) => setNewPoste(e.target.value)} className="h-12" placeholder="Ex: Technicien maintenance" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Rôle initial</Label>
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger className="h-12"><SelectValue placeholder="Aucun (à attribuer plus tard)" /></SelectTrigger>
+                    <SelectContent>
+                      {Constants.public.Enums.app_role.map((r) => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button onClick={handleCreateUser} disabled={creating} className="w-full h-12">
                   {creating ? "Création..." : "Créer l'utilisateur"}
