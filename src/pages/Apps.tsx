@@ -86,12 +86,14 @@ const CATEGORY_ICONS: Record<string, React.FC<{ size?: number; className?: strin
 export default function Apps() {
   const navigate = useNavigate();
   const { canView, loading } = usePermissions();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<(typeof CATEGORIES)[number]>("Tous");
 
   const visible = useMemo(() => {
     return MODULES.filter((m) => {
-      if (m.permissionModule && !loading && !canView(m.permissionModule)) return false;
+      if (m.permissionModule && !isAdmin && !loading && !canView(m.permissionModule)) return false;
       if (activeCat !== "Tous" && m.category !== activeCat) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -99,7 +101,7 @@ export default function Apps() {
       }
       return true;
     });
-  }, [search, activeCat, canView, loading]);
+  }, [search, activeCat, canView, loading, isAdmin]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, AppModule[]>();
