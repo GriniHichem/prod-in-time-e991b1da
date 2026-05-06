@@ -2,16 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("sonner", () => ({ toast: { warning: vi.fn() } }));
 
-const realInsert = vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null });
-const realSelect = vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null });
-const realInvoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
-const realRpc = vi.fn().mockResolvedValue({ data: 42, error: null });
+const mocks = vi.hoisted(() => ({
+  realInsert: vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null }),
+  realSelect: vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null }),
+  realInvoke: vi.fn().mockResolvedValue({ data: { ok: true }, error: null }),
+  realRpc: vi.fn().mockResolvedValue({ data: 42, error: null }),
+}));
+const { realInsert, realSelect, realInvoke, realRpc } = mocks;
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: vi.fn(() => ({ insert: realInsert, select: realSelect, update: realInsert, delete: realInsert, upsert: realInsert })),
-    functions: { invoke: realInvoke },
-    rpc: realRpc,
+    from: vi.fn(() => ({ insert: mocks.realInsert, select: mocks.realSelect, update: mocks.realInsert, delete: mocks.realInsert, upsert: mocks.realInsert })),
+    functions: { invoke: mocks.realInvoke },
+    rpc: mocks.realRpc,
   },
 }));
 
