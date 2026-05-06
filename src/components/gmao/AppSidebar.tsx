@@ -77,11 +77,12 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { profile, roles, signOut, hasRole } = useAuth();
-  const { canView } = usePermissions();
-  const isAdmin = hasRole("admin" as any);
+  const { canView, loading: permsLoading } = usePermissions();
 
-  const filterByPerm = (items: NavItem[]) =>
-    items.filter((i) => isAdmin || !i.module || canView(i.module));
+  const filterByPerm = (items: NavItem[]) => {
+    if (permsLoading) return [];
+    return items.filter((i) => !i.module || canView(i.module));
+  };
 
   const visibleGmao = filterByPerm(gmaoItems);
   const visibleGpao = filterByPerm(gpaoItems);

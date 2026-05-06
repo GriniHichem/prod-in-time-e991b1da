@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/audit";
@@ -94,9 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Effective values: when impersonating, override roles & profile
-  const effectiveRoles: AppRole[] = impersonation
-    ? (impersonation.targetRoles as AppRole[])
-    : realRoles;
+  const effectiveRoles: AppRole[] = useMemo(
+    () => (impersonation ? (impersonation.targetRoles as AppRole[]) : realRoles),
+    [impersonation, realRoles],
+  );
 
   const effectiveProfile: Profile | null = impersonation && impersonation.targetProfile
     ? {

@@ -219,13 +219,14 @@ export function AppTopBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, roles, realRoles, signOut, hasRole } = useAuth();
-  const { canView } = usePermissions();
+  const { canView, loading: permsLoading } = usePermissions();
   const [impersonationOpen, setImpersonationOpen] = useState(false);
   const isRealAdmin = realRoles.includes("admin" as any);
-  const isAdmin = hasRole("admin" as any);
 
-  const filterByPerm = (items: NavItem[]) =>
-    items.filter((i) => isAdmin || !i.module || canView(i.module));
+  const filterByPerm = (items: NavItem[]) => {
+    if (permsLoading) return [];
+    return items.filter((i) => !i.module || canView(i.module));
+  };
   const visibleGmao = filterByPerm(gmaoItems);
   const visibleGpao = filterByPerm(gpaoItems);
   const visibleQualite = filterByPerm(qualiteItems);
