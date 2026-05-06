@@ -301,14 +301,13 @@ export function AppTopBar() {
               <span className="hidden lg:inline">Apps</span>
             </RRNavLink>
           </Button>
-          <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={gmaoItems} active={isGmaoActive} />
-          <MegaMenu label="Production" GroupIcon={IconProduction} items={gpaoItems} active={isGpaoActive} />
-          <MegaMenu label="Qualité" GroupIcon={ClipboardCheck} items={qualiteItems} active={isQualiteActive} />
+          {showGmao && <MegaMenu label="Maintenance" GroupIcon={IconMaintenance} items={visibleGmao} active={isGmaoActive} />}
+          {showGpao && <MegaMenu label="Production" GroupIcon={IconProduction} items={visibleGpao} active={isGpaoActive} />}
+          {showQualite && <MegaMenu label="Qualité" GroupIcon={ClipboardCheck} items={visibleQualite} active={isQualiteActive} />}
           {showInventaire && (
-            <MegaMenu label="Inventaire" GroupIcon={ClipboardList} items={inventaireItems} active={isInventaireActive} />
+            <MegaMenu label="Inventaire" GroupIcon={ClipboardList} items={visibleInventaire} active={isInventaireActive} />
           )}
-          <MegaMenu label="Configuration" GroupIcon={Cog} items={configItems} active={isConfigActive} />
-        </nav>
+          {showConfig && <MegaMenu label="Configuration" GroupIcon={Cog} items={visibleConfig} active={isConfigActive} />}
 
         {/* Spacer */}
         <div className="flex-1" />
