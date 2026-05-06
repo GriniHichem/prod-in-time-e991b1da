@@ -48,6 +48,22 @@ export function usePermissions() {
             });
           }
         }
+        // Umbrella inheritance: a parent module grants its children unless
+        // the child has been explicitly configured (present in merged).
+        for (const [parent, children] of Object.entries(UMBRELLAS)) {
+          const p = merged.get(parent);
+          if (!p) continue;
+          for (const child of children) {
+            if (merged.has(child)) continue;
+            merged.set(child, {
+              module: child,
+              can_view: p.can_view,
+              can_create: p.can_create,
+              can_edit: p.can_edit,
+              can_delete: p.can_delete,
+            });
+          }
+        }
         setPermissions(Array.from(merged.values()));
       }
       setLoading(false);
