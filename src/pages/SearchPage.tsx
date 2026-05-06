@@ -82,7 +82,6 @@ export default function SearchPage() {
       )}
 
       {data.total > 0 && (
-      {data.total > 0 && (
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             {data.total} résultat{data.total > 1 ? "s" : ""} dans {groups.length} module
