@@ -189,29 +189,32 @@ export function AppSidebar() {
       <div className="mx-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
 
       <SidebarContent className="pt-3 overflow-y-auto">
-        {renderGroup("Maintenance", IconMaintenance, gmaoItems, isGmaoActive || !isGpaoActive)}
+        {showGmao && renderGroup("Maintenance", IconMaintenance, visibleGmao, isGmaoActive || !isGpaoActive)}
 
-        <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
+        {showGmao && showGpao && <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />}
 
-        {renderGroup("Production", IconProduction, gpaoItems, isGpaoActive)}
+        {showGpao && renderGroup("Production", IconProduction, visibleGpao, isGpaoActive)}
 
         {showQualite && (
           <>
             <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
-            {renderGroup("Qualité", ShieldCheck, qualiteItems, isQualiteActive)}
+            {renderGroup("Qualité", ShieldCheck, visibleQualite, isQualiteActive)}
           </>
         )}
 
         {showInventaire && (
           <>
             <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
-            {renderGroup("Inventaire", ClipboardList, inventaireItems, isInventaireActive)}
+            {renderGroup("Inventaire", ClipboardList, visibleInventaire, isInventaireActive)}
           </>
         )}
 
-        <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
-
-        {renderGroup("Administration", Cog, adminItems, isAdminActive)}
+        {showAdmin && (
+          <>
+            <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
+            {renderGroup("Administration", Cog, visibleAdmin, isAdminActive)}
+          </>
+        )}
       </SidebarContent>
 
       {/* Footer — User area */}
