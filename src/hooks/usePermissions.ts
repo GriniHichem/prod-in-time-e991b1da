@@ -83,13 +83,15 @@ export function usePermissions() {
             });
           }
         }
+        if (cancelled) return;
         setPermissions(Array.from(merged.values()));
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
 
     load();
-  }, [roles]);
+    return () => { cancelled = true; };
+  }, [rolesKey]);
 
   const getPermission = (module: string) =>
     permissions.find((p) => p.module === module);
