@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+// Umbrella → children. A parent module grants its sub-modules unless
+// a sub-module is explicitly configured in role_permissions.
+export const UMBRELLAS: Record<string, string[]> = {
+  qualite: [
+    "qualite_dashboard", "qualite_of", "qualite_indicateurs",
+    "qualite_controles", "qualite_nc", "qualite_actions",
+    "qualite_recettes", "qualite_tracabilite", "qualite_rapports", "qualite_shift",
+  ],
+  inventaire: ["inventaire_campagnes"],
+};
+
 interface Permission {
   module: string;
   can_view: boolean;
