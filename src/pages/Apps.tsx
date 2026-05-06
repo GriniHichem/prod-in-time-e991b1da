@@ -38,6 +38,7 @@ const MODULES: AppModule[] = [
   { title: "Maintenance préventive", description: "Plans, gammes et déclenchements automatiques", url: "/preventif", icon: IconPreventive, category: "Maintenance", permissionModule: "preventif", accent: "from-emerald-500/15 to-emerald-500/5 text-emerald-500" },
   { title: "Shift Maintenance", description: "Vue opérationnelle du maintenancier", url: "/maintenance/shift", icon: IconShift, category: "Maintenance", permissionModule: "shift_maintenance", badge: "Live", accent: "from-violet-500/15 to-violet-500/5 text-violet-500" },
   { title: "Journal d'interventions", description: "Historique consolidé des interventions", url: "/maintenance/journal", icon: IconMaintenance, category: "Maintenance", permissionModule: "journal", accent: "from-slate-500/15 to-slate-500/5 text-slate-400" },
+  { title: "Historique interventions", description: "Recherche et filtres avancés sur les interventions passées", url: "/maintenance/historique", icon: IconMaintenance, category: "Maintenance", permissionModule: "historique", accent: "from-stone-500/15 to-stone-500/5 text-stone-400" },
   { title: "Analyse & KPI", description: "Indicateurs MTTR, MTBF, disponibilité", url: "/analytics", icon: IconAnalytics, category: "Maintenance", permissionModule: "analytiques", accent: "from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-500" },
 
   // ===== Production =====
