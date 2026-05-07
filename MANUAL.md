@@ -1212,7 +1212,8 @@ Disponible pour : OF, Articles (et autres entités via `CsvImporter`).
 | 2.0 | 26/04/2026 | Réécriture exhaustive : workflows pas-à-pas, validations, exceptions, messages d'erreur exacts, cas particuliers, workflows transverses, annexes routes/tables/triggers |
 | 2.1 | 28/04/2026 | Notifications & Emails (SMTP self-hosted) — règles `/parametres/notifications`, edge functions, cron quotidien |
 | 2.2 | 30/04/2026 | Module Qualité (§4.9), paramétrage Qualité, fusion Recettes ↔ BOM, hub Contrôle d'accès, export portabilité |
-| **2.3** | **02/05/2026** | Voir §13 — Modifications récentes (Shift Qualité, Vue Maintenancier, Scanner global, Inventaire double comptage, isolation kiosques shift, génération auto sessions shift depuis OF) |
+| 2.3 | 02/05/2026 | Voir §13 — Modifications récentes (Shift Qualité, Vue Maintenancier, Scanner global, Inventaire double comptage, isolation kiosques shift, génération auto sessions shift depuis OF) |
+| **2.4** | **07/05/2026** | Voir §14 — « Voir comme » (impersonation), garde lecture seule en mode aperçu, matrice de permissions stricte (admin inclus), export CSV universel sur tous les tableaux, hub Contrôle d'accès consolidé |
 
 ---
 
