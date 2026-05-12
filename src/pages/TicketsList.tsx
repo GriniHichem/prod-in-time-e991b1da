@@ -41,10 +41,12 @@ export default function TicketsList() {
   const [newDescription, setNewDescription] = useState("");
 
   const loadTickets = async () => {
+    // B10: explicit cap (default Supabase 1000 silently truncates large datasets)
     const { data } = await supabase
       .from("tickets")
       .select("*, machines(designation, code)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(5000);
     setTickets(data || []);
   };
 
