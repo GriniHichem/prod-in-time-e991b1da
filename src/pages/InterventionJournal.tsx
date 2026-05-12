@@ -78,10 +78,13 @@ export default function InterventionJournal() {
     return map;
   }, [profiles]);
 
+  // B8: a machine can be on multiple lines (max 3, asset-hierarchy memory). Multi-map keeps all of them.
   const machineLineMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string[]> = {};
     lineAssignments.forEach((a) => {
-      map[a.machine_id] = a.line_id;
+      if (!a.machine_id || !a.line_id) return;
+      if (!map[a.machine_id]) map[a.machine_id] = [];
+      if (!map[a.machine_id].includes(a.line_id)) map[a.machine_id].push(a.line_id);
     });
     return map;
   }, [lineAssignments]);
