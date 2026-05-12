@@ -23,6 +23,7 @@ type JournalEntry = {
   machine_id: string;
   line_name: string;
   line_id: string | null;
+  line_ids: string[];
   user_name: string;
   user_id: string;
   date: string;
@@ -53,8 +54,8 @@ export default function InterventionJournal() {
   useEffect(() => {
     const load = async () => {
       const [ticketRes, execRes, lineRes, profileRes, machineRes, assignRes] = await Promise.all([
-        supabase.from("tickets").select("*, machines(id, designation, code), interventions(id, technicien_id, date_debut, date_fin, statut, description, role)").order("created_at", { ascending: false }),
-        supabase.from("preventive_executions").select("*, preventive_plans(id, title, machine_id, line_id, machines(id, designation, code))").order("date_execution", { ascending: false }),
+        supabase.from("tickets").select("*, machines(id, designation, code), interventions(id, technicien_id, date_debut, date_fin, statut, description, role)").order("created_at", { ascending: false }).limit(5000),
+        supabase.from("preventive_executions").select("*, preventive_plans(id, title, machine_id, line_id, machines(id, designation, code))").order("date_execution", { ascending: false }).limit(5000),
         supabase.from("production_lines").select("id, designation, code").eq("is_active", true),
         supabase.from("profiles").select("user_id, first_name, last_name"),
         supabase.from("machines").select("id, designation, code").eq("is_active", true),
@@ -78,10 +79,13 @@ export default function InterventionJournal() {
     return map;
   }, [profiles]);
 
+  // B8: a machine can be on multiple lines (max 3, asset-hierarchy memory). Multi-map keeps all of them.
   const machineLineMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string[]> = {};
     lineAssignments.forEach((a) => {
-      map[a.machine_id] = a.line_id;
+      if (!a.machine_id || !a.line_id) return;
+      if (!map[a.machine_id]) map[a.machine_id] = [];
+      if (!map[a.machine_id].includes(a.line_id)) map[a.machine_id].push(a.line_id);
     });
     return map;
   }, [lineAssignments]);
@@ -96,13 +100,22 @@ export default function InterventionJournal() {
   const entries: JournalEntry[] = useMemo(() => {
     const result: JournalEntry[] = [];
 
+    // Helper: resolve all candidate line ids for a ticket/plan (max 3 per machine)
+    const resolveLineIds = (explicitLineId: string | null | undefined, machineId: string): string[] => {
+      const ids = new Set<string>();
+      if (explicitLineId) ids.add(explicitLineId);
+      (machineLineMap[machineId] || []).forEach((id) => ids.add(id));
+      return Array.from(ids);
+    };
+
     // Curative: tickets with interventions
     tickets.forEach((t) => {
       const interventions = t.interventions || [];
       if (interventions.length === 0) {
         // Ticket without intervention — still show it
         const machineId = t.machines?.id || t.machine_id;
-        const lineId = t.ligne_id || machineLineMap[machineId] || null;
+        const lineIds = resolveLineIds(t.ligne_id, machineId);
+        const primaryLineId = lineIds[0] ?? null;
         result.push({
           id: t.id,
           type: "curative",
@@ -111,8 +124,9 @@ export default function InterventionJournal() {
           machine_name: t.machines?.designation || "—",
           machine_code: t.machines?.code || "",
           machine_id: machineId,
-          line_name: lineId ? (lineMap[lineId] || "—") : "—",
-          line_id: lineId,
+          line_name: primaryLineId ? (lineMap[primaryLineId] || "—") : "—",
+          line_id: primaryLineId,
+          line_ids: lineIds,
           user_name: t.assignee_id ? (profileMap[t.assignee_id] || "—") : "Non assigné",
           user_id: t.assignee_id || "",
           date: t.heure_declaration || t.created_at,
@@ -123,7 +137,8 @@ export default function InterventionJournal() {
       } else {
         interventions.forEach((intv: any) => {
           const machineId = t.machines?.id || t.machine_id;
-          const lineId = t.ligne_id || machineLineMap[machineId] || null;
+          const lineIds = resolveLineIds(t.ligne_id, machineId);
+          const primaryLineId = lineIds[0] ?? null;
           const durationMs = intv.date_fin && intv.date_debut
             ? Math.round((new Date(intv.date_fin).getTime() - new Date(intv.date_debut).getTime()) / 60000)
             : t.temps_intervention_minutes;
@@ -135,8 +150,9 @@ export default function InterventionJournal() {
             machine_name: t.machines?.designation || "—",
             machine_code: t.machines?.code || "",
             machine_id: machineId,
-            line_name: lineId ? (lineMap[lineId] || "—") : "—",
-            line_id: lineId,
+            line_name: primaryLineId ? (lineMap[primaryLineId] || "—") : "—",
+            line_id: primaryLineId,
+            line_ids: lineIds,
             user_name: profileMap[intv.technicien_id] || "—",
             user_id: intv.technicien_id,
             date: intv.date_debut || t.heure_declaration || t.created_at,
@@ -153,7 +169,8 @@ export default function InterventionJournal() {
     executions.forEach((e) => {
       const plan = e.preventive_plans;
       const machineId = plan?.machines?.id || plan?.machine_id || "";
-      const lineId = plan?.line_id || machineLineMap[machineId] || null;
+      const lineIds = resolveLineIds(plan?.line_id, machineId);
+      const primaryLineId = lineIds[0] ?? null;
       result.push({
         id: e.id,
         type: "preventive",
@@ -162,8 +179,9 @@ export default function InterventionJournal() {
         machine_name: plan?.machines?.designation || "—",
         machine_code: plan?.machines?.code || "",
         machine_id: machineId,
-        line_name: lineId ? (lineMap[lineId] || "—") : "—",
-        line_id: lineId,
+        line_name: primaryLineId ? (lineMap[primaryLineId] || "—") : "—",
+        line_id: primaryLineId,
+        line_ids: lineIds,
         user_name: profileMap[e.executed_by] || "—",
         user_id: e.executed_by,
         date: e.date_execution,
@@ -189,7 +207,7 @@ export default function InterventionJournal() {
   const filtered = useMemo(() => {
     return entries.filter((e) => {
       if (filterType !== "all" && e.type !== filterType) return false;
-      if (filterLine !== "all" && e.line_id !== filterLine) return false;
+      if (filterLine !== "all" && !e.line_ids.includes(filterLine)) return false;
       if (filterMachine !== "all" && e.machine_id !== filterMachine) return false;
       if (filterUser !== "all" && e.user_id !== filterUser) return false;
       if (dateFrom) {

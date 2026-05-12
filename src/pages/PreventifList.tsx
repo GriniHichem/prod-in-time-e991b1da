@@ -52,7 +52,8 @@ export default function PreventifList() {
           .from("preventive_plans")
           .select("*, machines(code, designation), production_lines(code, designation)")
           .eq("is_active", true)
-          .order("prochaine_echeance", { ascending: true }),
+          .order("prochaine_echeance", { ascending: true })
+          .limit(5000),
         supabase.from("machines").select("id, code, designation").eq("is_active", true).order("code"),
         supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
         supabase.from("machine_line_assignments").select("machine_id, line_id"),

@@ -181,12 +181,33 @@ export default function TicketDetail() {
 
   const handleTakeCharge = async () => {
     const now = new Date().toISOString();
-    // Preserve original heure_prise_en_charge if it already exists (re-take after release)
-    // assignment_status tracks the assignment lifecycle separately from the workflow `statut`.
+    // Race-safe: only take if currently unassigned. Two maintenanciers clicking simultaneously → only one wins.
     const ticketUpdate: any = { statut: "pris_en_charge" as any, assignee_id: user?.id, assignment_status: "assigned" as any };
     if (!ticket?.heure_prise_en_charge) ticketUpdate.heure_prise_en_charge = now;
-    await supabase.from("tickets").update(ticketUpdate).eq("id", id!);
+    const { data: updated, error } = await supabase
+      .from("tickets")
+      .update(ticketUpdate)
+      .eq("id", id!)
+      .is("assignee_id", null)
+      .select("id");
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!updated || updated.length === 0) {
+      toast({ title: "Ticket déjà pris", description: "Un autre maintenancier vient de le prendre. Rechargement…", variant: "destructive" });
+      loadTicket();
+      return;
+    }
     await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any, role: "lead" as any });
+    await logAudit({
+      action_type: "status_change", module: "tickets", entity_type: "ticket",
+      entity_id: id!, entity_code: ticket?.numero, entity_label: ticket?.description,
+      action_label: "Prise en charge ticket",
+      old_values: { statut: ticket?.statut, assignee_id: null },
+      new_values: { statut: "pris_en_charge", assignee_id: user?.id },
+      severity: "low",
+    });
     toast({ title: "Ticket pris en charge" });
     loadTicket();
   };
@@ -343,13 +364,27 @@ export default function TicketDetail() {
     }
     const now = new Date().toISOString();
     const tempsArret = ticket?.heure_declaration ? Math.round((new Date(now).getTime() - new Date(ticket.heure_declaration).getTime()) / 60000) : null;
-    // Fallback: if no formal heure_prise_en_charge, use heure_declaration so the KPI is never null when resolving
-    const baselineForIntervention = ticket?.heure_prise_en_charge || ticket?.heure_declaration;
-    const tempsIntervention = baselineForIntervention ? Math.round((new Date(now).getTime() - new Date(baselineForIntervention).getTime()) / 60000) : null;
+    // KPI integrity: temps_intervention requires a real prise en charge. No fallback (would inflate MTTR with queue time).
+    const tempsIntervention = ticket?.heure_prise_en_charge
+      ? Math.round((new Date(now).getTime() - new Date(ticket.heure_prise_en_charge).getTime()) / 60000)
+      : null;
 
-    const { data: updatedTicket } = await supabase.from("tickets").update({
+    const { data: updatedTicket, error: resolveErr } = await supabase.from("tickets").update({
       statut: "resolu" as any, heure_resolution: now, cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention,
     }).eq("id", id!).select("id").single();
+    if (resolveErr) {
+      toast({ title: "Erreur résolution", description: resolveErr.message, variant: "destructive" });
+      return;
+    }
+
+    await logAudit({
+      action_type: "status_change", module: "tickets", entity_type: "ticket",
+      entity_id: id!, entity_code: ticket?.numero, entity_label: ticket?.description,
+      action_label: "Résolution ticket",
+      old_values: { statut: ticket?.statut, cause_racine: ticket?.cause_racine, solution: ticket?.solution },
+      new_values: { statut: "resolu", cause_racine: causeRacine, solution, temps_arret_minutes: tempsArret, temps_intervention_minutes: tempsIntervention },
+      severity: "medium",
+    });
 
     // Field First: post-hoc validation request for critical ticket resolution
     try {
@@ -478,7 +513,20 @@ export default function TicketDetail() {
   };
 
   const handleClose = async () => {
-    await supabase.from("tickets").update({ statut: "cloture" as any, heure_cloture: new Date().toISOString() }).eq("id", id!);
+    const closedAt = new Date().toISOString();
+    const { error } = await supabase.from("tickets").update({ statut: "cloture" as any, heure_cloture: closedAt }).eq("id", id!);
+    if (error) {
+      toast({ title: "Erreur clôture", description: error.message, variant: "destructive" });
+      return;
+    }
+    await logAudit({
+      action_type: "status_change", module: "tickets", entity_type: "ticket",
+      entity_id: id!, entity_code: ticket?.numero, entity_label: ticket?.description,
+      action_label: "Clôture ticket",
+      old_values: { statut: ticket?.statut },
+      new_values: { statut: "cloture", heure_cloture: closedAt },
+      severity: "medium",
+    });
     toast({ title: "Ticket clôturé" });
     loadTicket();
   };
