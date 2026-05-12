@@ -513,7 +513,20 @@ export default function TicketDetail() {
   };
 
   const handleClose = async () => {
-    await supabase.from("tickets").update({ statut: "cloture" as any, heure_cloture: new Date().toISOString() }).eq("id", id!);
+    const closedAt = new Date().toISOString();
+    const { error } = await supabase.from("tickets").update({ statut: "cloture" as any, heure_cloture: closedAt }).eq("id", id!);
+    if (error) {
+      toast({ title: "Erreur clôture", description: error.message, variant: "destructive" });
+      return;
+    }
+    await logAudit({
+      action_type: "status_change", module: "tickets", entity_type: "ticket",
+      entity_id: id!, entity_code: ticket?.numero, entity_label: ticket?.description,
+      action_label: "Clôture ticket",
+      old_values: { statut: ticket?.statut },
+      new_values: { statut: "cloture", heure_cloture: closedAt },
+      severity: "medium",
+    });
     toast({ title: "Ticket clôturé" });
     loadTicket();
   };
