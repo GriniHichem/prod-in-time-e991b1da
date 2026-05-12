@@ -181,12 +181,33 @@ export default function TicketDetail() {
 
   const handleTakeCharge = async () => {
     const now = new Date().toISOString();
-    // Preserve original heure_prise_en_charge if it already exists (re-take after release)
-    // assignment_status tracks the assignment lifecycle separately from the workflow `statut`.
+    // Race-safe: only take if currently unassigned. Two maintenanciers clicking simultaneously → only one wins.
     const ticketUpdate: any = { statut: "pris_en_charge" as any, assignee_id: user?.id, assignment_status: "assigned" as any };
     if (!ticket?.heure_prise_en_charge) ticketUpdate.heure_prise_en_charge = now;
-    await supabase.from("tickets").update(ticketUpdate).eq("id", id!);
+    const { data: updated, error } = await supabase
+      .from("tickets")
+      .update(ticketUpdate)
+      .eq("id", id!)
+      .is("assignee_id", null)
+      .select("id");
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!updated || updated.length === 0) {
+      toast({ title: "Ticket déjà pris", description: "Un autre maintenancier vient de le prendre. Rechargement…", variant: "destructive" });
+      loadTicket();
+      return;
+    }
     await supabase.from("interventions").insert({ ticket_id: id!, technicien_id: user?.id!, description: "Prise en charge", statut: "en_cours" as any, role: "lead" as any });
+    await logAudit({
+      action_type: "status_change", module: "tickets", entity_type: "ticket",
+      entity_id: id!, entity_code: ticket?.numero, entity_label: ticket?.description,
+      action_label: "Prise en charge ticket",
+      old_values: { statut: ticket?.statut, assignee_id: null },
+      new_values: { statut: "pris_en_charge", assignee_id: user?.id },
+      severity: "low",
+    });
     toast({ title: "Ticket pris en charge" });
     loadTicket();
   };
