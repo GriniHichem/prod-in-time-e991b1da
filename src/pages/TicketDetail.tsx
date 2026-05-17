@@ -559,6 +559,20 @@ export default function TicketDetail() {
       new_values: { statut: "cloture", heure_cloture: closedAt },
       severity: "medium",
     });
+    // L3: notify declarant of definitive closure (skip if same user).
+    if (ticket?.declarant_id && ticket.declarant_id !== user?.id) {
+      await supabase.from("notifications").insert({
+        notification_type: "ticket_closed", module: "tickets",
+        title: `Ticket clôturé : ${ticket.numero}`,
+        message: `Le ticket a été clôturé par le responsable maintenance.`,
+        recipient_user_id: ticket.declarant_id,
+        triggered_by_user_id: user?.id,
+        entity_type: "ticket", entity_id: id!, entity_code: ticket.numero,
+        entity_label: ticket.description,
+        action_url: `/tickets/${id}`,
+        severity: "info" as any,
+      });
+    }
     toast({ title: "Ticket clôturé" });
     loadTicket();
   };
