@@ -256,7 +256,7 @@ export default function TicketDetail() {
         description: `Transfert de ${assigneeName || "—"} vers ${targetProfile?.full_name || "—"} — ${handoverMotif}`,
         old_values: { assignee_id: previousAssigneeId },
         new_values: { assignee_id: transferTargetId },
-        metadata: { motif: handoverMotif, event: "ticket.transferred" },
+        metadata: { motif: handoverMotif, event: "ticket.transferred", machine_id: ticket?.machine_id, ligne_id: ticket?.ligne_id },
         severity: "medium",
       });
 
@@ -318,7 +318,7 @@ export default function TicketDetail() {
         description: `Libération par ${assigneeName || "—"} — ${handoverMotif}`,
         old_values: { assignee_id: previousAssigneeId, statut: ticket.statut },
         new_values: { assignee_id: null, statut: "ouvert" },
-        metadata: { motif: handoverMotif, event: "ticket.released" },
+        metadata: { motif: handoverMotif, event: "ticket.released", machine_id: ticket?.machine_id, ligne_id: ticket?.ligne_id },
         severity: "medium",
       });
 
