@@ -58,18 +58,18 @@ export function useShiftSessionStats(kind: ShiftKind, sessionId: string | null):
 
     async function load() {
       if (kind === "production") {
-        const [{ data: decl }, { data: stops }, { count: tickets }] = await Promise.all([
+        const [{ data: decl }, { data: stops }, { data: shiftTickets }] = await Promise.all([
           supabase
             .from("production_declarations")
             .select("quantite_produite, quantite_rebut")
             .eq("shift_id", sessionId),
           supabase
             .from("production_stops")
-            .select("duree_minutes, heure_debut, heure_fin")
+            .select("duree_minutes, heure_debut, heure_fin, ticket_id")
             .eq("shift_id", sessionId),
           supabase
             .from("tickets")
-            .select("id", { count: "exact", head: true })
+            .select("id, temps_arret_minutes, statut")
             .eq("shift_id", sessionId),
         ]);
         const totalProd = (decl ?? []).reduce((s, d: any) => s + Number(d.quantite_produite || 0), 0);
@@ -77,18 +77,27 @@ export function useShiftSessionStats(kind: ShiftKind, sessionId: string | null):
         const conforme = Math.max(totalProd - rebut, 0);
         const conformite = totalProd > 0 ? Math.round((conforme / totalProd) * 100) : null;
 
-        const downtime = (stops ?? []).reduce((acc, s: any) => {
+        const stopDowntime = (stops ?? []).reduce((acc, s: any) => {
           const d = Number(s.duree_minutes ?? 0);
           if (d > 0) return acc + d;
           return acc + diffMinutes(s.heure_debut, s.heure_fin ?? new Date().toISOString());
         }, 0);
+
+        // L5: add ticket downtime not already covered by a stop (dedup via production_stops.ticket_id).
+        const stoppedTicketIds = new Set((stops ?? []).map((s: any) => s.ticket_id).filter(Boolean));
+        const ticketDowntime = (shiftTickets ?? []).reduce((acc, t: any) => {
+          if (stoppedTicketIds.has(t.id)) return acc;
+          return acc + Number(t.temps_arret_minutes || 0);
+        }, 0);
+        const downtime = stopDowntime + ticketDowntime;
+        const ticketsCount = (shiftTickets ?? []).length;
 
         if (cancelled) return;
         setStats({
           loading: false,
           primary: { label: "Production", value: totalProd, hint: `${rebut} rebut` },
           secondary: { label: "Arrêts", value: stops?.length ?? 0, hint: fmtMinutes(downtime) },
-          tertiary: { label: "Tickets", value: tickets ?? 0 },
+          tertiary: { label: "Tickets", value: ticketsCount },
           extras: [
             { label: "Temps d'arrêt", value: fmtMinutes(downtime) },
             { label: "Conformité", value: conformite === null ? "—" : `${conformite}%`, hint: `${conforme}/${totalProd}` },
