@@ -18,10 +18,12 @@ import { useScanner } from "@/hooks/useScanner";
 import {
   resolveScannedCode,
   isAutoSelectable,
+  normalizeScanInput,
   type MatchQuality,
   type ResolvedScan,
   type ScannableEntityType,
 } from "@/lib/scanResolver";
+import { logScan } from "@/lib/scanHistory";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ScannerDialogProps {
