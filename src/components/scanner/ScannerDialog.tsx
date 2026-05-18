@@ -28,10 +28,13 @@ export interface ScannerDialogProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   allowedTypes?: ScannableEntityType[];
-  onResolved: (entity: ResolvedScan) => void;
+  /** Si fourni, on tente de résoudre le code via le RPC. Sinon mode enrôlement. */
+  onResolved?: (entity: ResolvedScan) => void;
   onRawValue?: (raw: string) => void;
   title?: string;
   description?: string;
+  /** Force le mode enrôlement: pas d'appel RPC, on renvoie la valeur brute. */
+  enrollMode?: boolean;
 }
 
 const TYPE_LABEL: Record<ScannableEntityType, string> = {
@@ -53,7 +56,14 @@ const HISTORY_MAX = 6;
 
 function readHistory(): ResolvedScan[] {
   try {
-    return JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]") as ResolvedScan[];
+    const parsed = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r: any) =>
+        r &&
+        typeof r.entity_id === "string" &&
+        typeof r.entity_type === "string",
+    ) as ResolvedScan[];
   } catch {
     return [];
   }
@@ -95,6 +105,7 @@ export function ScannerDialog({
   onRawValue,
   title = "Scanner un code",
   description = "Pointez la caméra vers un QR code ou un code-barres.",
+  enrollMode,
 }: ScannerDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [manual, setManual] = useState("");
@@ -103,6 +114,9 @@ export function ScannerDialog({
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<ResolvedScan[]>([]);
   const { toast } = useToast();
+
+  // Mode enrôlement = pas de résolution RPC. Implicite si onResolved absent.
+  const isEnroll = enrollMode || !onResolved;
 
   useEffect(() => {
     if (open) setHistory(readHistory().filter((r) => !allowedTypes?.length || allowedTypes.includes(r.entity_type)));
@@ -124,15 +138,27 @@ export function ScannerDialog({
 
   async function handleResolve(raw: string) {
     if (busy) return;
+    const trimmed = (raw ?? "").trim();
+    if (!trimmed) return;
+
+    // Mode enrôlement : on renvoie la valeur brute, jamais le RPC.
+    if (isEnroll) {
+      beep();
+      try { (navigator as any).vibrate?.(60); } catch {}
+      onRawValue?.(trimmed);
+      onOpenChange(false);
+      return;
+    }
+
     setBusy(true);
-    setLastRaw(raw);
+    setLastRaw(trimmed);
     try {
-      const rows = await resolveScannedCode(raw, allowedTypes);
+      const rows = await resolveScannedCode(trimmed, allowedTypes);
       if (isAutoSelectable(rows)) {
         beep();
         try { (navigator as any).vibrate?.(60); } catch {}
         pushHistory(rows[0]);
-        onResolved(rows[0]);
+        onResolved!(rows[0]);
         onOpenChange(false);
         return;
       }
@@ -146,9 +172,12 @@ export function ScannerDialog({
 
   function pickResult(r: ResolvedScan) {
     pushHistory(r);
-    onResolved(r);
+    onResolved?.(r);
     onOpenChange(false);
   }
+
+  /** Vrai si le payload scanné ressemble à une URL/route de l'app. */
+  const looksLikeAppUrl = /^\/?(pdr|machines|equipements|organes)\/[0-9a-f-]{8,}/i.test(lastRaw);
 
   function useRawAsFallback() {
     const v = (lastRaw || manual).trim();
@@ -239,7 +268,11 @@ export function ScannerDialog({
             {groupedMatches.length === 0 ? (
               <div className="text-sm space-y-2">
                 <div className="text-muted-foreground">
-                  Aucune entité trouvée pour <code className="px-1 bg-muted rounded">{lastRaw || manual}</code>.
+                  {looksLikeAppUrl ? (
+                    <>QR reconnu mais l'entité est introuvable (supprimée ?) pour <code className="px-1 bg-muted rounded">{lastRaw}</code>.</>
+                  ) : (
+                    <>Aucune entité trouvée pour <code className="px-1 bg-muted rounded">{lastRaw || manual}</code>.</>
+                  )}
                 </div>
                 {onRawValue && (
                   <Button size="sm" variant="outline" onClick={useRawAsFallback} className="w-full">
