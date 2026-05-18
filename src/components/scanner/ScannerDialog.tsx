@@ -283,9 +283,10 @@ export function ScannerDialog({
               value={manual}
               onChange={(e) => setManual(e.target.value)}
               placeholder="Référence, code ERP, code-barres, UUID, URL…"
-              onKeyDown={(e) => { if (e.key === "Enter" && manual.trim()) handleResolve(manual.trim()); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && manual.trim()) { sourceRef.current = "manual"; handleResolve(manual.trim()); } }}
             />
-            <Button onClick={() => handleResolve(manual.trim())} disabled={!manual.trim() || busy}>
+            <Button onClick={() => { sourceRef.current = "manual"; handleResolve(manual.trim()); }} disabled={!manual.trim() || busy}>
+
               OK
             </Button>
           </div>
