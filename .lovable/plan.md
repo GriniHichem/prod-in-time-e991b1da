@@ -1,80 +1,65 @@
-## Audit GMAO approfondi + liens cross-modules (GPAO, Qualité, PDR, Shifts, Notifications)
+# Audit du système de scan QR / code-barres
 
-J'ai relu en détail TicketDetail, PreventifDetail, InterventionJournal/History, MaintenancierShiftView, ShiftScreen, useShiftSessionStats, useMaintenanceShiftWorkload, useLineSynopticData, ProductionShiftTicket/MaintenanceShiftIntervention, et croisé avec le schéma Postgres. Liste des bugs **réellement confirmés** (vérifiés en base) classés par sévérité.
+## Bugs identifiés
 
-### 🔴 Critiques
+### B1 — RPC `resolve_scanned_code` : prefix fallback déclenché à tort (HIGH)
+Dans la migration, après les 4 blocs `RETURN QUERY` (pdr, machine, equipement, organe) de l'étape "exact match", le code fait :
+```
+GET DIAGNOSTICS found_any = ROW_COUNT;
+IF found_any THEN RETURN; END IF;
+```
+`GET DIAGNOSTICS ROW_COUNT` ne reflète que **le dernier `RETURN QUERY`** (organes). Conséquence : si un scan correspond exactement à une PDR (ou machine, ou équipement) mais qu'aucun organe ne matche, `found_any = false` → la phase "prefix" s'exécute et renvoie en plus des correspondances approchantes parasites. L'auto-sélection (`isAutoSelectable` requiert 1 seul résultat) tombe alors en désambiguïsation inutile.
 
-**C1 — `ProductionShiftTicket` insère `declared_by` mais la colonne s'appelle `declarant_id`**
-Confirmé : `tickets` n'a aucune colonne `declared_by`. L'insert PostgREST échoue → toast "Erreur" générique, aucun ticket créé depuis le kiosque shift production. (Le précédent fix a corrigé `line_id → ligne_id` mais a introduit / laissé `declared_by`.) `ShiftScreen.handleCreateTicket` utilise déjà le bon `declarant_id`.
-**Fix** : `declared_by` → `declarant_id` dans `ProductionShiftTicket.tsx`.
+**Fix** : utiliser une variable cumulative.
+```sql
+DECLARE total_found integer := 0;
+...
+-- après chaque RETURN QUERY exact :
+GET DIAGNOSTICS found_any = ROW_COUNT;
+total_found := total_found + found_any;
+...
+IF total_found > 0 THEN RETURN; END IF;
+```
 
-**C2 — KPI shift maintenance : filtre statut `"ferme"` invalide**
-`useShiftSessionStats.ts:125` filtre `tickets.statut = 'ferme'`. L'enum `ticket_statut` ne contient que `ouvert|pris_en_charge|en_cours|resolu|cloture`. Conséquence : `closedTickets` est toujours vide → "Tickets clôturés", "Temps d'arrêt", "MTTR moy." affichent toujours 0 pour le responsable maintenance.
-**Fix** : remplacer par `.in("statut", ["resolu","cloture"])`.
+### B2 — Prefix SQL ignore la normalisation (MED)
+L'étape exact compare aussi `qn` (sans accents/séparateurs) mais l'étape prefix utilise uniquement `q` (lowercased brut). Un scan "ABC-123" ne matchera pas en préfixe une référence stockée "abc123". **Fix** : ajouter `regexp_replace(lower(unaccent(coalesce(col,''))), '[\s\-_/\\]+', '', 'g') LIKE qn || '%'` aux `WHERE` du bloc prefix.
 
-**C3 — Pré-cochage par défaut de toutes les PDR dans l'exécution préventive**
-`PreventifDetail.openExecDialog` initialise `execPdrUsed[pp.id] = true` pour TOUTES les PDR du plan. Depuis le fix B5, chaque PDR cochée décrémente le stock PMP. Un opérateur pressé qui valide sans décocher consomme tout le kit → stock PMP faux à chaque exécution.
-**Fix** : par défaut tout à `false` (opt-in). Texte d'info : "Cocher uniquement les PDR réellement utilisées".
+### B3 — `ExternalIdsCard` enregistre la mauvaise valeur lors de l'enrôlement QR (MED)
+Le bouton "Scanner" à côté des champs `qr_code` / `code_barres` sert à **enrôler** la valeur lue sur la fiche (Machine/PDR/Organe/Équipement). Or si le QR scanné correspond déjà à une entité existante, `ScannerDialog` appelle `onResolved` avec `r.code` (= référence/désignation de l'entité retrouvée), pas la valeur brute du QR. Le champ se remplit alors avec la mauvaise chaîne et duplique l'ID d'une autre fiche.
 
-**C4 — Stop de production lié à un ticket jamais clôturé automatiquement**
-`production_stops.ticket_id` existe (vérifié). Quand un ticket est résolu, le stop GPAO associé garde `heure_fin = null` et `duree_minutes = null` → le temps d'arrêt continue de courir dans les KPI production (`useShiftSessionStats` calcule `now() - heure_debut` si `heure_fin` nul).
-**Fix** : dans `TicketDetail.handleResolve` (et `MaintenanceShiftIntervention.handleSubmit` lors d'une clôture), update `production_stops` correspondants : `heure_fin = now`, `duree_minutes = ticket.temps_arret_minutes ?? round((now-heure_debut)/60000)`.
+**Fix** : dans `ExternalIdsCard`, ne pas passer `onResolved` pour les boutons d'enrôlement, garder uniquement `onRawValue`, et basculer `ScannerDialog` pour appeler `onRawValue` au lieu d'auto-résoudre quand `onResolved` n'est pas fourni. Côté `ScannerDialog`, traiter le cas `onResolved` absent → écrire la valeur brute du scan dans le champ via `onRawValue(raw)` sans passer par le RPC.
 
-### 🟠 Logiques
+### B4 — `useScanner` relance la caméra à chaque changement de `deviceId` interne (MED)
+L'effet a `[enabled, deviceId]` en deps et appelle `setDeviceId(chosen)` **à l'intérieur** quand `chosen !== deviceId`. Cela ré-exécute tout l'effet : nouvelle `getUserMedia()` (re-prompt permission sur certains navigateurs), nouvelle énumération, nouveau `decodeFromVideoDevice`. On voit parfois la caméra clignoter ou un délai de 1–2s avant lecture stable.
 
-**L1 — Comptage interventions du shift maintenance inflaté**
-`useShiftSessionStats.ts:130` `intervCount` compte toutes les lignes `interventions` du technicien dans la fenêtre, y compris : `"Prise en charge"` (créée à chaque take-charge), `"Collaboration (...)"` (créée à chaque add collaborator), `"transferee"`, `"liberee"`. Le manager voit 6 "interventions" pour 1 ticket réel.
-**Fix** : exclure `statut in ('transferee','liberee')` ET (description ne commence pas par `Collaboration` OU role = 'lead'). Compter par `ticket_id` distinct serait encore mieux ; on garde l'approche actuelle mais avec exclusions.
+**Fix** : à l'initialisation, calculer `chosen` localement et le passer directement à ZXing **sans** appeler `setDeviceId` pour le défaut. N'utiliser `setDeviceId` que pour les changements explicites de l'utilisateur via le `<Select>` (ce qui doit alors relancer l'effet — comportement souhaité).
 
-**L2 — `assignment_status` reste "transferred"/"released" après résolution**
-`TicketDetail.handleResolve` ne reset pas `assignment_status`. Un ticket résolu après transfert reste badgé "Transféré" dans la liste/sticker.
-**Fix** : `assignment_status: "assigned"` (ou null) dans l'update de résolution.
+### B5 — Auto-sélection silencieuse sur URL avec UUID invalide / entité supprimée (LOW)
+Si le QR contient `/pdr/<uuid>` mais que l'entité a été supprimée, le RPC ne retourne rien pour l'URL et retombe sur exact/prefix avec `q` = pathname (ex: `/pdr/abc…`), ce qui ne matche rien. Résultat : "Aucune entité trouvée". Le toast manque de contexte (URL invalide vs code inconnu).
 
-**L3 — Notification au déclarant absente quand son ticket est résolu/clôturé**
-Le déclarant (opérateur production, qualité, GPAO) n'est jamais notifié de la résolution. La règle Core "audit_critical_event" couvre les criticités, pas le suivi du déclarant.
-**Fix** : dans `handleResolve` et `handleClose`, insérer une `notifications` row pour `recipient_user_id = ticket.declarant_id` (skip si declarant = assignee).
+**Fix mineur** : dans `ScannerDialog`, quand `rows.length === 0` et que la valeur brute ressemble à une URL de l'app, afficher un message dédié ("Entité supprimée ou introuvable").
 
-**L4 — Mode clôture mobile : aucune décrémentation PDR ni saisie possible**
-`MaintenanceShiftIntervention.handleSubmit` (closeTicket=true) résout le ticket sans permettre de saisir les PDR consommées et ne touche pas au stock. Un opérateur qui clôture en mobile contourne involontairement la gestion PMP.
-**Fix court terme** : afficher une note "Pièces utilisées ? Saisissez-les depuis l'écran complet du ticket avant de clôturer." + lien direct vers `/tickets/:id`. (Refonte mobile complète = hors scope.)
+### B6 — `match_quality='url'` mais `matched_field='url'` (cosmétique LOW)
+L'UI affiche "via url" alors que l'utilisateur attend "via QR". Renommer `matched_field` en `'qr_code'` pour la branche URL (cohérent avec l'origine du payload).
 
-**L5 — `useShiftSessionStats` production : `tickets` ne compte pas le temps d'arrêt généré**
-Ligne 71 : seul un `count` est fait. L'extra "Temps d'arrêt" du shift production additionne uniquement `production_stops`, pas `tickets.temps_arret_minutes`. Si un ticket bloquant ne crée pas de stop, l'arrêt est invisible.
-**Fix** : récupérer aussi `tickets.temps_arret_minutes` du shift et l'additionner aux stops (en dédupliquant via `production_stops.ticket_id` pour éviter double-comptage : si stop déjà lié au ticket, ne pas compter le ticket).
+### B7 — `pushHistory` peut grossir avec entrées invalides (LOW)
+Pas de validation au `JSON.parse` ; un payload sessionStorage corrompu (autre onglet/app) plante silencieusement. Ajouter un filtre `typeof r?.entity_id === 'string'`.
 
-**L6 — `MaintenancierShiftView` : plans préventifs sans filtre ligne quand machine multi-ligne**
-`useMaintenanceShiftWorkload.ts:84` filtre `line_id.in.(...)` pour les plans, mais beaucoup de plans préventifs ont `line_id = null` et héritent de la ligne via la machine. Conséquence symétrique au B8 ticket : plans manquants pour les machines multi-lignes.
-**Fix** : précharger `machine_line_assignments` pour les machines des plans assignés, accepter le plan si `plan.line_id ∈ shiftLineIds` OU `machine ∈ machines des shiftLineIds`.
+## Plan d'implémentation
 
-### 🟡 Robustesse / cohérence
+1. **Migration SQL** : recréer `public.resolve_scanned_code` avec compteur cumulatif (B1), normalisation prefix (B2), `matched_field='qr_code'` pour la branche URL (B6).
+2. **`src/components/scanner/ScannerDialog.tsx`** : 
+   - Ajouter mode "enrôlement" : si `onResolved` non fourni OU prop `mode="enroll"`, ne pas appeler le RPC, juste émettre `onRawValue(raw)` et fermer.
+   - Améliorer le message d'erreur URL invalide (B5).
+   - Durcir `readHistory` (B7).
+3. **`src/components/scanner/ScanButton.tsx`** : exposer `enrollMode?: boolean` propagé au dialog.
+4. **`src/components/scanner/ExternalIdsCard.tsx`** : passer `enrollMode` + retirer `onResolved` sur les boutons QR/code-barres (B3).
+5. **`src/hooks/useScanner.ts`** : refacto pour éviter le re-render via `setDeviceId` au démarrage (B4) ; conserver le changement manuel via select.
+6. **Tests** : étendre `src/test/scanner/resolve.test.ts` avec un cas multi-RETURN QUERY (pdr exact + 0 organe) qui ne doit pas déclencher prefix, et un test du mode enrôlement.
 
-**R1 — Boucle PDR préventive sans gestion d'erreur lecture**
-`PreventifDetail.submitExecution` fait `.single()` sur `pdr` — si une PDR a été désactivée, `.single()` retourne `error` et fait throw → l'exécution est créée mais la boucle s'interrompt en milieu de course (PDR partiellement décrémentées). 
-**Fix** : `.maybeSingle()`, continuer la boucle, journaliser les PDR ignorées dans `notes` de l'exécution.
+## Détails techniques
 
-**R2 — `InterventionHistory` filtre Ticket dropdown plafonné à 500**
-Anciens tickets absents du select.
-**Fix** : passer à 5000 (cohérent avec les autres listes), bandeau si atteint.
-
-**R3 — Audit de transfert/libération sans contexte machine**
-`handleTransfer/handleRelease` audit ne contient pas `machine_id` ni `ligne_id` dans metadata → recherche audit moins fine.
-**Fix** : ajouter `entity_code = ticket.numero`, `metadata.machine_id`, `metadata.ligne_id`.
-
-### Hors périmètre (à valider séparément)
-
-- **Atomicité stock PDR** (RPC SQL) — toujours non implémentée, nécessite migration.
-- **Refonte UX clôture mobile** avec saisie PDR — changement plus lourd.
-- **Notification déclencheurs `ticket_resolved`/`ticket_closed` via règles configurables** — l'infra notification_rules existe mais aucune règle pré-câblée ; L3 est un fallback hard-coded en attendant.
-
-### Fichiers touchés (≈9 fichiers, 3–30 lignes chacun)
-
-- `src/pages/shift/ProductionShiftTicket.tsx` — C1
-- `src/hooks/useShiftSessionStats.ts` — C2, L1, L5
-- `src/pages/PreventifDetail.tsx` — C3, R1
-- `src/pages/TicketDetail.tsx` — C4, L2, L3, R3
-- `src/pages/shift/MaintenanceShiftIntervention.tsx` — C4 (variant), L4
-- `src/hooks/useMaintenanceShiftWorkload.ts` — L6
-- `src/pages/InterventionHistory.tsx` — R2
-- Tests : ajout dans `src/test/gmao/` (statut KPI shift maintenance, default PDR opt-in, stop auto-close).
-
-Je ne touche qu'à la logique listée — pas de refonte UI, pas de migration SQL.
+- Aucune table modifiée, juste la fonction RPC (DROP + CREATE OR REPLACE).
+- Aucun changement de signature côté client (`MatchQuality` reste identique).
+- Le mode enrôlement court-circuite `resolveScannedCode` → pas d'aller-retour réseau, plus rapide.
+- Compatibilité ascendante : tous les appelants existants (`ListScanButton`, `InventoryCountScreen`) passent `onResolved` → comportement inchangé. Seul `ExternalIdsCard` bascule en enrôlement.
