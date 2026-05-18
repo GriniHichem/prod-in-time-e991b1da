@@ -28,10 +28,13 @@ export interface ScannerDialogProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   allowedTypes?: ScannableEntityType[];
-  onResolved: (entity: ResolvedScan) => void;
+  /** Si fourni, on tente de résoudre le code via le RPC. Sinon mode enrôlement. */
+  onResolved?: (entity: ResolvedScan) => void;
   onRawValue?: (raw: string) => void;
   title?: string;
   description?: string;
+  /** Force le mode enrôlement: pas d'appel RPC, on renvoie la valeur brute. */
+  enrollMode?: boolean;
 }
 
 const TYPE_LABEL: Record<ScannableEntityType, string> = {
