@@ -84,6 +84,7 @@ import QualiteDecisionReasonsAdmin from "@/pages/parametres/qualite/QualiteDecis
 import QualiteShiftPlanAdmin from "@/pages/parametres/qualite/QualiteShiftPlanAdmin";
 import SearchPage from "@/pages/SearchPage";
 import { GlobalSearchProvider } from "@/components/search/GlobalSearchProvider";
+import { ManualProvider } from "@/contexts/ManualContext";
 import QualiteDashboard from "@/pages/qualite/QualiteDashboard";
 import QualiteOf from "@/pages/qualite/QualiteOf";
 import QualiteIndicateurs from "@/pages/qualite/QualiteIndicateurs";
@@ -138,16 +139,20 @@ function ProtectedRoutes() {
       p.startsWith("/organes");
     if (!allowed) return <Navigate to="/inventaire" replace />;
     return (
-      <GlobalSearchProvider>
-        <InventoryLayout />
-      </GlobalSearchProvider>
+      <ManualProvider>
+        <GlobalSearchProvider>
+          <InventoryLayout />
+        </GlobalSearchProvider>
+      </ManualProvider>
     );
   }
 
   return (
-    <GlobalSearchProvider>
-      <AppLayout />
-    </GlobalSearchProvider>
+    <ManualProvider>
+      <GlobalSearchProvider>
+        <AppLayout />
+      </GlobalSearchProvider>
+    </ManualProvider>
   );
 }
 

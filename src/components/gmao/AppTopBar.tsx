@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Menu, ChevronDown, LayoutGrid, ClipboardCheck, AlertTriangle, ListChecks, FileBarChart, GitBranch, Lock, CheckSquare, Cog, Activity, Sliders, ClipboardList } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SearchTrigger } from "@/components/search/SearchTrigger";
+import { HelpButton } from "@/components/manual/HelpButton";
 
 
 type NavItem = { title: string; url: string; icon: React.FC<any>; module?: string };
@@ -330,6 +331,7 @@ export function AppTopBar() {
               <span className="hidden lg:inline">Voir comme</span>
             </Button>
           )}
+          <HelpButton />
           <NotificationBell />
 
           <div className="h-7 w-px bg-border/60 mx-1.5" />

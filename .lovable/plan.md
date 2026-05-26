@@ -1,75 +1,90 @@
-## Audit système Shift — bugs trouvés et corrections proposées
+# Manuel interactif intégré — Plan
 
-Objectif : organiser, faciliter, automatiser, ne jamais bloquer.
+## Objectif
 
-### Bugs bloquants
+Transformer `MANUAL.md` (1418 lignes, déjà structuré en 12 chapitres) en un **manuel interactif accessible partout dans l'app**, sans dupliquer le contenu (source unique = `MANUAL.md`).
 
-**1. Ouverture manuelle Qualité par le responsable → bloquée par RLS**
-La policy `qshifts_insert_self` exige `controller_id = auth.uid()`. Or `RespShiftConsole.handleOpenSession` insère avec `controller_id = operatorId` (id du contrôleur, pas du responsable). L'insert échoue silencieusement avec une erreur RLS générique.
-→ Élargir la policy : autoriser aussi `admin / responsable_controle_qualite / directeur_qualite` à ouvrir pour un autre `controller_id`.
+## Principes
 
-**2. Ouverture manuelle Production → échoue sur `shifts.heure_fin NOT NULL`**
-La colonne `shifts.heure_fin` est `NOT NULL` sans défaut. Le RPC auto la calcule (heure_debut + 8h), mais `RespShiftConsole` insère sans `heure_fin`. Crash DB dès le premier "Ouvrir une session" sur production.
-→ Ajouter un trigger BEFORE INSERT qui calcule `heure_fin := heure_debut + 8h` quand NULL. Idem `heure_debut_reelle := heure_debut` quand NULL.
+- **Source unique** : `MANUAL.md` reste la vérité. Le manuel UI le lit et le parse, pas de copier-coller.
+- **Non bloquant** : ouverture en panneau latéral (Sheet) qui ne masque pas l'app.
+- **Contextuel** : chaque route propose un raccourci vers la bonne section du manuel.
+- **Rapide** : parsing au build, recherche full-text côté client (le doc fait ~80 Ko, pas besoin de serveur).
 
-**3. Maintenance — session "nuit" perdue après minuit**
-`useActiveMaintenanceShift` filtre `date_shift = today`. Un shift ouvert à 22h disparaît à 00h05 alors que `is_active=true` et que le slot court jusqu'à 5h.
-→ Retirer le filtre `date_shift` (comme prod/qualité) ou autoriser `date_shift in (today, yesterday)` quand `is_active=true`.
+## Étape 1 — Pipeline contenu
 
-### Doublons et incohérences
+- Garder `MANUAL.md` comme source. Ajouter `scripts/build-manual.ts` (exécuté via Vite plugin custom ou à la main) qui :
+  - Lit `MANUAL.md`, le découpe par `##` (chapitres) et `###` (sections).
+  - Génère `src/manual/manual.generated.ts` exportant `MANUAL_SECTIONS: { id, chapter, title, slug, anchor, html, text }[]` + `MANUAL_TOC`.
+  - Rend le Markdown via `marked` (déjà léger) + `dompurify` pour sécuriser.
+- Mapping **route → section** dans `src/manual/manualRouteMap.ts` (ex: `/machines` → `3.2`, `/gpao/of` → `4.2`, `/parametres/smtp` → `6 bis.2`, etc., dérivé de l'annexe 12.1 du manuel).
 
-**4. Doublons de sessions production**
-Aucune unicité sur `shifts(of_id, line_id, date_shift, shift_type) WHERE is_active`. Le RPC `ensure_production_shift_session` gère son propre dédup, mais l'ouverture manuelle responsable ne vérifie rien : 2 sessions peuvent coexister.
-→ Index unique partiel `WHERE is_active = true` + pré-check dans `RespShiftConsole` avec message explicite "Session déjà ouverte pour cette ligne".
+## Étape 2 — UI / UX
 
-**5. `shift_type` libre dans la console responsable**
-La console laisse choisir matin/après-midi/nuit même si l'heure courante ne correspond pas (ouvrir "matin" à 15h). Crée des incohérences avec le trigger Heure-1 sur les déclarations.
-→ Verrouiller sur `derive_shift_type_from_now()` par défaut, override admin uniquement.
+- **Composant `<ManualSheet />`** : panneau latéral droit (shadcn `Sheet`, largeur 480 px desktop / plein écran mobile), ouverture animée, fermable Échap.
+- **Structure interne** :
+  - Header : titre courant, breadcrumb chapitre › section, bouton "Voir tout le manuel".
+  - `<ManualSearch />` : input avec recherche live (debounce 150 ms) sur titres + contenu.
+  - `<ManualToc />` : arbre repliable des 12 chapitres (accordion shadcn).
+  - `<ManualArticle />` : rendu HTML stylé (prose Tailwind), table des matières interne ancrée.
+- **Charte** : réutilise tokens existants (Matte Ceramic, IBM Plex Sans). Couleurs sémantiques :
+  - `primary` pour liens et titres, `accent` pour astuces (`> 💡`), `destructive` pour avertissements (`> ⚠️`).
+- **Accès** :
+  - Bouton "Aide" (icône `BookOpen`) dans `AppTopBar`, raccourci clavier `?`.
+  - Mini bouton flottant contextuel "Aide sur cette page" si la route a un mapping.
 
-**6. Notification trigger se déclenche sur chaque UPDATE**
-`notify_shift_event` exécute pour tout UPDATE, même édition d'`observations`. Le check `OLD.is_active=true AND NEW.is_active=false` filtre la branche close, mais l'INSERT-branch est OK. Pas de bug fonctionnel, juste du bruit / coût trigger.
-→ Limiter le trigger UPDATE à `OF UPDATE OF is_active` (déjà fait pour le trigger `tg_qshift_unlink_closed_production`, à appliquer ici).
+## Étape 3 — État & navigation
 
-### Manque d'autonomie opérateur (anti-blocage)
+- Context `ManualProvider` (`src/contexts/ManualContext.tsx`) :
+  - `open`, `openManual(sectionId?)`, `close`, `currentSectionId`.
+  - Synchronise avec `?manual=<sectionId>` dans l'URL pour permettre les liens directs et le retour.
+  - Persiste la dernière section consultée dans `localStorage`.
+- Navigation interne via ancres `#section-3-2`, scroll smooth, surlignage temporaire de la section cible.
 
-**7. Pas de self-open production**
-Si un chef de ligne arrive et qu'aucun `of_shift_assignments` n'a été configuré, `ensure_my_production_shifts` ne fait rien et le kiosk reste vide. Le `ShiftGuard` affiche "Demandez à votre responsable" → bloqué.
-→ Ajouter un bouton "Démarrer mon shift maintenant" dans `ShiftGuard` (pour `chef_ligne`) qui ouvre un dialogue minimal (ligne + OF en cours) et insère un `shifts` row. Évite la dépendance complète au responsable.
+## Étape 4 — Recherche & performance
 
-**8. Pas de self-open maintenance**
-Même problème : tout passe par le responsable. La maintenance est task-driven, mais le maintenancier ne peut pas démarrer son shift seul.
-→ Bouton "Clock-in maintenance" dans `ShiftGuard` (pour `maintenancier`) avec sélection des lignes couvertes.
+- Index recherche : tableau plat `{id, title, text}` chargé en lazy (`React.lazy` sur `ManualSheet`).
+- Algorithme : match insensible accents (`String.prototype.normalize('NFD')`), score = titre>texte, top 20 résultats avec extrait surligné.
+- Si > 200 ms ressenti plus tard, on pourra basculer sur `minisearch` (mais non requis pour 80 Ko).
+- Lazy load du `ManualSheet` (split du bundle principal). Le `manual.generated.ts` reste dans ce chunk séparé.
+- Pas d'images/vidéos pour l'instant (le manuel est texte) → lazy loading non nécessaire en v1.
 
-**9. Quality identique**
-→ Bouton self-open contrôleur qualité si `ensure_my_quality_shifts` n'a rien créé (pas d'assignation).
+## Étape 5 — Tests & qualité
 
-### Améliorations qualité de vie
+- `src/test/manual/manual-parser.test.ts` : parsing de quelques chapitres, slugs stables, ancres correctes.
+- `src/test/manual/manual-search.test.ts` : recherche accent-insensible, scoring.
+- `src/test/manual/manual-route-map.test.ts` : chaque entrée du mapping pointe vers une section existante.
+- Vérif manuelle : ouverture depuis 5 pages clés (Machines, OF, Tickets, SMTP, Shifts).
 
-**10. `CloseShiftButton.logAudit` utilise des modules invalides** (`"production"`, `"maintenance"` au lieu de `gpao`, `interventions`). Aligner sur `RespShiftConsole`.
+## Étape 6 — Mémoire & docs
 
-**11. `ShiftLayout` "Quitter sans clôturer"** laisse la session active indéfiniment. Ajouter un soft-reminder visuel après slot+1h, et un cron léger (edge function ou trigger sur heartbeat) qui auto-clôture les sessions actives dont `heure_fin + 2h < now()`.
+- Ajouter mémoire `mem://features/interactive-manual` (source = MANUAL.md, route map, raccourci `?`).
+- Mettre à jour l'index mémoire.
 
-**12. `OfShiftPlanTab`** : pas de garde-fou contre l'affectation du même chef à 2 créneaux qui se chevauchent ni à 2 OFs simultanés. Ajouter une vérification côté UI + un index unique partiel sur `(chef_ligne_id, shift_type) WHERE is_active`.
+## Détails techniques
 
-### Plan d'exécution
+### Fichiers créés
+- `scripts/build-manual.ts` — parseur MD → TS
+- `src/manual/manual.generated.ts` — données (générées, en repo pour simplicité)
+- `src/manual/manualRouteMap.ts`
+- `src/contexts/ManualContext.tsx`
+- `src/components/manual/ManualSheet.tsx`
+- `src/components/manual/ManualSearch.tsx`
+- `src/components/manual/ManualToc.tsx`
+- `src/components/manual/ManualArticle.tsx`
+- `src/components/manual/HelpButton.tsx` (bouton topbar + flottant)
+- Tests sous `src/test/manual/`
 
-1. Migration SQL :
-   - Trigger `BEFORE INSERT` sur `shifts` pour défaut `heure_fin` / `heure_debut_reelle`.
-   - Élargir policy `qshifts_insert_self` aux rôles responsables.
-   - Restreindre `notify_shift_event` UPDATE à `OF UPDATE OF is_active`.
-   - Index unique partiel sur `shifts(of_id, line_id, date_shift, shift_type) WHERE is_active`.
-   - Edge function planifiée `auto-close-stale-shifts` (toutes les 30 min).
+### Fichiers modifiés
+- `src/App.tsx` — wrap avec `ManualProvider`, raccourci `?`
+- `src/components/gmao/AppTopBar.tsx` — bouton aide
+- `package.json` — script `build:manual`, deps `marked` + `dompurify` (légères)
 
-2. Frontend :
-   - `RespShiftConsole` : pré-check doublon, `shift_type` calculé par défaut, gestion erreur RLS claire.
-   - `ShiftGuard` : bouton self-open par kind (3 dialogues légers).
-   - `useActiveMaintenanceShift` : retirer le filtre `date_shift`.
-   - `CloseShiftButton` : corriger les modules d'audit.
-   - `OfShiftPlanTab` : warning UI sur conflit chef/slot.
+### Hors scope v1
+- Mise en surbrillance d'éléments UI depuis le manuel (étape 4 du brief original) — nécessite des `data-manual-target` partout, à faire en v2.
+- Analytics de consultation — à brancher plus tard sur la table `audit_logs` existante si besoin.
+- Édition du manuel depuis l'app — `MANUAL.md` reste édité en repo.
 
-3. Tests :
-   - `src/test/shift/shift-auto-close.test.ts` : logique edge function.
-   - `src/test/shift/shift-self-open.test.tsx` : flux self-open.
-   - `src/test/shift/maintenance-night-shift.test.ts` : session nuit visible après minuit.
+## Livrable
 
-4. Mémoires mises à jour : `mem://features/shift-management`, `mem://features/shift-apps-isolation`, `mem://features/shift-auto-generation`.
+Bouton "Aide" partout, panneau latéral avec recherche live et table des matières, sections accessibles en 1 clic depuis n'importe quelle page mappée, sans recharger.

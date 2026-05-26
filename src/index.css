@@ -175,3 +175,44 @@
     box-shadow: 0 0 8px hsl(var(--sidebar-glow) / 0.5);
   }
 }
+
+/* Manual prose styling — themed via design tokens */
+@layer components {
+  .manual-prose {
+    @apply text-[13.5px] leading-relaxed text-foreground;
+  }
+  .manual-prose h1 { @apply text-xl font-bold mt-6 mb-3 text-foreground; }
+  .manual-prose h2 { @apply text-lg font-bold mt-5 mb-2 text-foreground; }
+  .manual-prose h3 { @apply text-base font-semibold mt-4 mb-2 text-foreground; }
+  .manual-prose h4 { @apply text-sm font-semibold mt-3 mb-1 text-foreground/90; }
+  .manual-prose p { @apply my-2; }
+  .manual-prose ul { @apply list-disc pl-5 my-2 space-y-1; }
+  .manual-prose ol { @apply list-decimal pl-5 my-2 space-y-1; }
+  .manual-prose li { @apply text-foreground/90; }
+  .manual-prose a { @apply text-primary underline-offset-2 hover:underline; }
+  .manual-prose strong { @apply font-semibold text-foreground; }
+  .manual-prose em { @apply italic; }
+  .manual-prose code {
+    @apply px-1 py-0.5 rounded bg-muted text-[12px] font-mono text-foreground;
+  }
+  .manual-prose pre {
+    @apply bg-muted/60 border border-border/60 rounded-md p-3 my-3 overflow-x-auto text-[12px];
+  }
+  .manual-prose pre code { @apply bg-transparent p-0; }
+  .manual-prose blockquote {
+    @apply border-l-2 border-primary/60 bg-primary/5 pl-3 pr-2 py-1.5 my-3 italic text-foreground/85 rounded-r;
+  }
+  .manual-prose hr { @apply my-4 border-border/60; }
+  .manual-prose table {
+    @apply w-full text-[12.5px] border-collapse my-3;
+  }
+  .manual-prose th {
+    @apply text-left font-semibold bg-muted px-2 py-1.5 border border-border;
+  }
+  .manual-prose td {
+    @apply px-2 py-1.5 border border-border align-top;
+  }
+  .manual-prose img {
+    @apply rounded border border-border my-3 max-w-full;
+  }
+}
