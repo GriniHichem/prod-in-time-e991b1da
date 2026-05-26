@@ -401,73 +401,8 @@ export default function RecipesPage() {
         </div>
       </div>
 
-      {/* Add line dialog */}
-      <Dialog open={lineDialogOpen} onOpenChange={setLineDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Ajouter un article</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Article *</Label>
-              <Select value={lineArticleId} onValueChange={setLineArticleId}>
-                <SelectTrigger className="h-12"><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                <SelectContent>
-                  {articles.map((a) => <SelectItem key={a.id} value={a.id}>{a.code} — {a.designation}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Quantité *</Label>
-                <Input type="number" value={lineQte} onChange={(e) => setLineQte(e.target.value)} className="h-12" placeholder="0" step="0.01" />
-              </div>
-              <div className="space-y-2">
-                <Label>Unité</Label>
-                <Select value={lineUnite} onValueChange={setLineUnite}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kg">kg</SelectItem>
-                    <SelectItem value="g">g</SelectItem>
-                    <SelectItem value="l">L</SelectItem>
-                    <SelectItem value="ml">mL</SelectItem>
-                    <SelectItem value="unité">Unité</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={lineItemType} onValueChange={setLineItemType}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="raw_material">Matière première</SelectItem>
-                    <SelectItem value="packaging">Emballage</SelectItem>
-                    <SelectItem value="label">Étiquette</SelectItem>
-                    <SelectItem value="carton">Carton</SelectItem>
-                    <SelectItem value="pallet">Palette</SelectItem>
-                    <SelectItem value="consumable">Consommable</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Perte %</Label>
-                <Input type="number" value={lineWastePercent} onChange={(e) => setLineWastePercent(e.target.value)} className="h-12" placeholder="0" step="0.01" />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={lineMandatory} onChange={(e) => setLineMandatory(e.target.checked)} className="h-4 w-4" />
-                Composant obligatoire
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={lineQualitySensitive} onChange={(e) => setLineQualitySensitive(e.target.checked)} className="h-4 w-4" />
-                Qualité sensible (suivi renforcé en contrôle qualité)
-              </label>
-            </div>
-            <Button onClick={handleAddLine} className="w-full h-12">Ajouter</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Composition edition désactivée ici — gérée dans Qualité → Recettes & nomenclatures */}
+
 
       {/* Recipes grouped by product */}
       {productGroups.length === 0 ? (
@@ -583,16 +518,16 @@ export default function RecipesPage() {
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground uppercase tracking-wide">
-                                      <Package className="h-3 w-3" /> Composition (par kg produit fini)
+                                      <Package className="h-3 w-3" /> Composition (par kg produit fini) — lecture seule
                                     </p>
-                                    {canManage && (
-                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openAddLine(r.id)}>
-                                        <Plus className="h-3 w-3 mr-1" /> Article
-                                      </Button>
-                                    )}
+                                    <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+                                      <Link to="/qualite/recettes-nomenclatures">
+                                        <Edit className="h-3 w-3 mr-1" /> Modifier dans Qualité
+                                      </Link>
+                                    </Button>
                                   </div>
                                   {lines.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">Aucun article — ajoutez les matières premières</p>
+                                    <p className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">Aucun article — à ajouter dans Qualité → Recettes & nomenclatures</p>
                                   ) : (
                                     <Table>
                                       <TableHeader>
@@ -602,7 +537,7 @@ export default function RecipesPage() {
                                           <TableHead>Désignation</TableHead>
                                           <TableHead>Quantité</TableHead>
                                           <TableHead>Unité</TableHead>
-                                          {canManage && <TableHead className="w-10" />}
+                                          
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -615,13 +550,6 @@ export default function RecipesPage() {
                                              <TableCell className="text-sm">{l.articles?.designation}</TableCell>
                                             <TableCell className="tabular-nums font-medium">{l.quantite}</TableCell>
                                             <TableCell className="text-sm">{l.unite}</TableCell>
-                                            {canManage && (
-                                              <TableCell>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteLine(l.id)}>
-                                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                                </Button>
-                                              </TableCell>
-                                            )}
                                           </TableRow>
                                         ))}
                                       </TableBody>
