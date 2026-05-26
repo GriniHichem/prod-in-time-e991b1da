@@ -1,0 +1,230 @@
+/**
+ * Dialogue self-open : permet à un opérateur de démarrer son shift
+ * sans dépendre de son responsable. Utile quand aucun plan d'affectation
+ * n'a été configuré (anti-blocage).
+ */
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useActiveShift, ShiftKind } from "@/contexts/ActiveShiftContext";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Loader2 } from "lucide-react";
+import { logAudit } from "@/lib/audit";
+
+function deriveShiftTypeFromHour(hour: number): "matin" | "apres_midi" | "nuit" {
+  if (hour >= 5 && hour < 13) return "matin";
+  if (hour >= 13 && hour < 21) return "apres_midi";
+  return "nuit";
+}
+
+interface Props {
+  kind: ShiftKind;
+}
+
+export function SelfOpenShiftDialog({ kind }: Props) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { refresh } = useActiveShift();
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [lines, setLines] = useState<any[]>([]);
+  const [ofs, setOfs] = useState<any[]>([]);
+  const [teamId, setTeamId] = useState("__none__");
+  const [lineId, setLineId] = useState("");
+  const [ofId, setOfId] = useState("__none__");
+  const [selectedLineIds, setSelectedLineIds] = useState<string[]>([]);
+  const shiftType = deriveShiftTypeFromHour(new Date().getHours());
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const [tRes, lRes] = await Promise.all([
+        supabase.from("shift_teams").select("id, code, name").eq("is_active", true).order("code"),
+        supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
+      ]);
+      setTeams(tRes.data ?? []);
+      setLines(lRes.data ?? []);
+      if (kind === "production") {
+        const { data } = await supabase
+          .from("ordres_fabrication")
+          .select("id, numero, line_id")
+          .in("statut", ["en_cours", "planifie"])
+          .order("numero", { ascending: false });
+        setOfs(data ?? []);
+      }
+    })();
+  }, [open, kind]);
+
+  async function handleStart() {
+    if (!user) return;
+    setSubmitting(true);
+    try {
+      if (kind === "production") {
+        if (!lineId) { toast({ title: "Sélectionnez une ligne", variant: "destructive" }); setSubmitting(false); return; }
+        if (ofId === "__none__") { toast({ title: "Sélectionnez un OF en cours", variant: "destructive" }); setSubmitting(false); return; }
+        // preflight duplicate
+        const today = (new Date()).toISOString().slice(0, 10);
+        const { data: dup } = await supabase
+          .from("shifts")
+          .select("id")
+          .eq("of_id", ofId)
+          .eq("line_id", lineId)
+          .eq("date_shift", today)
+          .eq("shift_type", shiftType)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (dup) {
+          toast({ title: "Session déjà ouverte pour ce créneau", description: "Aucune nouvelle session créée." });
+          setOpen(false); await refresh(); setSubmitting(false); return;
+        }
+        const { error } = await supabase.from("shifts").insert({
+          of_id: ofId,
+          line_id: lineId,
+          shift_type: shiftType,
+          shift_team_id: teamId === "__none__" ? null : teamId,
+          chef_ligne_id: user.id,
+          heure_debut: new Date().toISOString(),
+          is_active: true,
+          opened_by: user.id,
+        } as any);
+        if (error) throw error;
+        await logAudit({
+          action_type: "create", module: "gpao", action: "shift_self_open",
+          entity_type: "shifts", description: "Démarrage shift par l'opérateur (self-open)",
+        });
+      } else if (kind === "maintenance") {
+        if (selectedLineIds.length === 0) { toast({ title: "Sélectionnez au moins une ligne", variant: "destructive" }); setSubmitting(false); return; }
+        const { error } = await supabase.from("maintenance_shifts" as any).insert({
+          shift_type: shiftType,
+          shift_team_id: teamId === "__none__" ? null : teamId,
+          maintenancier_id: user.id,
+          line_ids: selectedLineIds,
+          heure_debut: new Date().toISOString(),
+          is_active: true,
+          opened_by: user.id,
+        });
+        if (error) throw error;
+        await logAudit({
+          action_type: "create", module: "interventions", action: "maintenance_shift_self_open",
+          entity_type: "maintenance_shifts", description: "Démarrage shift maintenance par l'opérateur",
+        });
+      } else {
+        if (selectedLineIds.length === 0) { toast({ title: "Sélectionnez au moins une ligne", variant: "destructive" }); setSubmitting(false); return; }
+        const { data: qs, error } = await supabase.from("quality_shifts" as any).insert({
+          shift_type: shiftType,
+          shift_team_id: teamId === "__none__" ? null : teamId,
+          controller_id: user.id,
+          heure_debut: new Date().toISOString(),
+          is_active: true,
+          opened_by: user.id,
+        }).select().single();
+        if (error) throw error;
+        const rows = selectedLineIds.map((lid) => ({ quality_shift_id: (qs as any).id, production_line_id: lid }));
+        if (rows.length) await supabase.from("quality_shift_lines" as any).insert(rows);
+        await logAudit({
+          action_type: "create", module: "qualite" as any, action: "quality_shift_self_open",
+          entity_type: "quality_shifts", description: "Démarrage shift qualité par l'opérateur",
+        });
+      }
+
+      toast({ title: "Shift démarré" });
+      setOpen(false);
+      await refresh();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function toggleLine(id: string) {
+    setSelectedLineIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
+  const slotLabel = shiftType === "matin" ? "Matin" : shiftType === "apres_midi" ? "Après-midi" : "Nuit";
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="lg">
+          <Play className="h-4 w-4 mr-2" /> Démarrer mon shift maintenant
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Démarrer mon shift — {slotLabel}</DialogTitle>
+          <DialogDescription>
+            Aucun plan n'a été configuré par votre responsable. Vous pouvez ouvrir votre session vous-même.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Équipe (optionnel)</Label>
+            <Select value={teamId} onValueChange={setTeamId}>
+              <SelectTrigger><SelectValue placeholder="Aucune" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Aucune —</SelectItem>
+                {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.code} — {t.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {kind === "production" ? (
+            <>
+              <div className="space-y-1.5">
+                <Label>Ligne *</Label>
+                <Select value={lineId} onValueChange={setLineId}>
+                  <SelectTrigger><SelectValue placeholder="Choisir une ligne…" /></SelectTrigger>
+                  <SelectContent>
+                    {lines.map((l) => <SelectItem key={l.id} value={l.id}>{l.code} — {l.designation}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>OF en cours *</Label>
+                <Select value={ofId} onValueChange={setOfId}>
+                  <SelectTrigger><SelectValue placeholder="Choisir un OF…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Aucun —</SelectItem>
+                    {ofs
+                      .filter((o) => !lineId || o.line_id === lineId)
+                      .map((o) => <SelectItem key={o.id} value={o.id}>{o.numero}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Lignes couvertes *</Label>
+              <div className="border rounded-md p-2 max-h-48 overflow-auto space-y-1">
+                {lines.map((l) => (
+                  <label key={l.id} className="flex items-center gap-2 text-sm py-1 px-1 hover:bg-accent rounded cursor-pointer">
+                    <Checkbox checked={selectedLineIds.includes(l.id)} onCheckedChange={() => toggleLine(l.id)} />
+                    <span><span className="font-medium">{l.code}</span> — {l.designation}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Annuler</Button>
+          <Button onClick={handleStart} disabled={submitting}>
+            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+            Démarrer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

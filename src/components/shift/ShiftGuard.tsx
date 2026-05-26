@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ClipboardCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useActiveShift } from "@/contexts/ActiveShiftContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { SelfOpenShiftDialog } from "@/components/shift/SelfOpenShiftDialog";
 
 interface ShiftGuardProps {
   children: ReactNode;
@@ -15,9 +17,11 @@ interface ShiftGuardProps {
  * Blocks rendering of inner shift sub-pages when the user has no active shift.
  * The "home" page of each shift app handles starting a shift and should set
  * allowWithoutShift={true}.
+ * Si l'opérateur a le rôle adéquat, il peut self-open sa session (anti-blocage).
  */
 export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardProps) {
   const { kind, productionShift, maintenanceShift, qualityShift, loading } = useActiveShift();
+  const { hasRole } = useAuth();
 
   if (loading) {
     return (
@@ -34,6 +38,7 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
     (kind === "quality" && !!qualityShift);
 
   if (hasActive || allowWithoutShift) return <>{children}</>;
+
 
   const homeUrl =
     kind === "production" ? "/gpao/shift" :
