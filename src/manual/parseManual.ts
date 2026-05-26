@@ -46,7 +46,6 @@ function splitNumberTitle(headingText: string): { number: string; title: string 
   return { number: "", title: headingText.trim() };
 }
 
-const cache = new WeakMap<object, { sections: ManualSection[]; toc: ManualToc }>();
 const stringCache = new Map<string, { sections: ManualSection[]; toc: ManualToc }>();
 
 export function parseManual(raw: string): { sections: ManualSection[]; toc: ManualToc } {
@@ -121,8 +120,9 @@ export function parseManual(raw: string): { sections: ManualSection[]; toc: Manu
   }
   const toc: ManualToc = { chapters: Array.from(chaptersMap.values()) };
 
-  cached = { sections, toc };
-  return cached;
+  const result = { sections, toc };
+  stringCache.set(raw, result);
+  return result;
 }
 
 /** Returns sections matching the query, scored. */
