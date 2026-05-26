@@ -17,7 +17,12 @@ import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
 
-export default function RecipesPage() {
+interface RecipesPageProps {
+  readOnly?: boolean;
+  hideHeader?: boolean;
+}
+
+export default function RecipesPage({ readOnly = false, hideHeader = false }: RecipesPageProps = {}) {
   const { hasRole } = useAuth();
   const { toast } = useToast();
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -69,7 +74,8 @@ export default function RecipesPage() {
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
-  const canManage = hasRole("admin") || hasRole("resp_production");
+  const canManage = !readOnly && (hasRole("admin") || hasRole("resp_production") || hasRole("resp_qualite"));
+
 
   const load = async () => {
     const [rRes, pRes, aRes, rlRes, rsRes, qiRes, ofRes] = await Promise.all([
