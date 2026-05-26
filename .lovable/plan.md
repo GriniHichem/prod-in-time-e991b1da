@@ -1,83 +1,75 @@
-## Historique des scans QR / code-barres
+## Audit système Shift — bugs trouvés et corrections proposées
 
-Créer un journal persistant et consultable de tous les scans effectués via `ScannerDialog`, avec horodatage, utilisateur, type de code et résultat (succès / échec / ambigu).
+Objectif : organiser, faciliter, automatiser, ne jamais bloquer.
 
-### 1. Base de données
+### Bugs bloquants
 
-Nouvelle table `public.scan_history` :
-- `id uuid pk`
-- `user_id uuid` (auth.uid())
-- `scanned_at timestamptz default now()`
-- `raw_value text` — valeur brute lue
-- `normalized_value text` — sortie de `normalizeScanInput`
-- `source text` — `camera` | `manual` | `enroll`
-- `code_format text` — format ZXing détecté (QR_CODE, EAN_13, CODE_128, URL, UUID…) ou `unknown`
-- `outcome text` — `resolved` | `ambiguous` | `not_found` | `enrolled` | `error`
-- `match_quality text` — `url`/`uuid`/`exact`/`prefix`/null
-- `matches_count int`
-- `entity_type text` (pdr/machine/organe/equipement) — null si non résolu
-- `entity_id uuid` — null si non résolu
-- `entity_code text`, `entity_label text` — snapshot lisible
-- `context text` — page d'origine (ex: `pdr_list`, `enroll_external_ids`)
-- `error_message text` — si outcome=error
-- `search_vector tsvector` (trigger `fts_build`)
+**1. Ouverture manuelle Qualité par le responsable → bloquée par RLS**
+La policy `qshifts_insert_self` exige `controller_id = auth.uid()`. Or `RespShiftConsole.handleOpenSession` insère avec `controller_id = operatorId` (id du contrôleur, pas du responsable). L'insert échoue silencieusement avec une erreur RLS générique.
+→ Élargir la policy : autoriser aussi `admin / responsable_controle_qualite / directeur_qualite` à ouvrir pour un autre `controller_id`.
 
-Index : `(user_id, scanned_at desc)`, `(outcome)`, `(entity_type, entity_id)`, GIN sur `search_vector`.
+**2. Ouverture manuelle Production → échoue sur `shifts.heure_fin NOT NULL`**
+La colonne `shifts.heure_fin` est `NOT NULL` sans défaut. Le RPC auto la calcule (heure_debut + 8h), mais `RespShiftConsole` insère sans `heure_fin`. Crash DB dès le premier "Ouvrir une session" sur production.
+→ Ajouter un trigger BEFORE INSERT qui calcule `heure_fin := heure_debut + 8h` quand NULL. Idem `heure_debut_reelle := heure_debut` quand NULL.
 
-RLS :
-- SELECT : utilisateur voit ses propres scans ; admin + `responsable_si` voient tout.
-- INSERT : authentifié, `user_id = auth.uid()`.
-- UPDATE/DELETE : interdit (immuable, comme `audit_logs`).
+**3. Maintenance — session "nuit" perdue après minuit**
+`useActiveMaintenanceShift` filtre `date_shift = today`. Un shift ouvert à 22h disparaît à 00h05 alors que `is_active=true` et que le slot court jusqu'à 5h.
+→ Retirer le filtre `date_shift` (comme prod/qualité) ou autoriser `date_shift in (today, yesterday)` quand `is_active=true`.
 
-Rétention : pas de purge auto au début (table légère). Documenter une purge manuelle optionnelle plus tard.
+### Doublons et incohérences
 
-### 2. Logging côté client
+**4. Doublons de sessions production**
+Aucune unicité sur `shifts(of_id, line_id, date_shift, shift_type) WHERE is_active`. Le RPC `ensure_production_shift_session` gère son propre dédup, mais l'ouverture manuelle responsable ne vérifie rien : 2 sessions peuvent coexister.
+→ Index unique partiel `WHERE is_active = true` + pré-check dans `RespShiftConsole` avec message explicite "Session déjà ouverte pour cette ligne".
 
-Nouveau helper `src/lib/scanHistory.ts` :
-- `logScan(entry: ScanHistoryEntry)` — `insert` direct dans `scan_history`, fire-and-forget (try/catch silencieux pour ne jamais bloquer un scan).
-- Détecte le format depuis le payload : UUID regex, URL regex, sinon laisse `unknown` (ZXing renvoie le format dans `BarcodeFormat` — on l'expose depuis `useScanner.onDetected` via un 2e argument).
+**5. `shift_type` libre dans la console responsable**
+La console laisse choisir matin/après-midi/nuit même si l'heure courante ne correspond pas (ouvrir "matin" à 15h). Crée des incohérences avec le trigger Heure-1 sur les déclarations.
+→ Verrouiller sur `derive_shift_type_from_now()` par défaut, override admin uniquement.
 
-Branchements :
-- `ScannerDialog.handleResolve` : log à chaque résolution (success/ambiguous/not_found) avec snapshot du 1er match si auto-sélection.
-- Mode enrôlement : log `outcome=enrolled`, `entity_*` = null.
-- Erreur RPC : log `outcome=error` + message.
-- Saisie manuelle : `source=manual`.
+**6. Notification trigger se déclenche sur chaque UPDATE**
+`notify_shift_event` exécute pour tout UPDATE, même édition d'`observations`. Le check `OLD.is_active=true AND NEW.is_active=false` filtre la branche close, mais l'INSERT-branch est OK. Pas de bug fonctionnel, juste du bruit / coût trigger.
+→ Limiter le trigger UPDATE à `OF UPDATE OF is_active` (déjà fait pour le trigger `tg_qshift_unlink_closed_production`, à appliquer ici).
 
-`useScanner.ts` : étendre `onDetected(text, format?)` pour propager `BarcodeFormat` ZXing.
+### Manque d'autonomie opérateur (anti-blocage)
 
-### 3. Page UI consultable
+**7. Pas de self-open production**
+Si un chef de ligne arrive et qu'aucun `of_shift_assignments` n'a été configuré, `ensure_my_production_shifts` ne fait rien et le kiosk reste vide. Le `ShiftGuard` affiche "Demandez à votre responsable" → bloqué.
+→ Ajouter un bouton "Démarrer mon shift maintenant" dans `ShiftGuard` (pour `chef_ligne`) qui ouvre un dialogue minimal (ligne + OF en cours) et insère un `shifts` row. Évite la dépendance complète au responsable.
 
-Nouvelle route `/parametres/scan-history` (composant `ScanHistoryPage.tsx`) :
-- Accessible aux titulaires de la permission `parametres` (admin/resp_si voient tout, autres voient uniquement leurs scans — filtre serveur via RLS).
-- KPI cards : total 24h, taux de succès, ambigus, non trouvés.
-- Filtres : période (DateRangeFilter existant), outcome (chips), type d'entité, source, recherche texte (FTS sur `search_vector`).
-- Tableau (pattern `AuditTable`) : date, utilisateur, source, format, valeur brute (tronquée + copy), outcome (badge coloré), entité (lien cliquable si résolu), match_quality.
-- Bouton `ExportCsvButton` (composant existant).
-- Détail au clic → `Sheet` avec payload complet + bouton "Rescanner" (réinjecte la valeur brute dans `ScannerDialog`).
+**8. Pas de self-open maintenance**
+Même problème : tout passe par le responsable. La maintenance est task-driven, mais le maintenancier ne peut pas démarrer son shift seul.
+→ Bouton "Clock-in maintenance" dans `ShiftGuard` (pour `maintenancier`) avec sélection des lignes couvertes.
 
-### 4. Intégrations annexes
+**9. Quality identique**
+→ Bouton self-open contrôleur qualité si `ensure_my_quality_shifts` n'a rien créé (pas d'assignation).
 
-- `ScannerDialog` : remplacer l'historique sessionStorage (`HISTORY_KEY`) par un fetch des 6 derniers scans **réussis** de l'utilisateur courant depuis `scan_history` (fallback session si offline). Garde l'UX "Récents".
-- `Apps.tsx` : ajouter une carte rapide vers `/parametres/scan-history` dans la catégorie "Paramètres".
-- Sidebar `Parametres` : nouvelle entrée "Historique des scans".
+### Améliorations qualité de vie
 
-### 5. Tests
+**10. `CloseShiftButton.logAudit` utilise des modules invalides** (`"production"`, `"maintenance"` au lieu de `gpao`, `interventions`). Aligner sur `RespShiftConsole`.
 
-- `src/test/scanner/scan-history.test.ts` :
-  - `logScan` ne lève jamais (mock supabase rejette → silencieux).
-  - Détection format (UUID, URL, code numérique → code-barres).
-  - Mapping outcome selon résultat RPC (0 / 1+exact / 1+prefix / 2+).
-- `src/test/scanner/scan-history-rls.test.ts` (logique permissions client) : non-admin ne voit pas un scan d'autrui (filtre `.eq('user_id', uid)` appliqué côté hook).
+**11. `ShiftLayout` "Quitter sans clôturer"** laisse la session active indéfiniment. Ajouter un soft-reminder visuel après slot+1h, et un cron léger (edge function ou trigger sur heartbeat) qui auto-clôture les sessions actives dont `heure_fin + 2h < now()`.
 
-### 6. Mémoire
+**12. `OfShiftPlanTab`** : pas de garde-fou contre l'affectation du même chef à 2 créneaux qui se chevauchent ni à 2 OFs simultanés. Ajouter une vérification côté UI + un index unique partiel sur `(chef_ligne_id, shift_type) WHERE is_active`.
 
-Mettre à jour `mem://features/scanner-codes` pour mentionner la table `scan_history`, le logging fire-and-forget, et la page `/parametres/scan-history`.
+### Plan d'exécution
 
-### Détails techniques
+1. Migration SQL :
+   - Trigger `BEFORE INSERT` sur `shifts` pour défaut `heure_fin` / `heure_debut_reelle`.
+   - Élargir policy `qshifts_insert_self` aux rôles responsables.
+   - Restreindre `notify_shift_event` UPDATE à `OF UPDATE OF is_active`.
+   - Index unique partiel sur `shifts(of_id, line_id, date_shift, shift_type) WHERE is_active`.
+   - Edge function planifiée `auto-close-stale-shifts` (toutes les 30 min).
 
-- Migration SQL : table + RLS + trigger FTS + index. Aucune modification du RPC `resolve_scanned_code`.
-- Le logging passe par `supabase.from('scan_history').insert(...)` sans `await` bloquant l'UI (Promise détachée + catch console.warn).
-- `BarcodeFormat` ZXing → string via `BarcodeFormat[format]`.
-- Le bouton "Rescanner" depuis le détail réouvre `ScannerDialog` avec `manual` pré-rempli.
-- Pas d'impact sur le mode enrôlement existant : on log juste l'événement.
-- Compatible self-hosting (RLS standard, pas de service role).
+2. Frontend :
+   - `RespShiftConsole` : pré-check doublon, `shift_type` calculé par défaut, gestion erreur RLS claire.
+   - `ShiftGuard` : bouton self-open par kind (3 dialogues légers).
+   - `useActiveMaintenanceShift` : retirer le filtre `date_shift`.
+   - `CloseShiftButton` : corriger les modules d'audit.
+   - `OfShiftPlanTab` : warning UI sur conflit chef/slot.
+
+3. Tests :
+   - `src/test/shift/shift-auto-close.test.ts` : logique edge function.
+   - `src/test/shift/shift-self-open.test.tsx` : flux self-open.
+   - `src/test/shift/maintenance-night-shift.test.ts` : session nuit visible après minuit.
+
+4. Mémoires mises à jour : `mem://features/shift-management`, `mem://features/shift-apps-isolation`, `mem://features/shift-auto-generation`.

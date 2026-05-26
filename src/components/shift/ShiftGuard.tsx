@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ClipboardCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useActiveShift } from "@/contexts/ActiveShiftContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { SelfOpenShiftDialog } from "@/components/shift/SelfOpenShiftDialog";
 
 interface ShiftGuardProps {
   children: ReactNode;
@@ -15,9 +17,11 @@ interface ShiftGuardProps {
  * Blocks rendering of inner shift sub-pages when the user has no active shift.
  * The "home" page of each shift app handles starting a shift and should set
  * allowWithoutShift={true}.
+ * Si l'opérateur a le rôle adéquat, il peut self-open sa session (anti-blocage).
  */
 export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardProps) {
   const { kind, productionShift, maintenanceShift, qualityShift, loading } = useActiveShift();
+  const { hasRole } = useAuth();
 
   if (loading) {
     return (
@@ -35,10 +39,16 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
 
   if (hasActive || allowWithoutShift) return <>{children}</>;
 
+
   const homeUrl =
     kind === "production" ? "/gpao/shift" :
     kind === "maintenance" ? "/maintenance/shift" :
     kind === "quality" ? "/qualite/shift" : "/apps";
+
+  const canSelfOpen =
+    (kind === "production" && hasRole("chef_ligne" as any)) ||
+    (kind === "maintenance" && hasRole("maintenancier" as any)) ||
+    (kind === "quality" && (hasRole("controleur_qualite" as any) || hasRole("responsable_controle_qualite" as any) || hasRole("directeur_qualite" as any)));
 
   return (
     <Card className="max-w-lg mx-auto mt-8">
@@ -47,9 +57,12 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
         <div>
           <h2 className="text-lg font-semibold">Aucune session de shift active</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Demandez à votre responsable d'ouvrir votre session de shift pour accéder à cette page.
+            {canSelfOpen
+              ? "Démarrez votre session ci-dessous, ou demandez à votre responsable de l'ouvrir pour vous."
+              : "Demandez à votre responsable d'ouvrir votre session de shift pour accéder à cette page."}
           </p>
         </div>
+        {canSelfOpen && <SelfOpenShiftDialog kind={kind} />}
         <Button asChild variant="outline">
           <Link to={homeUrl}>Retour à l'accueil shift</Link>
         </Button>
@@ -57,3 +70,4 @@ export function ShiftGuard({ children, allowWithoutShift = false }: ShiftGuardPr
     </Card>
   );
 }
+
