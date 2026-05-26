@@ -537,7 +537,7 @@ export default function RecipesPage() {
                                           <TableHead>Désignation</TableHead>
                                           <TableHead>Quantité</TableHead>
                                           <TableHead>Unité</TableHead>
-                                          {canManage && <TableHead className="w-10" />}
+                                          
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
