@@ -46,10 +46,12 @@ function splitNumberTitle(headingText: string): { number: string; title: string 
   return { number: "", title: headingText.trim() };
 }
 
-let cached: { sections: ManualSection[]; toc: ManualToc } | null = null;
+const cache = new WeakMap<object, { sections: ManualSection[]; toc: ManualToc }>();
+const stringCache = new Map<string, { sections: ManualSection[]; toc: ManualToc }>();
 
 export function parseManual(raw: string): { sections: ManualSection[]; toc: ManualToc } {
-  if (cached) return cached;
+  const hit = stringCache.get(raw);
+  if (hit) return hit;
 
   // Drop the top H1 + TOC. Split by "\n## " lines.
   const lines = raw.split("\n");
