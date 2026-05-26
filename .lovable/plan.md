@@ -1,78 +1,56 @@
-# Plan : Manuel parfait pour nouvel utilisateur
-
 ## Objectif
-Transformer `MANUAL.md` (1418 lignes, technique) en un **guide pédagogique** orienté débutant, riche en **icônes**, **schémas ASCII**, **exemples concrets** et **parcours pas-à-pas**, tout en restant la source unique lue par le `ManualSheet` interactif déjà en place.
 
-## Principes
-- **Une seule source** : `MANUAL.md` à la racine (copié vers `public/MANUAL.md` pour le lien "Source"). Le parseur existant (`parseManual.ts`) consomme `##`/`###` — on garde cette structure.
-- **Icônes inline** : usage d'emojis Lucide-équivalents (📘 🔧 🏭 ✅ ⚠️ 🔍 🧑‍🔧 📦 🛒 📊 🔔 🔐 🧪 📋 ⏱️ ▶️ ⏸️) déjà supportés par `marked` — pas besoin de toucher le parseur.
-- **Schémas ASCII** dans blocs ```` ```text ```` (workflows OF, hiérarchie actifs, cycle ticket, shift…).
-- **Exemples concrets nommés** (ex : « OF-2026-042, ligne L1, produit Yaourt Nature 125g »).
-- **Encadrés pédagogiques** : `> 💡 Astuce`, `> ⚠️ Attention`, `> 📌 Exemple`, `> 🎯 Cas d'usage`.
+Remplacer le placeholder `/qualite/of` par une vraie page de pilotage qualité des OF. Toute la logique backend existe déjà (`quality_status`, RPC `get_quality_indicators_for_of`, `quality_checks`, `set_of_quality_status`) et le composant `OfQualityTab` est déjà fonctionnel dans le détail OF — il s'agit donc juste de construire la vue liste.
 
-## Nouveau plan de MANUAL.md (v3.0)
+## Changements
 
-### Section ajoutée — Chapitre 0 bis : Démarrage rapide (nouvel utilisateur)
-- « Mes 5 premières minutes » selon le rôle (Opérateur, Chef de ligne, Maintenancier, Qualité, Admin)
-- Schéma ASCII de la page d'accueil annotée
-- Tour des éléments d'interface : Topbar, Sidebar, Bell 🔔, Aide ❓, Scanner 📷, Recherche 🔍
+**1 fichier réécrit : `src/pages/qualite/QualiteOf.tsx`**
 
-### Section ajoutée — Chapitre 1 bis : Vue d'ensemble visuelle
-- Schéma ASCII modules ↔ rôles ↔ données
-- Flux global : `Article → Recette → OF → Production → Stock → Qualité → Maintenance`
+Liste de tous les OF avec focus qualité, alignée sur le style des autres pages Qualité (Matte Ceramic, IBM Plex Sans, 48px targets).
 
-### Enrichissements par chapitre existant
-Pour chaque section (3.1 → 4.9), ajouter :
-1. **« À quoi ça sert »** (1 phrase + emoji)
-2. **« Qui l'utilise »** (rôles concernés)
-3. **Capture textuelle / schéma ASCII** de l'écran clé
-4. **Parcours pas-à-pas numéroté** avec icônes (▶️ étape, ✅ résultat, ⚠️ piège)
-5. **Exemple concret complet** (données réalistes algériennes : Laiterie Amour, ligne L1…)
-6. **FAQ courte** (« Pourquoi je vois X ? », « Comment je débloque Y ? »)
+### Contenu de la page
 
-### Schémas ASCII clés à intégrer
-- **Hiérarchie actifs** : `Ligne → Machine → Équipement → Organe → PDR`
-- **Cycle ticket** : `Ouvert → Assigné → En cours → Résolu → Clôturé`
-- **OF lifecycle** : `Planifié → En cours → Pause → Terminé`
-- **Shift production** : `Ouverture → Déclarations horaires → Arrêts/Stops → Consommations → Clôture → Bilan`
-- **Workflow PDR** : `Demande → Validation → Sortie stock → Mouvement audité`
-- **Notifications** : `Événement → Règle → Dédup → Bell + Email`
-- **RBAC** : matrice rôles × modules sous forme de tableau visuel
+- **Header** : titre « OF Qualité » + sous-titre, bouton export CSV.
+- **KPI cards** (4) : Total OF actifs · Conformes · Non conformes/Bloqués · Contrôles manquants (somme sur tous les OF affichés).
+- **Filtres** :
+  - Recherche (numéro OF / produit / ligne)
+  - Statut qualité (Tous / Non démarré / En contrôle / Conforme / Conforme sous réserve / Non conforme / Bloqué / Libéré / Rebuté / À retraiter)
+  - Statut production (Tous / Planifié / En cours / Terminé / Annulé)
+  - Ligne (toutes lignes actives)
+  - Bouton `RotateCcw` Réinitialiser (visible si filtres actifs — convention projet)
+- **Tableau** colonnes : N° OF · Produit · Ligne · Statut production · Statut qualité (badge coloré via `QUALITY_STATUS_OPTIONS`) · Contrôles (faits/requis) · Hors tolérance · Dernier contrôle · Action « Ouvrir ».
+- **Action Ouvrir** : navigation vers `/gpao/of/:id?tab=quality` (le détail OF embarque déjà `OfQualityTab`).
 
-### Nouveaux encadrés transverses (Chapitre 5 enrichi)
-- 🎯 « Scénario A : ouvrir un OF + déclarer 3 heures + clôturer le shift »
-- 🎯 « Scénario B : panne machine → ticket → intervention → réception PDR »
-- 🎯 « Scénario C : contrôle qualité loupé → NC → action corrective »
-- 🎯 « Scénario D : inventaire double comptage »
+### Source de données
 
-### Nouveau Chapitre 11 enrichi — Dépannage
-- Tableau symptôme / cause / solution avec icônes
-- « Je ne vois pas mon shift » → causes (date_shift, RLS, rôle…)
-- « Mon scan ne fonctionne pas » → fallback manuel
-- « Erreur RLS / permission » → contacter admin
+Un seul `useEffect` qui charge en parallèle :
+- `ordres_fabrication` : `id, numero, statut, quality_status, product_id, line_id, products(code, designation), lignes(code, name)`
+- Pour chaque OF visible (batch) : RPC `get_quality_indicators_for_of` + `quality_checks` (par lot via `.in('of_id', ids)`) pour calculer `computeQualityKpis` réutilisé depuis `OfQualityTab`.
 
-### Annexe ajoutée — Raccourcis clavier & gestes
-- `?` aide, `Ctrl+K` recherche, `Esc` ferme, scan caméra…
+Pour éviter N appels RPC, on charge `quality_checks` en une requête (`.in('of_id', ids)`) puis on ne calcule que `performed`/`outOfTolerance` côté liste. Le détail complet reste dans `OfQualityTab` quand l'utilisateur ouvre l'OF — pas de duplication de logique lourde.
 
-## Méthode d'écriture
-- Réécriture chapitre par chapitre en gardant **les IDs de section** (numérotation `3.2`, `4.6 bis`, etc.) pour ne pas casser `manualRouteMap.ts`.
-- Vérifier après écriture que **chaque slug du `manualRouteMap` correspond encore** (test `manual-parser.test.ts` + ajout d'un test « tous les slugs de la routemap existent dans le manuel »).
-- Conserver le ton industriel / professionnel.
+### Permissions
 
-## Fichiers touchés
-- ✏️ `MANUAL.md` (réécriture enrichie, ~2200-2500 lignes attendues)
-- ✏️ `public/MANUAL.md` (copie synchro)
-- ✏️ `src/test/manual/manual-parser.test.ts` (ajout test cohérence routeMap ↔ sections)
-- ✏️ `src/index.css` (`.manual-prose` — petits ajustements pour blockquotes 💡⚠️🎯 et blocs ASCII : `font-mono`, fond légèrement teinté)
-- ✏️ `mem://features/interactive-manual` (note : v3.0, icônes inline + schémas ASCII + parcours nouveau)
+Lecture pour tout porteur de la permission `qualite` (déjà gérée par `ShiftGuard`/RBAC du module). Aucune mutation depuis la liste (les changements de statut se font dans le détail).
 
-## Hors scope
-- Pas d'images PNG/SVG embarquées (poids + maintenance) — uniquement ASCII + emojis.
-- Pas de refonte du composant `ManualSheet` (déjà bon).
-- Pas de traduction (FR uniquement, comme l'app).
-- Pas d'analytics de consultation (peut venir plus tard).
+### Hors scope
 
-## Validation
-- `bun test src/test/manual` doit passer.
-- Ouverture du manuel sur 5 routes clés (`/gpao/of`, `/tickets`, `/qualite/shift`, `/parametres`, `/`) → chaque page ouvre bien la bonne section enrichie.
-- Lecture visuelle du `ManualSheet` : encadrés lisibles, ASCII aligné en `font-mono`.
+- Pas de nouvelle migration (backend déjà prêt).
+- Pas de modif de `OfQualityTab` ni du détail OF.
+- Pas de modif du sidebar ni de la route (déjà déclarés).
+- Pas de modification du `MANUAL.md`.
+
+## Détails techniques
+
+- Réutiliser `QUALITY_STATUS_OPTIONS`, `qualityStatusLabel`, `computeQualityKpis` exportés de `OfQualityTab.tsx`.
+- Réutiliser `ExportCsvButton` pour l'export.
+- Convention Radix : valeurs Select `__none__` pour « Tous » (déjà appliquée ailleurs).
+- Couleurs strictement via tokens sémantiques (pas de couleur hardcodée).
+- Statut prod via `StatusBadge` existant si compatible, sinon Badge inline (à vérifier au moment de coder).
+- Pas de couplage à `ordres_fabrication.statut` non-actif : on affiche tout par défaut, le filtre permet de masquer Annulé/Terminé.
+
+## Critère d'acceptation
+
+- `/qualite/of` affiche la liste réelle des OF avec leur état qualité, filtres opérationnels, KPI cohérents.
+- Clic sur « Ouvrir » mène au détail OF côté GPAO sur l'onglet Qualité.
+- Aucun bug TypeScript, aucun changement de comportement ailleurs.
