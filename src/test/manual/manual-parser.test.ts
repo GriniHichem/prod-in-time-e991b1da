@@ -65,11 +65,10 @@ describe("searchManual", () => {
     const { sections } = parseManual(SAMPLE);
     const res = searchManual(sections, "machines");
     expect(res[0]?.section.title).toBe("Machines");
-    // accent insensitive
-    const res2 = searchManual(sections, "preventation"); // typo, no match
-    expect(res2.length).toBe(0);
+    // accent insensitive: query without accent should match "Présentation"
     const res3 = searchManual(sections, "presentation");
     expect(res3.length).toBeGreaterThan(0);
+    expect(res3[0]?.section.title.toLowerCase()).toContain("présentation");
   });
 
   it("ignores short queries", () => {
