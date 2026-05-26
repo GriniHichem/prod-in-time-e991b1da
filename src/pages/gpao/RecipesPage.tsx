@@ -597,13 +597,19 @@ export default function RecipesPage({ readOnly = false, hideHeader = false }: Re
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground uppercase tracking-wide">
-                                      <Package className="h-3 w-3" /> Composition (par kg produit fini) — lecture seule
+                                      <Package className="h-3 w-3" /> Composition (par kg produit fini){readOnly ? " — lecture seule" : ""}
                                     </p>
-                                    <Button asChild variant="outline" size="sm" className="h-7 text-xs">
-                                      <Link to="/qualite/recettes-nomenclatures">
-                                        <Edit className="h-3 w-3 mr-1" /> Modifier dans Qualité
-                                      </Link>
-                                    </Button>
+                                    {canManage ? (
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openAddLine(r.id)}>
+                                        <Plus className="h-3 w-3 mr-1" /> Article
+                                      </Button>
+                                    ) : readOnly ? (
+                                      <Button asChild variant="outline" size="sm" className="h-7 text-xs">
+                                        <Link to="/qualite/recettes-nomenclatures">
+                                          <Edit className="h-3 w-3 mr-1" /> Modifier dans Qualité
+                                        </Link>
+                                      </Button>
+                                    ) : null}
                                   </div>
                                   {lines.length === 0 ? (
                                     <p className="text-sm text-muted-foreground py-3 text-center bg-muted/30 rounded-lg">Aucun article — à ajouter dans Qualité → Recettes & nomenclatures</p>
