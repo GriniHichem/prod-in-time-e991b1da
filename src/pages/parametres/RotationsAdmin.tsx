@@ -165,13 +165,13 @@ export default function RotationsAdmin() {
       return;
     }
     await logAudit({
-      action: existing ? "update" : "create",
-      module: "shift",
-      entityType: "employee_shift_assignment",
-      entityId: editingUser,
+      action_type: existing ? "update" : "create",
+      module: "parametres",
+      entity_type: "employee_shift_assignment",
+      entity_id: editingUser,
       description: `Configuration rotation (${scope}, système ${selectedSystem?.code})`,
-      newValues: payload,
-      oldValues: existing ?? undefined,
+      new_values: payload,
+      old_values: existing ?? undefined,
     });
     toast({ title: "Enregistré", description: "Affectation de rotation mise à jour." });
     setOpen(false);
