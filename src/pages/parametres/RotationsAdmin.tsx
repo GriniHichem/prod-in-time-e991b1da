@@ -171,7 +171,7 @@ export default function RotationsAdmin() {
       entity_id: editingUser,
       description: `Configuration rotation (${scope}, système ${selectedSystem?.code})`,
       new_values: payload,
-      old_values: existing ?? undefined,
+      old_values: (existing as unknown as Record<string, unknown>) ?? undefined,
     });
     toast({ title: "Enregistré", description: "Affectation de rotation mise à jour." });
     setOpen(false);
