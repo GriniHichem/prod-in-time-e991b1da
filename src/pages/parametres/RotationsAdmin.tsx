@@ -189,13 +189,13 @@ export default function RotationsAdmin() {
       return;
     }
     await logAudit({
-      action: "update",
-      module: "shift",
-      entityType: "employee_shift_assignment",
-      entityId: a.user_id,
+      action_type: "update",
+      module: "parametres",
+      entity_type: "employee_shift_assignment",
+      entity_id: a.user_id,
       description: `Autorisation Libre ${value ? "activée" : "désactivée"}`,
-      oldValues: { autorisation_libre: a.autorisation_libre },
-      newValues: { autorisation_libre: value },
+      old_values: { autorisation_libre: a.autorisation_libre },
+      new_values: { autorisation_libre: value },
     });
     loadAll();
   }
