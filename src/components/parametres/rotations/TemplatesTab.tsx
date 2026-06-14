@@ -223,7 +223,7 @@ export function TemplatesTab({ onChange }: { onChange?: () => void }) {
               </TableRow>
             ))}
             {rows.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Aucun modèle.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Aucun modèle.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
