@@ -218,14 +218,26 @@ export function SelfOpenShiftDialog({ kind }: Props) {
         <DialogHeader>
           <DialogTitle>Démarrer mon shift — {slotLabel}</DialogTitle>
           <DialogDescription>
-            Aucun plan n'a été configuré par votre responsable. Vous pouvez ouvrir votre session vous-même.
+            {kind === "production"
+              ? "La production n'est pas ouverte automatiquement. Sélectionnez la ligne et l'OF en cours."
+              : hasPlan
+                ? "Votre créneau est défini par le planning de rotation de votre équipe. Équipe et lignes sont pré-remplies."
+                : "Aucun planning n'a été configuré par votre responsable. Vous pouvez ouvrir votre session vous-même."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
+          {hasPlan && kind !== "production" && (
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Créneau planifié : <span className="font-medium text-foreground">{slotLabel}</span>
+              {plan?.templateCode ? ` (${plan.templateCode})` : ""}
+              {!plan?.isOnShift && plan?.autorisationLibre ? " — hors créneau (autorisation libre)" : ""}
+            </div>
+          )}
+
           <div className="space-y-1.5">
-            <Label>Équipe (optionnel)</Label>
-            <Select value={teamId} onValueChange={setTeamId}>
+            <Label>Équipe {hasPlan ? "(planning)" : "(optionnel)"}</Label>
+            <Select value={teamId} onValueChange={setTeamId} disabled={hasPlan && !!plan?.teamId}>
               <SelectTrigger><SelectValue placeholder="Aucune" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">— Aucune —</SelectItem>
@@ -260,18 +272,28 @@ export function SelfOpenShiftDialog({ kind }: Props) {
             </>
           ) : (
             <div className="space-y-1.5">
-              <Label>Lignes couvertes *</Label>
+              <Label>Lignes couvertes * {hasPlan && <span className="text-xs text-muted-foreground">(définies par le planning)</span>}</Label>
               <div className="border rounded-md p-2 max-h-48 overflow-auto space-y-1">
-                {lines.map((l) => (
-                  <label key={l.id} className="flex items-center gap-2 text-sm py-1 px-1 hover:bg-accent rounded cursor-pointer">
-                    <Checkbox checked={selectedLineIds.includes(l.id)} onCheckedChange={() => toggleLine(l.id)} />
-                    <span><span className="font-medium">{l.code}</span> — {l.designation}</span>
-                  </label>
-                ))}
+                {lines
+                  .filter((l) => !hasPlan || selectedLineIds.includes(l.id))
+                  .map((l) => (
+                    <label key={l.id} className={`flex items-center gap-2 text-sm py-1 px-1 rounded ${hasPlan ? "opacity-90" : "hover:bg-accent cursor-pointer"}`}>
+                      <Checkbox
+                        checked={selectedLineIds.includes(l.id)}
+                        disabled={hasPlan}
+                        onCheckedChange={() => !hasPlan && toggleLine(l.id)}
+                      />
+                      <span><span className="font-medium">{l.code}</span> — {l.designation}</span>
+                    </label>
+                  ))}
+                {hasPlan && selectedLineIds.length === 0 && (
+                  <p className="text-xs text-amber-600 px-1 py-2">Aucune ligne définie dans le planning pour ce créneau.</p>
+                )}
               </div>
             </div>
           )}
         </div>
+
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Annuler</Button>
