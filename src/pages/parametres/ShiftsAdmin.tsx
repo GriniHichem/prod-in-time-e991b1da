@@ -39,10 +39,6 @@ export default function ShiftsAdmin() {
   const [slotStart, setSlotStart] = useState("06:00");
   const [slotEnd, setSlotEnd] = useState("14:00");
 
-  // Rotation
-  const [rotationDate, setRotationDate] = useState(new Date().toISOString().slice(0, 10));
-  const [rotationWeekStart, setRotationWeekStart] = useState(new Date().toISOString().slice(0, 10));
-
   useEffect(() => { loadAll(); }, []);
 
   async function loadAll() {
@@ -60,19 +56,7 @@ export default function ShiftsAdmin() {
     setModeSlots(modeSlotsRes.data || []);
   }
 
-  async function loadRotation(startDate: string) {
-    const end = new Date(startDate);
-    end.setDate(end.getDate() + 6);
-    const { data } = await supabase
-      .from("shift_rotation")
-      .select("*, shift_teams(name, code, color), shift_time_slots(label, code)")
-      .gte("date_shift", startDate)
-      .lte("date_shift", end.toISOString().slice(0, 10))
-      .order("date_shift");
-    setRotation(data || []);
-  }
 
-  useEffect(() => { loadRotation(rotationWeekStart); }, [rotationWeekStart]);
 
   if (!hasRole("admin") && !hasRole("resp_production")) {
     return <div className="p-8 text-center text-muted-foreground">Accès réservé aux administrateurs.</div>;
