@@ -6079,6 +6079,19 @@ export type Database = {
           version: number
         }[]
       }
+      get_scope_shift_context: {
+        Args: { _at?: string; _scope: string; _user_id: string }
+        Returns: {
+          autorisation_libre: boolean
+          heure_debut: string
+          heure_fin: string
+          is_on_shift: boolean
+          line_ids: string[]
+          team_id: string
+          template_code: string
+          template_id: string
+        }[]
+      }
       global_search: {
         Args: {
           date_from?: string
@@ -6148,7 +6161,7 @@ export type Database = {
         Args: { _at?: string; _scope?: string; _user_id: string }
         Returns: boolean
       }
-      open_my_work_session: { Args: never; Returns: string }
+      open_my_work_session: { Args: never; Returns: Json }
       quality_shift_refresh_links: {
         Args: { p_quality_shift_id: string }
         Returns: number
