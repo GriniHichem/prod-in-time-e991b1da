@@ -68,7 +68,7 @@ export function TemplatesTab({ onChange }: { onChange?: () => void }) {
 
   const openNew = () => { setDraft({ ...BLANK, sort_order: rows.length }); setOpen(true); };
   const openEdit = (t: ShiftTemplate) => {
-    setDraft({ ...t, heure_debut: hhmm(t.heure_debut), heure_fin: hhmm(t.heure_fin), couleur: t.couleur ?? "#3b82f6" });
+    setDraft({ ...t, heure_debut: hhmm(t.heure_debut), heure_fin: hhmm(t.heure_fin), couleur: t.couleur ?? "#3b82f6", shift_mode_id: t.shift_mode_id ?? "" });
     setOpen(true);
   };
 
@@ -89,6 +89,7 @@ export function TemplatesTab({ onChange }: { onChange?: () => void }) {
         couleur: draft.couleur,
         sort_order: draft.sort_order,
         is_active: draft.is_active,
+        shift_mode_id: draft.shift_mode_id || null,
       };
       if (draft.id) {
         const { error } = await supabase.from("shift_templates").update(payload).eq("id", draft.id);
