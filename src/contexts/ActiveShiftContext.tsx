@@ -36,6 +36,7 @@ export function ActiveShiftProvider({ kind, children }: { kind: ShiftKind; child
   const prod = useActiveProductionShift();
   const maint = useActiveMaintenanceShift();
   const qual = useActiveQualityShift();
+  const shiftCtx = useActiveShiftContext();
 
   const loading =
     (kind === "production" && prod.loading) ||
