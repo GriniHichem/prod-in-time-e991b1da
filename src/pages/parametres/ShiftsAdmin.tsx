@@ -314,70 +314,20 @@ export default function ShiftsAdmin() {
         <TabsContent value="rotation">
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Planning de rotation</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">Semaine du</Label>
-                  <Input type="date" value={rotationWeekStart} onChange={(e) => setRotationWeekStart(e.target.value)} className="w-40 h-8" />
-                </div>
-              </div>
+              <CardTitle className="text-base">Planning de rotation</CardTitle>
             </CardHeader>
-            <CardContent className="p-0 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[100px]">Équipe</TableHead>
-                    {weekDates.map((d) => (
-                      <TableHead key={d} className="text-center min-w-[120px]">
-                        <div className="text-xs">{dayLabels[new Date(d).getDay()]}</div>
-                        <div className="text-xs text-muted-foreground">{new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}</div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teams.filter((t) => t.is_active).map((team) => (
-                    <TableRow key={team.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: team.color }} />
-                          <span className="font-medium text-sm">{team.name}</span>
-                        </div>
-                      </TableCell>
-                      {weekDates.map((date) => {
-                        const entry = rotation.find((r: any) => r.shift_team_id === team.id && r.date_shift === date);
-                        const currentSlotId = entry?.is_repos ? "repos" : (entry?.time_slot_id || "");
-                        return (
-                          <TableCell key={date} className="p-1">
-                            <Select
-                              value={currentSlotId}
-                              onValueChange={(val) => {
-                                if (val === "repos") handleSetRotation(team.id, date, null, true);
-                                else if (val === "") handleSetRotation(team.id, date, null, false);
-                                else handleSetRotation(team.id, date, val, false);
-                              }}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="—" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="empty_placeholder" className="text-muted-foreground">— Non affecté</SelectItem>
-                                {timeSlots.filter((s) => s.is_active).map((slot) => (
-                                  <SelectItem key={slot.id} value={slot.id}>{slot.label} ({slot.heure_debut}–{slot.heure_fin})</SelectItem>
-                                ))}
-                                <SelectItem value="repos" className="text-amber-600">🛏️ Repos</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                La planification des rotations a été déplacée vers le nouveau moteur
+                « Équipes &amp; Rotations » (modèle de shift assigné à une équipe pour une période).
+              </p>
+              <Button onClick={() => navigate("/parametres/rotations")}>
+                <CalendarDays className="h-4 w-4 mr-1" /> Ouvrir Équipes &amp; Rotations
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         {/* === RÈGLES === */}
         <TabsContent value="settings">
