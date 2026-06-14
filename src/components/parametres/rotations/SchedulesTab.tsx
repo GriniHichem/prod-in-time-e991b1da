@@ -20,7 +20,8 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/audit";
 
 interface Team { id: string; code: string; name: string; }
-interface Template { id: string; code: string; label: string; }
+interface Template { id: string; code: string; label: string; shift_mode_id: string | null; }
+interface ShiftSystem { id: string; code: string; label: string; }
 interface Line { id: string; code: string; designation: string; }
 interface Schedule {
   id: string;
@@ -56,6 +57,8 @@ export function SchedulesTab() {
   const { toast } = useToast();
   const [teams, setTeams] = useState<Team[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [systems, setSystems] = useState<ShiftSystem[]>([]);
+  const [systemFilter, setSystemFilter] = useState<string>("all");
   const [lines, setLines] = useState<Line[]>([]);
   const [rows, setRows] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,14 +68,16 @@ export function SchedulesTab() {
 
   const load = async () => {
     setLoading(true);
-    const [tRes, mRes, lRes, sRes] = await Promise.all([
+    const [tRes, mRes, sysRes, lRes, sRes] = await Promise.all([
       supabase.from("shift_teams").select("id, code, name").order("code"),
-      supabase.from("shift_templates").select("id, code, label").order("sort_order"),
+      supabase.from("shift_templates").select("id, code, label, shift_mode_id").order("sort_order"),
+      supabase.from("shift_modes").select("id, code, label").eq("is_active", true).order("code"),
       supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
       supabase.from("shift_schedules").select("*").order("date_debut", { ascending: false }),
     ]);
     setTeams((tRes.data as Team[]) ?? []);
     setTemplates((mRes.data as Template[]) ?? []);
+    setSystems((sysRes.data as ShiftSystem[]) ?? []);
     setLines((lRes.data as Line[]) ?? []);
     setRows((sRes.data as Schedule[]) ?? []);
     setLoading(false);
@@ -82,10 +87,24 @@ export function SchedulesTab() {
   const teamLabel = (id: string) => { const t = teams.find((x) => x.id === id); return t ? t.code : "?"; };
   const tplLabel = (id: string) => { const t = templates.find((x) => x.id === id); return t ? t.label : "?"; };
 
-  const openNew = () => { setDraft({ ...BLANK, team_id: teams[0]?.id ?? "", template_id: templates[0]?.id ?? "" }); setOpen(true); };
+  const visibleTemplates = systemFilter === "all"
+    ? templates
+    : templates.filter((t) => t.shift_mode_id === systemFilter);
+
+  const openNew = () => { setSystemFilter("all"); setDraft({ ...BLANK, team_id: teams[0]?.id ?? "", template_id: templates[0]?.id ?? "" }); setOpen(true); };
   const openEdit = (s: Schedule) => {
+    const tpl = templates.find((t) => t.id === s.template_id);
+    setSystemFilter(tpl?.shift_mode_id ?? "all");
     setDraft({ ...s, date_fin: s.date_fin ?? "", line_ids: s.line_ids ?? [], weekdays: s.weekdays ?? [] });
     setOpen(true);
+  };
+
+  const onSystemFilterChange = (v: string) => {
+    setSystemFilter(v);
+    const list = v === "all" ? templates : templates.filter((t) => t.shift_mode_id === v);
+    if (list.length && !list.some((t) => t.id === draft.template_id)) {
+      setDraft((d) => ({ ...d, template_id: list[0].id }));
+    }
   };
 
   const toggleLine = (id: string) =>
@@ -143,6 +162,16 @@ export function SchedulesTab() {
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>{draft.id ? "Modifier" : "Nouveau"} planning de rotation</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-1.5">
+                <Label>Système de production</Label>
+                <Select value={systemFilter} onValueChange={onSystemFilterChange}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les systèmes</SelectItem>
+                    {systems.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Équipe</Label>
@@ -152,10 +181,13 @@ export function SchedulesTab() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Modèle</Label>
+                  <Label>Modèle (créneau)</Label>
                   <Select value={draft.template_id} onValueChange={(v) => setDraft({ ...draft, template_id: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}</SelectContent>
+                    <SelectTrigger><SelectValue placeholder="Choisir un créneau" /></SelectTrigger>
+                    <SelectContent>
+                      {visibleTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                      {visibleTemplates.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun créneau pour ce système.</div>}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
