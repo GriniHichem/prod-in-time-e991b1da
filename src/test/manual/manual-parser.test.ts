@@ -111,6 +111,7 @@ describe("MANUAL.md ↔ routeMap coherence", () => {
       "4-9-module-qualite",
       "6-administration-parametres",
       "6-1-securite-acces",
+      "6-6-rotations-systemes-de-shift",
       "6-bis-2-configuration-smtp-parametres-smtp",
       "9-roles-permissions",
       "9-5-permissions-stock-pdr-speciales",
