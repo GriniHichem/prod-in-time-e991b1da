@@ -98,7 +98,7 @@ export function MembersTab() {
     } finally { setSaving(false); }
   };
 
-  const patch = async (m: Member, fields: Partial<Member>) => {
+  const patch = async (m: Member, fields: { role_in_team?: string; autorisation_libre?: boolean; is_active?: boolean }) => {
     const { error } = await supabase.from("shift_team_members").update(fields).eq("id", m.id);
     if (error) { toast({ title: "Erreur", description: error.message, variant: "destructive" }); return; }
     await logAudit({ action_type: "update", module: "parametres", action: "shift_member_update", entity_type: "shift_team_members", entity_id: m.id, description: "Membre d'équipe modifié" });
