@@ -65,6 +65,7 @@ export function ActiveShiftProvider({ kind, children }: { kind: ShiftKind; child
         qualityShift: qual.shift,
         qualityShifts: qual.shifts,
         setQualityShiftId: qual.setSelectedId,
+        shiftContext: shiftCtx,
         loading,
         refresh,
       }}
