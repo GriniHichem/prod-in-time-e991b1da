@@ -7,6 +7,7 @@ import { useActiveShift, ShiftKind } from "@/contexts/ActiveShiftContext";
 import { ShiftDock } from "@/components/shift/ShiftDock";
 import { CloseShiftButton } from "@/components/shift/CloseShiftButton";
 import { ActiveShiftSwitcher } from "@/components/shift/ActiveShiftSwitcher";
+import { OnShiftBanner } from "@/components/shift/OnShiftBanner";
 import logoEntreprise from "@/assets/logo-entreprise.jpg";
 
 const TITLES: Record<ShiftKind, string> = {
@@ -120,6 +121,7 @@ export function ShiftLayout({ children }: { children: ReactNode }) {
       </header>
 
       <main className="flex-1 px-3 md:px-6 py-4 md:py-6 pb-20 max-w-7xl w-full mx-auto">
+        <OnShiftBanner />
         {children}
       </main>
 

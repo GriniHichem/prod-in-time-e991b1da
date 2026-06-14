@@ -1,19 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, CalendarClock, Info } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, CalendarClock, Users, UserCog, LayoutGrid, CalendarRange } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { TeamsTab } from "@/components/parametres/rotations/TeamsTab";
+import { MembersTab } from "@/components/parametres/rotations/MembersTab";
+import { TemplatesTab } from "@/components/parametres/rotations/TemplatesTab";
+import { SchedulesTab } from "@/components/parametres/rotations/SchedulesTab";
 
 /**
- * Foundation placeholder for the unified "Équipes & Rotations" module.
- *
- * The per-employee rotation engine (work_shift_systems / employee_shift_assignments)
- * has been replaced by a team-based engine:
- *   - shift_templates  : réutilisable shift slots (Matin/Soir/Nuit)
- *   - shift_team_members : user ↔ équipe (+ autorisation libre)
- *   - shift_schedules  : équipe ↔ modèle pour une période
- *
- * The full management UI is delivered in phase 2.
+ * Unified "Équipes & Rotations" management module (phase 2).
+ * Team-based shift engine:
+ *   - shift_teams        : équipes
+ *   - shift_team_members : appartenance + autorisation libre
+ *   - shift_templates    : modèles de créneaux réutilisables
+ *   - shift_schedules    : plannings équipe ↔ modèle (portée + lignes + jours)
  */
 export default function RotationsAdmin() {
   const navigate = useNavigate();
@@ -40,33 +42,25 @@ export default function RotationsAdmin() {
         <div>
           <h1 className="text-2xl font-bold">Équipes &amp; Rotations</h1>
           <p className="text-sm text-muted-foreground">
-            Modèles de shift, équipes &amp; plannings de rotation par équipe
+            Équipes, membres, modèles de shift &amp; plannings de rotation
           </p>
         </div>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Info className="h-4 w-4 text-primary" /> Nouveau moteur par équipe
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            La fondation du moteur de rotation par équipe est en place : modèles de
-            shift réutilisables, appartenance des employés aux équipes (avec
-            autorisation libre), et plannings associant une équipe à un modèle sur
-            une période.
-          </p>
-          <p>
-            Le contexte « Shift Actif » déduit désormais en temps réel l'équipe et le
-            modèle en cours, et l'ouverture automatique de session s'appuie sur cette
-            logique.
-          </p>
-          <p className="font-medium text-foreground">
-            L'interface unifiée de gestion (équipes, membres, modèles, plannings)
-            sera disponible dans la prochaine étape.
-          </p>
+        <CardContent className="p-4 md:p-6">
+          <Tabs defaultValue="teams" className="space-y-4">
+            <TabsList className="flex flex-wrap h-auto">
+              <TabsTrigger value="teams"><Users className="h-4 w-4 mr-2" /> Équipes</TabsTrigger>
+              <TabsTrigger value="members"><UserCog className="h-4 w-4 mr-2" /> Membres</TabsTrigger>
+              <TabsTrigger value="templates"><LayoutGrid className="h-4 w-4 mr-2" /> Modèles</TabsTrigger>
+              <TabsTrigger value="schedules"><CalendarRange className="h-4 w-4 mr-2" /> Plannings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="teams"><TeamsTab /></TabsContent>
+            <TabsContent value="members"><MembersTab /></TabsContent>
+            <TabsContent value="templates"><TemplatesTab /></TabsContent>
+            <TabsContent value="schedules"><SchedulesTab /></TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
