@@ -281,7 +281,7 @@ const App = () => (
               <Route path="/parametres/pannes" element={<PannesAdmin />} />
               <Route path="/parametres/roles" element={<RolesMatrix />} />
               <Route path="/parametres/shifts" element={<RotationsAdmin />} />
-              <Route path="/parametres/rotations" element={<Navigate to="/parametres/shifts" replace />} />ns
+              <Route path="/parametres/rotations" element={<Navigate to="/parametres/shifts" replace />} />
               <Route path="/parametres/lignes" element={<LignesAdmin />} />
               <Route path="/parametres/familles-produits" element={<ProductFamiliesAdmin />} />
               <Route path="/parametres/images" element={<ImageSettings />} />
