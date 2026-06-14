@@ -100,7 +100,7 @@ export default function ShiftsAdmin() {
     loadAll();
   }
 
-  const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  
 
 
   return (
