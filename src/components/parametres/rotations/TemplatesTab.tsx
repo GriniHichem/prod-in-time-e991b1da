@@ -195,6 +195,7 @@ export function TemplatesTab({ onChange }: { onChange?: () => void }) {
             <TableRow>
               <TableHead>Libellé</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead>Système</TableHead>
               <TableHead>Horaire</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead className="text-right">Actions</TableHead>
