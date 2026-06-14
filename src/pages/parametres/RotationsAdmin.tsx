@@ -10,14 +10,13 @@ import { ModesTab } from "@/components/parametres/rotations/ModesTab";
 import { RulesTab } from "@/components/parametres/rotations/RulesTab";
 
 /**
- * Module unifié "Shifts & Rotations".
- * Regroupe l'ensemble du paramétrage shift, sans doublon :
+ * Module unifié "Shifts & Rotations" — moteur de rotation par employé.
  *   - shift_teams        : équipes
- *   - shift_team_members : appartenance + autorisation libre
- *   - shift_templates    : modèles de créneaux réutilisables (moteur de rotation)
- *   - shift_schedules    : plannings équipe ↔ modèle (portée + lignes + jours)
- *   - shift_modes        : modes de production (3x8…) utilisés par les OF du GPAO
+ *   - shift_modes        : systèmes de production (3×8, 2×8, 1×8, 2×12, Surface) + créneaux
+ *   - shift_team_members : membre = système assigné + motif de cycle + date d'ancrage + périmètre + autorisation libre
  *   - shift_settings     : règles et paramètres
+ * Le créneau attendu d'un employé à une date donnée est calculé en bouclant son
+ * motif depuis la date d'ancrage (Surface = logique fixe 5/7 lun-ven).
  */
 export default function RotationsAdmin() {
   const navigate = useNavigate();
