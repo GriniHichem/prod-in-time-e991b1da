@@ -68,14 +68,16 @@ export function SchedulesTab() {
 
   const load = async () => {
     setLoading(true);
-    const [tRes, mRes, lRes, sRes] = await Promise.all([
+    const [tRes, mRes, sysRes, lRes, sRes] = await Promise.all([
       supabase.from("shift_teams").select("id, code, name").order("code"),
-      supabase.from("shift_templates").select("id, code, label").order("sort_order"),
+      supabase.from("shift_templates").select("id, code, label, shift_mode_id").order("sort_order"),
+      supabase.from("shift_modes").select("id, code, label").eq("is_active", true).order("code"),
       supabase.from("production_lines").select("id, code, designation").eq("is_active", true).order("code"),
       supabase.from("shift_schedules").select("*").order("date_debut", { ascending: false }),
     ]);
     setTeams((tRes.data as Team[]) ?? []);
     setTemplates((mRes.data as Template[]) ?? []);
+    setSystems((sysRes.data as ShiftSystem[]) ?? []);
     setLines((lRes.data as Line[]) ?? []);
     setRows((sRes.data as Schedule[]) ?? []);
     setLoading(false);
@@ -85,10 +87,24 @@ export function SchedulesTab() {
   const teamLabel = (id: string) => { const t = teams.find((x) => x.id === id); return t ? t.code : "?"; };
   const tplLabel = (id: string) => { const t = templates.find((x) => x.id === id); return t ? t.label : "?"; };
 
-  const openNew = () => { setDraft({ ...BLANK, team_id: teams[0]?.id ?? "", template_id: templates[0]?.id ?? "" }); setOpen(true); };
+  const visibleTemplates = systemFilter === "all"
+    ? templates
+    : templates.filter((t) => t.shift_mode_id === systemFilter);
+
+  const openNew = () => { setSystemFilter("all"); setDraft({ ...BLANK, team_id: teams[0]?.id ?? "", template_id: templates[0]?.id ?? "" }); setOpen(true); };
   const openEdit = (s: Schedule) => {
+    const tpl = templates.find((t) => t.id === s.template_id);
+    setSystemFilter(tpl?.shift_mode_id ?? "all");
     setDraft({ ...s, date_fin: s.date_fin ?? "", line_ids: s.line_ids ?? [], weekdays: s.weekdays ?? [] });
     setOpen(true);
+  };
+
+  const onSystemFilterChange = (v: string) => {
+    setSystemFilter(v);
+    const list = v === "all" ? templates : templates.filter((t) => t.shift_mode_id === v);
+    if (list.length && !list.some((t) => t.id === draft.template_id)) {
+      setDraft((d) => ({ ...d, template_id: list[0].id }));
+    }
   };
 
   const toggleLine = (id: string) =>
