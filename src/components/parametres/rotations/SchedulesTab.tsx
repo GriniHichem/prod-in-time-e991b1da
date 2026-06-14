@@ -162,6 +162,16 @@ export function SchedulesTab() {
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>{draft.id ? "Modifier" : "Nouveau"} planning de rotation</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-1.5">
+                <Label>Système de production</Label>
+                <Select value={systemFilter} onValueChange={onSystemFilterChange}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les systèmes</SelectItem>
+                    {systems.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Équipe</Label>
@@ -171,10 +181,13 @@ export function SchedulesTab() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Modèle</Label>
+                  <Label>Modèle (créneau)</Label>
                   <Select value={draft.template_id} onValueChange={(v) => setDraft({ ...draft, template_id: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}</SelectContent>
+                    <SelectTrigger><SelectValue placeholder="Choisir un créneau" /></SelectTrigger>
+                    <SelectContent>
+                      {visibleTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                      {visibleTemplates.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Aucun créneau pour ce système.</div>}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
