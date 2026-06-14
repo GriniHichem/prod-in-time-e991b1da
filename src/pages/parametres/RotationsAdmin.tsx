@@ -2,12 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, CalendarClock, Users, UserCog, LayoutGrid, CalendarRange, Layers, Settings } from "lucide-react";
+import { ArrowLeft, CalendarClock, Users, UserCog, Layers, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TeamsTab } from "@/components/parametres/rotations/TeamsTab";
 import { MembersTab } from "@/components/parametres/rotations/MembersTab";
-import { TemplatesTab } from "@/components/parametres/rotations/TemplatesTab";
-import { SchedulesTab } from "@/components/parametres/rotations/SchedulesTab";
 import { ModesTab } from "@/components/parametres/rotations/ModesTab";
 import { RulesTab } from "@/components/parametres/rotations/RulesTab";
 
