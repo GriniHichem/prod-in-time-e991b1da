@@ -20,7 +20,8 @@ import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { logAudit } from "@/lib/audit";
 
 interface Team { id: string; code: string; name: string; }
-interface Template { id: string; code: string; label: string; }
+interface Template { id: string; code: string; label: string; shift_mode_id: string | null; }
+interface ShiftSystem { id: string; code: string; label: string; }
 interface Line { id: string; code: string; designation: string; }
 interface Schedule {
   id: string;
