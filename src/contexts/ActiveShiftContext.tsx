@@ -18,6 +18,8 @@ interface ActiveShiftContextValue {
   qualityShift: ActiveQualityShift | null;
   qualityShifts: ActiveQualityShift[];
   setQualityShiftId: (id: string | null) => void;
+  /** Team-based rotation context (active team + template + on-shift state). */
+  shiftContext: ActiveShiftContextData;
   loading: boolean;
   refresh: () => Promise<void>;
 }
