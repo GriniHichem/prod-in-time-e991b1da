@@ -29,7 +29,6 @@ import UsersAdmin from "@/pages/parametres/UsersAdmin";
 import FamillesAdmin from "@/pages/parametres/FamillesAdmin";
 import PannesAdmin from "@/pages/parametres/PannesAdmin";
 import RolesMatrix from "@/pages/parametres/RolesMatrix";
-import ShiftsAdmin from "@/pages/parametres/ShiftsAdmin";
 import RotationsAdmin from "@/pages/parametres/RotationsAdmin";
 import LignesAdmin from "@/pages/parametres/LignesAdmin";
 import GeneralSettings from "@/pages/parametres/GeneralSettings";
