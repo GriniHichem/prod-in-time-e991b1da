@@ -59,7 +59,7 @@ export default function RotationsAdmin() {
               <TabsTrigger value="members"><UserCog className="h-4 w-4 mr-2" /> Membres &amp; Autorisations</TabsTrigger>
               <TabsTrigger value="templates"><LayoutGrid className="h-4 w-4 mr-2" /> Modèles</TabsTrigger>
               <TabsTrigger value="schedules"><CalendarRange className="h-4 w-4 mr-2" /> Plannings</TabsTrigger>
-              <TabsTrigger value="modes"><Layers className="h-4 w-4 mr-2" /> Modes de production</TabsTrigger>
+              <TabsTrigger value="modes"><Layers className="h-4 w-4 mr-2" /> Systèmes de production</TabsTrigger>
               <TabsTrigger value="rules"><Settings className="h-4 w-4 mr-2" /> Règles</TabsTrigger>
             </TabsList>
             <TabsContent value="teams"><TeamsTab /></TabsContent>
