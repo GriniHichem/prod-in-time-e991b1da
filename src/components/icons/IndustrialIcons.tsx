@@ -218,3 +218,123 @@ export const IconSearch = (p: IconProps) => (
     <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
+
+// --- Modules dédiés (uniques) ---
+
+export const IconOrganes = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="5" cy="6" r="2" />
+    <circle cx="19" cy="6" r="2" />
+    <circle cx="5" cy="18" r="2" />
+    <circle cx="19" cy="18" r="2" />
+    <path d="M6.7 7.3 9.6 10m4.8 0 2.9-2.7M9.6 14l-2.9 2.7m10.6 0L14.4 14" />
+  </svg>
+);
+
+export const IconJournal = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M4 4a2 2 0 0 1 2-2h12a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2Z" />
+    <path d="M4 18a2 2 0 0 1 2-2h13" />
+    <line x1="8" y1="7" x2="15" y2="7" />
+    <line x1="8" y1="11" x2="13" y2="11" />
+  </svg>
+);
+
+export const IconHistory = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 4v4h4" />
+    <path d="M12 8v4l3 2" />
+  </svg>
+);
+
+export const IconKpi = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M12 21a9 9 0 1 1 9-9" />
+    <path d="M12 12 16 8" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    <path d="M12 3v2M3 12h2M19 7l-1.5 1.5" />
+  </svg>
+);
+
+export const IconControl = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Z" />
+    <path d="M9 4h6" />
+    <path d="m9 13 2 2 4-4" />
+  </svg>
+);
+
+export const IconNc = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const IconAction = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M9 11 12 14 22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
+export const IconTrace = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <circle cx="5" cy="6" r="2.5" />
+    <circle cx="19" cy="18" r="2.5" />
+    <path d="M7.5 6H14a3 3 0 0 1 0 6h-4a3 3 0 0 0 0 6h6.5" />
+  </svg>
+);
+
+export const IconReport = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 2v6h6" />
+    <path d="M8 17v-3M12 17v-5M16 17v-2" />
+  </svg>
+);
+
+export const IconInventory = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M3 7 12 3l9 4-9 4Z" />
+    <path d="M3 7v10l9 4 9-4V7" />
+    <path d="M12 11v10" />
+    <path d="m7 9 10 4" />
+  </svg>
+);
+
+export const IconCampaign = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9h18" />
+    <path d="m7 14 2 2 3-3" />
+    <line x1="14" y1="14" x2="17" y2="14" />
+    <line x1="14" y1="17" x2="17" y2="17" />
+  </svg>
+);
+
+export const IconSecurity = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5Z" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+
+export const IconValidation = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8.5 12 2.5 2.5L16 9" />
+  </svg>
+);
+
+export const IconAudit = (p: IconProps) => (
+  <svg {...defaults(p)}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h6" />
+    <path d="M14 2v6h6" />
+    <circle cx="16" cy="16" r="3" />
+    <path d="m21 21-1.8-1.8" />
+  </svg>
+);
