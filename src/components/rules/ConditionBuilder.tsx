@@ -56,6 +56,15 @@ export function fromAnyConditions(raw: unknown): CondTree {
   const empty: CondTree = { combinator: "all", rules: [] };
   if (!raw || typeof raw !== "object") return empty;
   const obj = raw as Record<string, unknown>;
+  // Native format { combinator, rules }
+  if (Array.isArray(obj.rules) && typeof obj.combinator === "string") {
+    return {
+      combinator: obj.combinator === "any" ? "any" : "all",
+      rules: (obj.rules as unknown[]).filter(
+        (r) => typeof r === "object" && r && "field" in r
+      ) as CondLeaf[],
+    };
+  }
   // Notif format
   if (Array.isArray(obj.all)) {
     return { combinator: "all", rules: obj.all.filter((r) => typeof r === "object" && r && "field" in r) as CondLeaf[] };
