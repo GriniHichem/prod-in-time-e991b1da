@@ -44,6 +44,31 @@ describe("matchConditions — native builder format", () => {
     expect(matchConditions(tree("any", rules), { priority: "low", ecart_pct: 25 })).toBe(true);
     expect(matchConditions(tree("any", rules), { priority: "low", ecart_pct: 5 })).toBe(false);
   });
+
+  it("missing field in context does not match numeric/text operators", () => {
+    expect(matchConditions(tree("all", [{ field: "x", op: "gt", value: 5 }]), {})).toBe(false);
+    expect(matchConditions(tree("all", [{ field: "x", op: "gte", value: 5 }]), {})).toBe(false);
+    // lt/lte against NaN are false; contains against missing → empty string
+    expect(matchConditions(tree("all", [{ field: "x", op: "lt", value: 5 }]), {})).toBe(false);
+    expect(matchConditions(tree("all", [{ field: "x", op: "contains", value: "abc" }]), {})).toBe(false);
+  });
+
+  it("neq matches when field is missing", () => {
+    expect(matchConditions(tree("all", [{ field: "x", op: "neq", value: "y" }]), {})).toBe(true);
+  });
+
+  it("boolean values with eq / neq", () => {
+    expect(matchConditions(tree("all", [{ field: "is_active", op: "eq", value: true }]), { is_active: true })).toBe(true);
+    expect(matchConditions(tree("all", [{ field: "is_active", op: "neq", value: true }]), { is_active: false })).toBe(true);
+  });
+
+  it("malformed native tree (missing rules) does not throw → matches", () => {
+    expect(matchConditions({ combinator: "all" } as Record<string, unknown>, {})).toBe(true);
+  });
+
+  it("null conditions always trigger", () => {
+    expect(matchConditions(null, { anything: 1 })).toBe(true);
+  });
 });
 
 describe("matchConditions — legacy format still supported", () => {
