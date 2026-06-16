@@ -1,48 +1,42 @@
-# Fusionner Shifts + Rotations + Autorisations en un seul module
+# Amélioration des icônes & UI/UX de la page Applications
 
 ## Objectif
-Un seul module de paramétrage regroupant équipes, membres/autorisations, modèles, plannings, modes de production et règles. Supprimer la logique et le vocabulaire dupliqués (deux pages, deux entrées, deux gestions d'équipes, créneaux morts).
+Chaque module (`/apps`) doit avoir une icône distincte et cohérente — fini les répétitions — et la grille doit gagner en lisibilité et en finesse visuelle.
 
-## Module unifié — `/parametres/shifts`
-Page unique avec onglets (réutilise l'architecture propre de RotationsAdmin) :
+## Répétitions actuelles à corriger
+- `IconEquipment` → utilisé pour **Équipements** ET **Organes**
+- `IconMaintenance` (même tracé qu'Equipment) → **Journal** ET **Historique interventions**
+- `IconChart` → **Dashboard Production** ET **Dashboard Qualité**
+- `IconOrder` → **Ordres de fabrication** ET **OF Qualité**
+- `IconDashboard` → **Tableau de bord** ET **Dashboard Inventaire**
+- `IconShift` → **Shift Maintenance** ET **Shift contrôle**
+- `IconAnalytics` → **Analyse & KPI** ET **Indicateurs qualité**
+- `IconRecipe` → **Recettes/BOM** ET **Recettes & Nomenclatures**
+- `ClipboardCheck` → **Contrôles**, **Campagnes inventaire**, **Validations**
+- `ShieldCheck` → **Sécurité**, catégorie **Qualité**, **Audit**
 
-```text
-Équipes & Rotations
-├── Équipes                  (TeamsTab — shift_teams)
-├── Membres & Autorisations  (MembersTab — shift_team_members + autorisation_libre)
-├── Modèles de shift         (TemplatesTab — shift_templates)
-├── Plannings de rotation    (SchedulesTab — shift_schedules)
-├── Modes de production      (nouveau — shift_modes / shift_mode_slots, 3x8…)
-└── Règles                   (nouveau — shift_settings)
-```
+## 1. Icônes uniques par module
+Attribuer une icône distincte à chacun des ~35 modules en combinant :
+- les `IndustrialIcons` existants (style SVG maison, stroke 1.8, cohérent)
+- de nouvelles icônes `IndustrialIcons` à ajouter pour combler les manques, dans le même style (ex. `IconOrganes`, `IconJournal`, `IconHistory`, `IconKpi`, `IconControl`, `IconNc`, `IconAction`, `IconTrace`, `IconReport`, `IconInventory`, `IconSecurity`, `IconValidation`, `IconAudit`)
+- des icônes `lucide-react` distinctes en dernier recours, sans réemploi croisé
 
-## Changements
+Résultat : 1 icône = 1 module, et les icônes de catégorie (`CATEGORY_ICONS`) ne réutilisent pas une icône déjà prise par un module de la même section.
 
-1. **Page unifiée** : transformer `RotationsAdmin.tsx` en module complet (renommé titre « Shifts & Rotations »), en ajoutant deux onglets repris de ShiftsAdmin :
-   - `ModesTab` : lecture/édition des modes (`shift_modes`) et de leurs créneaux (`shift_mode_slots`), activation.
-   - `RulesTab` : édition des règles (`shift_settings`).
+## 2. Améliorations UI/UX (frontend uniquement)
+- **Carte module** : hiérarchie visuelle plus nette — pastille d'icône avec dégradé `accent` conservé mais halo plus doux, titre et description mieux espacés, état `hover`/`focus-visible` accessible (anneau clavier).
+- **Accessibilité** : `aria-label` explicite sur chaque bouton de module, focus ring visible, contraste des descriptions.
+- **Toolbar** : recherche + filtres catégories — garder, mais améliorer le rendu actif des chips et le compteur.
+- **En-têtes de section** : conserver le séparateur, harmoniser l'icône de catégorie avec le nouveau set.
+- **Badge "Live"** : légère animation `pulse` discrète pour les modules temps réel.
+- **Responsive** : vérifier la grille de 2 (mobile) à 6 colonnes (xl).
 
-2. **Suppression des doublons** :
-   - Supprimer `src/pages/parametres/ShiftsAdmin.tsx` (sa gestion Équipes, l'onglet Créneaux `shift_time_slots` et l'onglet Rotation-redirection sont des doublons).
-   - Les parties utiles (Modes, Règles) sont migrées vers le module unifié.
+## Détails techniques
+- Fichiers modifiés :
+  - `src/components/icons/IndustrialIcons.tsx` — ajout des nouvelles icônes SVG manquantes (même API `IconProps`).
+  - `src/pages/Apps.tsx` — réaffectation des icônes par module + ajustements de classes Tailwind (tokens sémantiques uniquement, aucun `text-white`/couleur en dur ajoutée hors palette `accent` déjà existante).
+- Aucune logique métier, permission ou route modifiée.
+- Vérification visuelle via preview après implémentation.
 
-3. **Routage** (`src/App.tsx`) :
-   - `/parametres/shifts` → module unifié.
-   - `/parametres/rotations` → redirection vers `/parametres/shifts` (compatibilité des anciens liens).
-
-4. **Page Paramètres** (`src/pages/Parametres.tsx`) :
-   - Remplacer les deux entrées (« Shifts & Rotation » + « Rotations & Autorisations ») par **une seule** : « Shifts & Rotations » → `/parametres/shifts`, description « Équipes, membres, autorisations, modèles, plannings, modes & règles ».
-
-5. **Nettoyage logique dupliquée (DB)** :
-   - Migration : `DROP TABLE shift_time_slots` (0 ligne, aucune référence dans le code applicatif ni dans les fonctions SQL) — c'est le doublon mort des `shift_templates`.
-
-6. **Tests** : mettre à jour `src/test/parametres/parametres-page.test.tsx` (entrée unique au lieu de « Shifts & Rotation »).
-
-## Notes techniques
-- `shift_modes` / `shift_mode_slots` restent intacts (consommés par OfDetail, OfList, ShiftScreen pour le mode 3x8).
-- `shift_settings` reste (lu par ShiftScreen) même si actuellement vide.
-- Aucun changement au moteur de rotation (`get_active_shift_context`, `get_scope_shift_context`, `open_my_work_session`).
-- Toutes les mutations conservent l'écriture dans `audit_logs`.
-
-## Résultat
-Un module unique, sans gestion d'équipes en double, sans créneaux morts, sans entrée « Rotations & Autorisations » redondante.
+## Hors périmètre
+- Pas de changement de structure de données `MODULES`, de permissions, ni de navigation.
