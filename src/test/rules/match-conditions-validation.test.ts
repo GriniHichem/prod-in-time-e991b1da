@@ -62,9 +62,14 @@ describe("matchConditions — native builder format", () => {
     expect(matchConditions(tree("all", [{ field: "is_active", op: "neq", value: true }]), { is_active: false })).toBe(true);
   });
 
-  it("malformed native tree (missing rules) does not throw → matches", () => {
-    expect(matchConditions({ combinator: "all" } as Record<string, unknown>, {})).toBe(true);
+  it("malformed native tree (missing rules array) does not throw", () => {
+    expect(() => matchConditions({ combinator: "all" } as Record<string, unknown>, {})).not.toThrow();
   });
+
+  it("native tree with empty rules array → matches", () => {
+    expect(matchConditions({ combinator: "all", rules: [] } as Record<string, unknown>, {})).toBe(true);
+  });
+
 
   it("null conditions always trigger", () => {
     expect(matchConditions(null, { anything: 1 })).toBe(true);
