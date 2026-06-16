@@ -196,31 +196,43 @@ export default function Apps() {
                 <button
                   key={m.url}
                   onClick={() => navigate(m.url)}
+                  aria-label={`${m.title} — ${m.description}`}
                   className={cn(
-                    "group relative flex flex-col items-center text-center gap-3 p-4 rounded-xl border bg-card",
-                    "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
+                    "group relative flex flex-col items-center text-center gap-3 p-4 rounded-xl border bg-card overflow-hidden",
+                    "hover:border-primary/40 hover:shadow-lg hover:-translate-y-1",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     "transition-all duration-200 ease-out"
                   )}
                 >
+                  {/* halo au survol */}
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-24 w-24 rounded-full blur-2xl opacity-0",
+                      "bg-gradient-to-br group-hover:opacity-40 transition-opacity duration-300",
+                      m.accent
+                    )}
+                    aria-hidden
+                  />
                   {m.badge && (
                     <Badge
                       variant="secondary"
                       className="absolute top-2 right-2 h-5 px-1.5 text-[9px] font-bold tracking-wider uppercase bg-primary/15 text-primary border-0"
                     >
+                      <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                       {m.badge}
                     </Badge>
                   )}
                   <div
                     className={cn(
-                      "h-14 w-14 rounded-2xl flex items-center justify-center bg-gradient-to-br border border-border/40",
-                      "group-hover:scale-110 transition-transform duration-200",
+                      "relative h-14 w-14 rounded-2xl flex items-center justify-center bg-gradient-to-br border border-border/40 shadow-sm",
+                      "group-hover:scale-110 group-hover:shadow-md transition-all duration-200",
                       m.accent
                     )}
                   >
                     <m.icon size={26} />
                   </div>
-                  <div className="space-y-1 min-h-[3.5rem]">
-                    <p className="text-[13px] font-semibold leading-tight text-foreground line-clamp-2">
+                  <div className="relative space-y-1 min-h-[3.5rem]">
+                    <p className="text-[13px] font-semibold leading-tight text-foreground line-clamp-2 group-hover:text-primary transition-colors">
                       {m.title}
                     </p>
                     <p className="text-[10.5px] text-muted-foreground leading-snug line-clamp-2">
