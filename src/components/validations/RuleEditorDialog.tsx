@@ -154,6 +154,7 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
       is_active: form.is_active,
       is_required: form.is_required,
       validator_roles: form.validator_roles,
+      validator_users: form.validator_users,
       auto_approve_if_low_risk: form.auto_approve_if_low_risk,
       conditions: conditionsObj,
     };
