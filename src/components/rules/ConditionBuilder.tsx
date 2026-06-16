@@ -41,28 +41,14 @@ export function toNotifConditions(tree: CondTree | null): Record<string, unknown
   return { [tree.combinator]: tree.rules };
 }
 
-/** Format Validation: clés directes + raccourcis numériques (min_duration_minutes…) */
+/**
+ * Format Validation natif : { combinator, rules:[{field, op, value}] }.
+ * Le moteur (matchConditions) évalue exactement cette structure → ce que
+ * l'admin construit dans l'UI est ce qui s'exécute (plus de raccourcis lossy).
+ */
 export function toValidationConditions(tree: CondTree | null): Record<string, unknown> | null {
   if (!tree || tree.rules.length === 0) return null;
-  const buildOne = (leaf: CondLeaf): Record<string, unknown> => {
-    // Raccourcis pour le matcher actuel
-    if (leaf.field === "duration_minutes" && (leaf.op === "gte" || leaf.op === "gt")) {
-      return { min_duration_minutes: Number(leaf.value) };
-    }
-    if (leaf.field === "ecart_pct" && (leaf.op === "gte" || leaf.op === "gt")) {
-      return { ecart_seuil_pct: Number(leaf.value) };
-    }
-    if (leaf.field === "age_hours" && (leaf.op === "gte" || leaf.op === "gt")) {
-      return { min_age_hours: Number(leaf.value) };
-    }
-    if (leaf.op === "eq") return { [leaf.field]: leaf.value };
-    // Sinon : fallback sur égalité (le matcher de validation est limité)
-    return { [leaf.field]: leaf.value };
-  };
-  if (tree.combinator === "any") {
-    return { or: tree.rules.map(buildOne) };
-  }
-  return Object.assign({}, ...tree.rules.map(buildOne));
+  return { combinator: tree.combinator, rules: tree.rules };
 }
 
 /** Tente de parser un format existant en CondTree (best effort) */
