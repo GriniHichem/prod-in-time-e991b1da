@@ -99,14 +99,72 @@ export interface CreateValidationRequestPayload {
 }
 
 // =============================================
-// Conditions matcher (simple OR/eq + numeric thresholds)
+// Conditions matcher
+// Supports two formats:
+//  1. Native builder format: { combinator: "all"|"any", rules: [{field, op, value}] }
+//  2. Legacy format: { key: value }, arrays, { or: [...] }, numeric shortcuts
+// Both are evaluated identically so the admin UI reflects exactly what runs.
 // =============================================
+export type CondOperator = "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains";
+export interface CondLeaf {
+  field: string;
+  op: CondOperator;
+  value: string | number | boolean;
+}
+export interface CondTreeNative {
+  combinator: "all" | "any";
+  rules: CondLeaf[];
+}
+
+function isNativeTree(c: Record<string, unknown>): boolean {
+  return Array.isArray((c as { rules?: unknown }).rules)
+    && typeof (c as { combinator?: unknown }).combinator === "string";
+}
+
+function evalLeaf(leaf: CondLeaf, context: Record<string, unknown>): boolean {
+  const actual = context[leaf.field];
+  const expected = leaf.value;
+
+  switch (leaf.op) {
+    case "eq":
+      // tolerant equality (string/number coercion)
+      // eslint-disable-next-line eqeqeq
+      return actual == expected;
+    case "neq":
+      // eslint-disable-next-line eqeqeq
+      return actual != expected;
+    case "gt":
+      return Number(actual) > Number(expected);
+    case "gte":
+      return Number(actual) >= Number(expected);
+    case "lt":
+      return Number(actual) < Number(expected);
+    case "lte":
+      return Number(actual) <= Number(expected);
+    case "contains":
+      return String(actual ?? "").toLowerCase().includes(String(expected ?? "").toLowerCase());
+    default:
+      return false;
+  }
+}
+
 export function matchConditions(
   conditions: Record<string, unknown> | null,
   context: Record<string, unknown> = {}
 ): boolean {
   if (!conditions) return true;
 
+  // --- Native builder format ---
+  if (isNativeTree(conditions)) {
+    const tree = conditions as unknown as CondTreeNative;
+    if (!tree.rules || tree.rules.length === 0) return true;
+    if (tree.combinator === "any") {
+      return tree.rules.some((leaf) => evalLeaf(leaf, context));
+    }
+    return tree.rules.every((leaf) => evalLeaf(leaf, context));
+  }
+
+  // --- Legacy format ---
   // OR group
   const orGroup = conditions.or as Array<Record<string, unknown>> | undefined;
   if (Array.isArray(orGroup)) {
@@ -145,6 +203,19 @@ export function matchConditions(
   return true;
 }
 
+/** Number of conditions in a rule — used to rank specificity. */
+export function countConditions(conditions: Record<string, unknown> | null): number {
+  if (!conditions) return 0;
+  if (isNativeTree(conditions)) return (conditions as unknown as CondTreeNative).rules.length;
+  const orGroup = conditions.or as unknown[] | undefined;
+  if (Array.isArray(orGroup)) return orGroup.length;
+  return Object.keys(conditions).filter((k) => k !== "or").length;
+}
+
+const PRIORITY_RANK: Record<ValidationPriority, number> = {
+  critical: 4, high: 3, medium: 2, low: 1,
+};
+
 // =============================================
 // Check if validation is required for an action
 // =============================================
@@ -171,12 +242,21 @@ export async function checkValidationRequired(
     const { data: rules } = await q;
     if (!rules || rules.length === 0) return { rule: null, enforcement: "none" };
 
-    for (const r of rules) {
-      const rule = r as unknown as ValidationRule;
-      if (matchConditions(rule.conditions, params.context ?? {})) {
-        return { rule, enforcement: rule.enforcement };
-      }
-    }
+    // Deterministic selection: among matching rules, prefer higher priority,
+    // then a stricter entity_type match, then more specific (more conditions).
+    const matching = (rules as unknown as ValidationRule[])
+      .filter((rule) => matchConditions(rule.conditions, params.context ?? {}))
+      .sort((a, b) => {
+        const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
+        if (p !== 0) return p;
+        const ea = a.entity_type ? 1 : 0;
+        const eb = b.entity_type ? 1 : 0;
+        if (eb !== ea) return eb - ea;
+        return countConditions(b.conditions) - countConditions(a.conditions);
+      });
+
+    const rule = matching[0];
+    if (rule) return { rule, enforcement: rule.enforcement };
     return { rule: null, enforcement: "none" };
   } catch (e) {
     if (typeof console !== "undefined") console.warn("[validation] check failed", e);
@@ -215,7 +295,13 @@ export async function createValidationRequest(
   const rule = payload.rule;
   const enforcement: ValidationEnforcement = rule?.enforcement ?? "post_hoc";
   const priority = payload.priority ?? rule?.priority ?? "medium";
-  const status: ValidationStatus = enforcement === "blocking" ? "submitted" : "pending_post_hoc";
+  // Auto-approve low-risk post-hoc requests when the rule allows it.
+  const autoApprove = enforcement === "post_hoc"
+    && (rule?.auto_approve_if_low_risk ?? false)
+    && priority === "low";
+  const status: ValidationStatus = autoApprove
+    ? "approved"
+    : enforcement === "blocking" ? "submitted" : "pending_post_hoc";
 
   const old_san = payload.old_values
     ? (sanitizeValues(payload.old_values) as Record<string, unknown>)
@@ -243,6 +329,7 @@ export async function createValidationRequest(
     submitted_by_name: user.name,
     submitted_by_email: user.email,
     assigned_validator_role: rule?.validator_roles?.[0] ?? null,
+    assigned_validator_user_id: rule?.validator_users?.[0] ?? null,
     title: payload.title,
     description: payload.description ?? "",
     justification: payload.justification ?? null,
@@ -253,7 +340,10 @@ export async function createValidationRequest(
     action_url: payload.action_url ?? null,
     submitted_at: new Date().toISOString(),
     applied_at: enforcement === "post_hoc" ? new Date().toISOString() : null,
+    validated_at: autoApprove ? new Date().toISOString() : null,
+    validation_comment: autoApprove ? "Auto-approuvée (risque faible)" : null,
   };
+
 
   const { data, error } = await supabase
     .from("validation_requests")

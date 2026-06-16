@@ -39,6 +39,7 @@ interface FormState {
   is_active: boolean;
   is_required: boolean;
   validator_roles: string[];
+  validator_users: string[];
   auto_approve_if_low_risk: boolean;
   conditions: CondTree;
 }
@@ -46,9 +47,11 @@ interface FormState {
 const EMPTY: FormState = {
   name: "", description: "", module: "pdr_stock", entity_type: "", action_type: "",
   enforcement: "post_hoc", priority: "medium", is_active: true, is_required: true,
-  validator_roles: [], auto_approve_if_low_risk: false,
+  validator_roles: [], validator_users: [], auto_approve_if_low_risk: false,
   conditions: { combinator: "all", rules: [] },
 };
+
+interface ProfileOption { user_id: string; name: string }
 
 export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -56,6 +59,22 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
   const [expertMode, setExpertMode] = useState(false);
   const [expertJson, setExpertJson] = useState("");
   const [forceWarnings, setForceWarnings] = useState(false);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id,first_name,last_name")
+        .order("first_name");
+      const opts: ProfileOption[] = (data ?? []).map((p: { user_id: string; first_name: string | null; last_name: string | null }) => ({
+        user_id: p.user_id,
+        name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.user_id.slice(0, 8),
+      }));
+      setProfiles(opts);
+    })();
+  }, [open]);
 
   useEffect(() => {
     if (rule) {
@@ -70,6 +89,7 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
         is_active: rule.is_active ?? true,
         is_required: rule.is_required ?? true,
         validator_roles: rule.validator_roles ?? [],
+        validator_users: rule.validator_users ?? [],
         auto_approve_if_low_risk: rule.auto_approve_if_low_risk ?? false,
         conditions: fromAnyConditions(rule.conditions),
       });
@@ -99,12 +119,17 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
     action_type: form.action_type,
     enforcement: form.enforcement,
     validator_roles: form.validator_roles,
+    validator_users: form.validator_users,
     conditions: expertMode ? expertJson : conditionsObj,
     allowCustom: false,
   }), [form, expertMode, expertJson, conditionsObj]);
 
   const toggleRole = (r: string) => {
     setForm({ ...form, validator_roles: form.validator_roles.includes(r) ? form.validator_roles.filter((x) => x !== r) : [...form.validator_roles, r] });
+  };
+
+  const toggleUser = (uid: string) => {
+    setForm({ ...form, validator_users: form.validator_users.includes(uid) ? form.validator_users.filter((x) => x !== uid) : [...form.validator_users, uid] });
   };
 
   const save = async () => {
@@ -129,6 +154,7 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
       is_active: form.is_active,
       is_required: form.is_required,
       validator_roles: form.validator_roles,
+      validator_users: form.validator_users,
       auto_approve_if_low_risk: form.auto_approve_if_low_risk,
       conditions: conditionsObj,
     };
@@ -257,6 +283,35 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
                 );
               })}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Tous les utilisateurs ayant l'un de ces rôles pourront traiter la demande.
+            </p>
+          </div>
+
+          {/* Validateurs nominatifs */}
+          <div>
+            <Label>Validateurs nominatifs (optionnel)</Label>
+            <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto">
+              {profiles.length === 0 && (
+                <span className="text-xs text-muted-foreground italic">Aucun utilisateur chargé.</span>
+              )}
+              {profiles.map((p) => {
+                const sel = form.validator_users.includes(p.user_id);
+                return (
+                  <Badge
+                    key={p.user_id}
+                    variant={sel ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleUser(p.user_id)}
+                  >
+                    {p.name}
+                  </Badge>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Le premier validateur nominatif sera assigné directement à la demande.
+            </p>
           </div>
 
           {/* Conditions */}
@@ -305,6 +360,19 @@ export function RuleEditorDialog({ open, onOpenChange, rule, onSaved }: Props) {
             <div className="flex items-center justify-between rounded-md border p-2">
               <Label>Validation obligatoire</Label>
               <Switch checked={form.is_required} onCheckedChange={(v) => setForm({ ...form, is_required: v })} />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-2 col-span-2">
+              <div>
+                <Label>Auto-approuver si risque faible</Label>
+                <p className="text-xs text-muted-foreground">
+                  Les demandes a posteriori de priorité « faible » sont approuvées automatiquement.
+                </p>
+              </div>
+              <Switch
+                checked={form.auto_approve_if_low_risk}
+                onCheckedChange={(v) => setForm({ ...form, auto_approve_if_low_risk: v })}
+                disabled={form.enforcement === "blocking"}
+              />
             </div>
           </div>
 

@@ -134,7 +134,7 @@ export default function PdrDetail() {
     if (mvtForm.type === "correction") {
       validationActionType = "correction";
     } else if (mvtForm.type === "inventaire") {
-      validationActionType = "inventory";
+      validationActionType = "inventaire";
       const ecartPct = stockAvant > 0 ? Math.abs(((stockApres - stockAvant) / stockAvant) * 100) : 100;
       ctx.ecart_pct = ecartPct;
     }
