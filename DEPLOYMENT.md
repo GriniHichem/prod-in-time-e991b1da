@@ -31,11 +31,10 @@ au moment du déploiement.
 ## Procédure
 
 ```bash
-# 1. Générer des migrations propres (schéma seul, sans données de test)
-./scripts/prepare-production-db.sh
+# 1. Remplacer localement supabase/migrations par la version propre
+./scripts/prepare-production-db.sh --replace-local
 
 # 2. Sur votre serveur, projet Supabase lié :
-cp -r dist/supabase/migrations supabase/migrations
 supabase db push          # applique UNIQUEMENT le schéma -> base vierge
 ```
 
