@@ -94,7 +94,7 @@ echo "Migrations propres générées dans : $OUT_MIG"
 echo "Le fichier seed.sql n'a PAS été copié (base vierge garantie)."
 
 if [[ "$REPLACE_LOCAL" == "true" ]]; then
-  BACKUP_DIR="$ROOT_DIR/supabase/migrations.backup.$(date +%Y%m%d%H%M%S)"
+  BACKUP_DIR="/tmp/prod-in-time-migrations.backup.$(date +%Y%m%d%H%M%S)"
   mv "$SRC_DIR" "$BACKUP_DIR"
   cp -R "$OUT_MIG" "$SRC_DIR"
   echo ""
