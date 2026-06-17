@@ -19,10 +19,6 @@
 #   (défaut : ./dist/supabase)
 #   ./scripts/prepare-production-db.sh --replace-local
 #   (remplace supabase/migrations par la copie propre, avec sauvegarde)
-#
-# Déploiement ensuite (sur votre serveur Ubuntu, projet Supabase lié) :
-#   cp -r dist/supabase/migrations supabase/migrations
-#   supabase db push          # applique UNIQUEMENT le schéma -> base vierge
 # =============================================================================
 set -euo pipefail
 
@@ -38,6 +34,12 @@ else
 fi
 OUT_MIG="$OUT_DIR/migrations"
 
+# Vérification pré-requis
+if ! command -v python3 &>/dev/null; then
+  echo "❌ Erreur : python3 est requis pour les substitutions."
+  exit 1
+fi
+
 # Fichiers à neutraliser (données de test)
 FULL_MOCK_GLOB="20260320031539_*.sql"
 TEAMS_GLOB="20260316183840_*.sql"
@@ -45,7 +47,9 @@ TEAMS_GLOB="20260316183840_*.sql"
 echo "→ Source     : $SRC_DIR"
 echo "→ Destination: $OUT_MIG"
 
-rm -rf "$OUT_MIG"
+if [ -d "$OUT_MIG" ]; then
+  rm -rf "$OUT_MIG"
+fi
 mkdir -p "$OUT_MIG"
 cp "$SRC_DIR"/*.sql "$OUT_MIG"/
 
@@ -68,8 +72,9 @@ import re, sys
 p = sys.argv[1]
 s = open(p, encoding="utf-8").read()
 # Retire le bloc INSERT INTO public.shift_teams (...) VALUES ... ; (équipes de test)
+# Version robuste : gère plusieurs lignes et stop au premier ; hors chaîne
 s = re.sub(
-    r"INSERT INTO public\.shift_teams[^;]*;",
+    r"INSERT INTO\s+public\.shift_teams\s*\(.*?\)\s*VALUES.*?;",
     "-- (Équipes de démonstration retirées pour la production — voir supabase/seed.sql)",
     s,
     flags=re.IGNORECASE | re.DOTALL,
@@ -105,13 +110,15 @@ def repl(m):
         "END\n"
         "$cron_cleanup$;" % (job, job)
     )
+# Regex améliorée pour supporter les espaces avant la parenthèse
 pattern = re.compile(
-    r"(?:SELECT|PERFORM)\s+cron\.unschedule\(\s*'(?P<job>[^']+)'\s*\)\s*;",
+    r"(?:SELECT|PERFORM)\s+cron\.unschedule\s*\(\s*'(?P<job>[^']+)'\s*\)\s*;",
     flags=re.IGNORECASE,
 )
 new = pattern.sub(repl, s)
 if new != s:
-    open(p, "w", encoding="utf-8").write(new)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(new)
     print("  ✓ %s" % p.split("/")[-1])
 PY
 done
@@ -119,13 +126,15 @@ done
 # 4) Vérification : aucune donnée de test résiduelle évidente
 echo ""
 echo "→ Vérification des UUID de test résiduels..."
-if grep -RInE "61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000" "$OUT_MIG" >/dev/null; then
-  echo "⚠️  Des UUID de test subsistent — vérifiez manuellement :"
-  grep -RInE "61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000" "$OUT_MIG" || true
+# On cherche les UUID connus de Lovable (admin par défaut, pdr de test, etc.)
+TEST_UUIDS="61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000"
+if grep -RInE "$TEST_UUIDS" "$OUT_MIG" >/dev/null; then
+  echo "⚠️  Des UUID de test subsistent dans $OUT_MIG — vérifiez manuellement :"
+  grep -RInE "$TEST_UUIDS" "$OUT_MIG" || true
   exit 1
 fi
 
-echo "✓ Aucune donnée de test résiduelle."
+echo "✓ Aucune donnée de test résiduelle détectée."
 echo ""
 echo "Migrations propres générées dans : $OUT_MIG"
 echo "Le fichier seed.sql n'a PAS été copié (base vierge garantie)."

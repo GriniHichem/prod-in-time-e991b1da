@@ -25,16 +25,21 @@ migrations historiques contenaient des données de test mélangées au schéma :
 - `20260316183840_*.sql` — un bloc d'insertion des équipes « A/B/C/D ».
 
 Ces données ont été **déplacées vers `supabase/seed.sql`**. Comme les fichiers
-historiques ne peuvent pas être réécrits ici, un script génère une copie propre
-au moment du déploiement.
+historiques ne peuvent pas être réécrits sur la plateforme, un script génère une 
+copie propre au moment du déploiement.
 
 ## Procédure
 
 ```bash
-# 1. Remplacer localement supabase/migrations par la version propre
+# 1. Préparer les migrations propres (sans données de test)
+# Option A : Génère les fichiers dans dist/supabase/migrations
+./scripts/prepare-production-db.sh
+
+# Option B : Remplace directement vos migrations locales (recommandé si git propre)
 ./scripts/prepare-production-db.sh --replace-local
 
 # 2. Sur votre serveur, projet Supabase lié :
+# (Assurez-vous que le dossier supabase/migrations contient la version générée)
 supabase db push          # applique UNIQUEMENT le schéma -> base vierge
 ```
 
@@ -55,7 +60,7 @@ VALUES ('<UUID-de-votre-compte>', 'admin');
 ## Vérification « usine vide »
 
 ```bash
-# Aucun UUID de test ne doit subsister dans les migrations de production
-grep -RInE "61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000" dist/supabase/migrations
-# -> ne doit rien retourner
+# Aucun UUID de test ne doit subsister dans les migrations à déployer
+grep -RInE "61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000" supabase/migrations
+# -> ne doit rien retourner si vous avez utilisé --replace-local
 ```
