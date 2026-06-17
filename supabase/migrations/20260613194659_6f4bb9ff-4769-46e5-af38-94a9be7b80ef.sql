@@ -3,7 +3,15 @@
 -- ============================================================
 
 -- Cleanup previous maintenance auto-schedule approach
-SELECT cron.unschedule('apply-maintenance-schedules');
+DO $cron_cleanup$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'apply-maintenance-schedules') THEN
+    PERFORM cron.unschedule('apply-maintenance-schedules');
+  END IF;
+EXCEPTION WHEN undefined_table OR undefined_function THEN
+  NULL;
+END
+$cron_cleanup$;
 DROP TABLE IF EXISTS public.maintenance_shift_schedules CASCADE;
 
 -- 1) Systems
