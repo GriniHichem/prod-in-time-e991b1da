@@ -233,7 +233,28 @@ SQL
   echo "  ✓ $(basename "$f")"
 done
 
-# 5) Migration finale de durcissement pour l'auto-hébergement.
+# 5) Rendre les buckets storage idempotents en cas de reprise/relance partielle.
+echo ""
+echo "→ Sécurisation des buckets storage..."
+for f in "$OUT_MIG"/*.sql; do
+  [ -e "$f" ] || continue
+  python3 - "$f" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+new = re.sub(
+    r"INSERT\s+INTO\s+storage\.buckets\s*\(([^)]*)\)\s*VALUES\s*\(([^;]*?)\)\s*;(?!\s*ON\s+CONFLICT)",
+    r"INSERT INTO storage.buckets (\1) VALUES (\2)\nON CONFLICT (id) DO NOTHING;",
+    s,
+    flags=re.IGNORECASE | re.DOTALL,
+)
+if new != s:
+    open(p, "w", encoding="utf-8").write(new)
+    print("  ✓ %s" % p.split("/")[-1])
+PY
+done
+
+# 6) Migration finale de durcissement pour l'auto-hébergement.
 #    Les anciennes migrations historiques n'ajoutaient pas toutes les GRANT Data API.
 cat > "$OUT_MIG/99999999999999_self_host_hardening.sql" <<'SQL'
 -- Durcissement auto-hébergement : accès Data API explicite pour les tables publiques.
@@ -262,7 +283,7 @@ END$$;
 SQL
 echo "✓ Migration de durcissement ajoutée: 99999999999999_self_host_hardening.sql"
 
-# 6) Vérification : aucune donnée de test résiduelle évidente
+# 7) Vérification : aucune donnée de test résiduelle évidente
 echo ""
 echo "→ Vérification des UUID de test résiduels..."
 # On cherche les UUID connus de Lovable (admin par défaut, pdr de test, etc.)
