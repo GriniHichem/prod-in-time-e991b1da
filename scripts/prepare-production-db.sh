@@ -79,7 +79,44 @@ PY
   echo "✓ Nettoyé (équipes de test): $(basename "$f")"
 done
 
-# 3) Vérification : aucune donnée de test résiduelle évidente
+# 3) Rendre idempotents les appels cron.unschedule(...) sur une base vierge.
+#    Sur une base neuve, le job n'existe pas et cron.unschedule(...) lève
+#    "could not find valid entry for job" (XX000) -> migration en échec.
+echo ""
+echo "→ Sécurisation des appels cron.unschedule (base vierge)..."
+for f in "$OUT_MIG"/*.sql; do
+  [ -e "$f" ] || continue
+  python3 - "$f" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+# Remplace:  SELECT cron.unschedule('job');   (avec ou sans SELECT/PERFORM)
+# par un bloc DO ... gardé par un test d'existence + tolérance pg_cron absent.
+def repl(m):
+    job = m.group("job")
+    return (
+        "DO $cron_cleanup$\n"
+        "BEGIN\n"
+        "  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = '%s') THEN\n"
+        "    PERFORM cron.unschedule('%s');\n"
+        "  END IF;\n"
+        "EXCEPTION WHEN undefined_table OR undefined_function THEN\n"
+        "  NULL;\n"
+        "END\n"
+        "$cron_cleanup$;" % (job, job)
+    )
+pattern = re.compile(
+    r"(?:SELECT|PERFORM)\s+cron\.unschedule\(\s*'(?P<job>[^']+)'\s*\)\s*;",
+    flags=re.IGNORECASE,
+)
+new = pattern.sub(repl, s)
+if new != s:
+    open(p, "w", encoding="utf-8").write(new)
+    print("  ✓ %s" % p.split("/")[-1])
+PY
+done
+
+# 4) Vérification : aucune donnée de test résiduelle évidente
 echo ""
 echo "→ Vérification des UUID de test résiduels..."
 if grep -RInE "61d5a0dd-40d9-41f5-aa30-3346ab8eec67|a0000001-0000-0000|d1000000-0000-0000" "$OUT_MIG" >/dev/null; then
