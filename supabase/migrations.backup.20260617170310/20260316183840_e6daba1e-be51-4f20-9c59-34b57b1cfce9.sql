@@ -70,7 +70,11 @@ ALTER TABLE public.shifts
   ADD COLUMN IF NOT EXISTS heure_fin_reelle timestamptz;
 
 -- 6. Données initiales équipes
--- (Équipes de démonstration retirées pour la production — voir supabase/seed.sql)
+INSERT INTO public.shift_teams (name, code, color) VALUES
+  ('Équipe A', 'A', '#3b82f6'),
+  ('Équipe B', 'B', '#10b981'),
+  ('Équipe C', 'C', '#f59e0b'),
+  ('Équipe D', 'D', '#ef4444');
 
 -- 7. Créneaux horaires standards
 INSERT INTO public.shift_time_slots (label, code, heure_debut, heure_fin, sort_order) VALUES
