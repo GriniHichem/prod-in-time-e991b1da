@@ -123,7 +123,143 @@ if new != s:
 PY
 done
 
-# 4) Vérification : aucune donnée de test résiduelle évidente
+# 4) Rendre les migrations cron auto-hébergeables.
+#    - pg_cron/pg_net sont optionnels : leur absence ne doit jamais bloquer le schéma.
+#    - les jobs ne doivent pas pointer vers une URL Lovable/Supabase Cloud figée.
+echo ""
+echo "→ Sécurisation des migrations cron (auto-hébergement)..."
+for f in "$OUT_MIG"/20260428101115_*.sql; do
+  [ -e "$f" ] || continue
+  python3 - "$f" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+if "edge_functions_base_url" not in s:
+    s = s.replace(
+        "  ('cron_secret', encode(gen_random_bytes(24), 'hex'), 'Secret cron interne', 'Utilisé par les jobs cron pour appeler les edge functions', true)\nON CONFLICT (key) DO NOTHING;",
+        "  ('cron_secret', encode(gen_random_bytes(24), 'hex'), 'Secret cron interne', 'Utilisé par les jobs cron pour appeler les edge functions', true),\n"
+        "  ('edge_functions_base_url', '', 'URL fonctions backend', 'URL accessible depuis Postgres, sans slash final, ex: http://kong:8000/functions/v1', false)\n"
+        "ON CONFLICT (key) DO NOTHING;",
+    )
+if "CREATE EXTENSION IF NOT EXISTS pg_cron;" in s or "CREATE EXTENSION IF NOT EXISTS pg_net;" in s:
+    s = s.replace(
+        "-- 3) Extensions for cron\nCREATE EXTENSION IF NOT EXISTS pg_cron;\nCREATE EXTENSION IF NOT EXISTS pg_net;",
+        "-- 3) Extensions for cron (optionnelles en auto-hébergement)\n"
+        "DO $optional_extensions$\n"
+        "BEGIN\n"
+        "  BEGIN\n"
+        "    CREATE EXTENSION IF NOT EXISTS pg_cron;\n"
+        "  EXCEPTION WHEN OTHERS THEN\n"
+        "    RAISE NOTICE 'Extension pg_cron non activée: %', SQLERRM;\n"
+        "  END;\n\n"
+        "  BEGIN\n"
+        "    CREATE EXTENSION IF NOT EXISTS pg_net;\n"
+        "  EXCEPTION WHEN OTHERS THEN\n"
+        "    RAISE NOTICE 'Extension pg_net non activée: %', SQLERRM;\n"
+        "  END;\n"
+        "END\n"
+        "$optional_extensions$;",
+    )
+open(p, "w", encoding="utf-8").write(s)
+print("  ✓ %s" % p.split("/")[-1])
+PY
+done
+
+for f in "$OUT_MIG"/20260428101448_*.sql; do
+  [ -e "$f" ] || continue
+  cat > "$f" <<'SQL'
+-- Job cron de rappels : auto-hébergeable et non bloquant.
+-- Le job n'est créé que si pg_cron + pg_net existent ET si app_settings.edge_functions_base_url est renseigné.
+DO $$
+DECLARE
+  v_secret text;
+  v_base_url text;
+  v_jobid bigint;
+BEGIN
+  SELECT value INTO v_secret FROM public.app_settings WHERE key = 'cron_secret';
+  IF v_secret IS NULL OR v_secret = '' THEN
+    v_secret := encode(gen_random_bytes(24), 'hex');
+    INSERT INTO public.app_settings(key, value, label, description, is_secret)
+      VALUES ('cron_secret', v_secret, 'Secret cron interne', 'Cron auth', true)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+  END IF;
+
+  INSERT INTO public.app_settings(key, value, label, description, is_secret)
+    VALUES ('edge_functions_base_url', '', 'URL fonctions backend', 'URL accessible depuis Postgres, sans slash final, ex: http://kong:8000/functions/v1', false)
+    ON CONFLICT (key) DO NOTHING;
+
+  SELECT NULLIF(TRIM(value), '') INTO v_base_url
+  FROM public.app_settings
+  WHERE key = 'edge_functions_base_url';
+
+  IF to_regnamespace('cron') IS NULL THEN
+    RAISE NOTICE 'pg_cron absent: job notifications-check-deadlines non créé.';
+    RETURN;
+  END IF;
+
+  IF to_regnamespace('net') IS NULL THEN
+    RAISE NOTICE 'pg_net absent: job notifications-check-deadlines non créé.';
+    RETURN;
+  END IF;
+
+  IF v_base_url IS NULL THEN
+    RAISE NOTICE 'app_settings.edge_functions_base_url vide: job notifications-check-deadlines non créé.';
+    RETURN;
+  END IF;
+
+  SELECT jobid INTO v_jobid FROM cron.job WHERE jobname = 'notifications-check-deadlines';
+  IF v_jobid IS NOT NULL THEN
+    PERFORM cron.unschedule(v_jobid);
+  END IF;
+
+  PERFORM cron.schedule(
+    'notifications-check-deadlines',
+    '0 6 * * *',
+    format($cron$
+      SELECT net.http_post(
+        url := %L,
+        headers := jsonb_build_object('Content-Type','application/json','x-cron-secret', %L),
+        body := '{}'::jsonb
+      );
+    $cron$, v_base_url || '/check-deadlines', v_secret)
+  );
+EXCEPTION WHEN undefined_schema OR undefined_table OR undefined_function OR insufficient_privilege THEN
+  RAISE NOTICE 'Job notifications-check-deadlines ignoré: %', SQLERRM;
+END$$;
+SQL
+  echo "  ✓ $(basename "$f")"
+done
+
+# 5) Migration finale de durcissement pour l'auto-hébergement.
+#    Les anciennes migrations historiques n'ajoutaient pas toutes les GRANT Data API.
+cat > "$OUT_MIG/99999999999999_self_host_hardening.sql" <<'SQL'
+-- Durcissement auto-hébergement : accès Data API explicite pour les tables publiques.
+-- Ne crée aucune donnée métier ; garantit que RLS + GRANT fonctionnent sur une base vierge.
+GRANT USAGE ON SCHEMA public TO authenticated, service_role;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO authenticated', r.tablename);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', r.tablename);
+  END LOOP;
+END$$;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
+    EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE public.%I TO authenticated', r.sequencename);
+    EXECUTE format('GRANT ALL ON SEQUENCE public.%I TO service_role', r.sequencename);
+  END LOOP;
+END$$;
+SQL
+echo "✓ Migration de durcissement ajoutée: 99999999999999_self_host_hardening.sql"
+
+# 6) Vérification : aucune donnée de test résiduelle évidente
 echo ""
 echo "→ Vérification des UUID de test résiduels..."
 # On cherche les UUID connus de Lovable (admin par défaut, pdr de test, etc.)
@@ -135,6 +271,14 @@ if grep -RInE "$TEST_UUIDS" "$OUT_MIG" >/dev/null; then
 fi
 
 echo "✓ Aucune donnée de test résiduelle détectée."
+echo "→ Vérification des URLs Supabase/Lovable figées..."
+ENV_URLS="https://[a-z0-9-]+\.supabase\.co|lovable\.app|luryiclhlftqikiqkwsp|izbgfamvoioznmelerui"
+if grep -RInE "$ENV_URLS" "$OUT_MIG" >/dev/null; then
+  echo "⚠️  Des URLs d'environnement figées subsistent dans $OUT_MIG — vérifiez manuellement :"
+  grep -RInE "$ENV_URLS" "$OUT_MIG" || true
+  exit 1
+fi
+echo "✓ Aucune URL d'environnement figée."
 echo ""
 echo "Migrations propres générées dans : $OUT_MIG"
 echo "Le fichier seed.sql n'a PAS été copié (base vierge garantie)."
