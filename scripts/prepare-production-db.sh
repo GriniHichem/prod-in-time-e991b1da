@@ -17,6 +17,8 @@
 # Usage :
 #   ./scripts/prepare-production-db.sh [dossier_sortie]
 #   (défaut : ./dist/supabase)
+#   ./scripts/prepare-production-db.sh --replace-local
+#   (remplace supabase/migrations par la copie propre, avec sauvegarde)
 #
 # Déploiement ensuite (sur votre serveur Ubuntu, projet Supabase lié) :
 #   cp -r dist/supabase/migrations supabase/migrations
@@ -24,8 +26,16 @@
 # =============================================================================
 set -euo pipefail
 
-SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/supabase/migrations"
-OUT_DIR="${1:-$(pwd)/dist/supabase}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SRC_DIR="$ROOT_DIR/supabase/migrations"
+REPLACE_LOCAL="false"
+
+if [[ "${1:-}" == "--replace-local" ]]; then
+  REPLACE_LOCAL="true"
+  OUT_DIR="$ROOT_DIR/dist/supabase"
+else
+  OUT_DIR="${1:-$ROOT_DIR/dist/supabase}"
+fi
 OUT_MIG="$OUT_DIR/migrations"
 
 # Fichiers à neutraliser (données de test)
@@ -82,3 +92,13 @@ echo "✓ Aucune donnée de test résiduelle."
 echo ""
 echo "Migrations propres générées dans : $OUT_MIG"
 echo "Le fichier seed.sql n'a PAS été copié (base vierge garantie)."
+
+if [[ "$REPLACE_LOCAL" == "true" ]]; then
+  BACKUP_DIR="$ROOT_DIR/supabase/migrations.backup.$(date +%Y%m%d%H%M%S)"
+  mv "$SRC_DIR" "$BACKUP_DIR"
+  cp -R "$OUT_MIG" "$SRC_DIR"
+  echo ""
+  echo "✓ supabase/migrations remplacé par la version propre."
+  echo "✓ Sauvegarde conservée dans : $BACKUP_DIR"
+  echo "Vous pouvez maintenant relancer : supabase db push"
+fi
