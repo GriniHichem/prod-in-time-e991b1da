@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Prod-in-Time — Génère un BASELINE de schéma complet et fiable
+# =============================================================================
+# Ce script se connecte à la base SOURCE (Lovable Cloud) via $SUPABASE_DB_URL et
+# produit UN SEUL fichier SQL autonome contenant TOUT le schéma applicatif :
+#   - extensions requises (idempotentes)
+#   - schéma public : types/enums, tables, fonctions, triggers, RLS, GRANT
+#   - buckets storage + politiques storage (idempotents)
+#
+# Le fichier produit est la source de vérité pour un déploiement auto-hébergé :
+# il s'applique en UNE PASSE sur une base vierge, sans dépendre des 85 migrations
+# incrémentales (qui peuvent échouer en cascade).
+#
+# Usage :  SUPABASE_DB_URL=postgres://... ./scripts/generate-baseline.sh
+# Sortie : supabase/baseline/00000000000000_baseline.sql
+# =============================================================================
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUT_DIR="$ROOT_DIR/supabase/baseline"
+OUT="$OUT_DIR/00000000000000_baseline.sql"
+mkdir -p "$OUT_DIR"
+
+if [ -z "${SUPABASE_DB_URL:-}" ]; then
+  echo "❌ SUPABASE_DB_URL doit pointer vers la base SOURCE." >&2
+  exit 1
+fi
+
+TMP_PUBLIC="$(mktemp)"
+TMP_STORAGE="$(mktemp)"
+
+echo "→ Dump du schéma public (tables, fonctions, triggers, RLS, GRANT)..."
+pg_dump "$SUPABASE_DB_URL" --schema-only --schema=public --no-owner --no-comments \
+  | grep -vE '^\\(un)?restrict' \
+  | grep -vE '^CREATE SCHEMA public;$' \
+  > "$TMP_PUBLIC"
+
+echo "→ Dump des politiques storage.objects..."
+pg_dump "$SUPABASE_DB_URL" --schema-only --schema=storage --table='storage.objects' --no-owner --no-comments \
+  | grep -iE 'CREATE POLICY' > "$TMP_STORAGE" || true
+
+echo "→ Assemblage de $OUT ..."
+{
+  cat <<'HEADER'
+-- =============================================================================
+-- Prod-in-Time — BASELINE de schéma (déploiement auto-hébergé)
+-- Généré par scripts/generate-baseline.sh — NE PAS éditer à la main.
+--
+-- Ce fichier crée 100% du schéma applicatif sur une base Supabase VIERGE.
+-- Il NE contient AUCUNE donnée métier ni utilisateur de test.
+-- Toute l'autorisation repose sur auth.uid() + la table public.user_roles.
+--
+-- Application :  psql "$DATABASE_URL" -f 00000000000000_baseline.sql
+-- =============================================================================
+
+SET statement_timeout = 0;
+SET client_min_messages = warning;
+SET row_security = off;
+
+-- 0) Extensions requises (idempotentes, tolérantes en auto-hébergement).
+DO $ext$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pgcrypto;
+  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  CREATE EXTENSION IF NOT EXISTS unaccent;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Extension non installée: %', SQLERRM;
+END
+$ext$;
+
+HEADER
+
+  echo "-- ============================================================================="
+  echo "-- 1) SCHÉMA PUBLIC (types, tables, fonctions, triggers, RLS, GRANT)"
+  echo "-- ============================================================================="
+  cat "$TMP_PUBLIC"
+
+  echo ""
+  echo "-- ============================================================================="
+  echo "-- 2) BUCKETS STORAGE (idempotents)"
+  echo "-- ============================================================================="
+  cat <<'BUCKETS'
+INSERT INTO storage.buckets (id, name, public)
+VALUES
+  ('entity-documents',  'entity-documents',  true),
+  ('entity-images',     'entity-images',     true),
+  ('machine-documents', 'machine-documents', true)
+ON CONFLICT (id) DO NOTHING;
+
+BUCKETS
+
+  echo "-- ============================================================================="
+  echo "-- 3) POLITIQUES STORAGE (idempotentes)"
+  echo "-- ============================================================================="
+  # Rendre chaque CREATE POLICY idempotent via DROP POLICY IF EXISTS préalable.
+  while IFS= read -r line; do
+    name="$(echo "$line" | sed -E 's/^CREATE POLICY "([^"]+)".*/\1/')"
+    echo "DROP POLICY IF EXISTS \"$name\" ON storage.objects;"
+    echo "$line"
+  done < "$TMP_STORAGE"
+
+  echo ""
+  echo "-- ============================================================================="
+  echo "-- FIN DU BASELINE"
+  echo "-- ============================================================================="
+} > "$OUT"
+
+rm -f "$TMP_PUBLIC" "$TMP_STORAGE"
+
+echo "✓ Baseline généré : $OUT ($(wc -l < "$OUT") lignes)"
+echo "  Vérification (aucune donnée de test attendue) :"
+if grep -nE "INSERT INTO public\.(user_roles|profiles|shift_teams)" "$OUT"; then
+  echo "  ⚠ Des INSERT métier ont été détectés — à vérifier."
+else
+  echo "  ✓ Aucun INSERT de données métier/test dans le baseline."
+fi
