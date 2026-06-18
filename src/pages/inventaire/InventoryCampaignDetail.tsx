@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Play, Lock, ScanLine, Users, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 
-type Campaign = { id: string; code: string | null; label: string; status: string; scope_pdr: boolean; scope_organes: boolean; date_debut: string | null; date_fin_prevue: string | null; };
+type Campaign = { id: string; code: string | null; label: string; status: string; campaign_type?: "pdr" | "investissement"; scope_pdr: boolean; scope_organes: boolean; date_debut: string | null; date_fin_prevue: string | null; };
 type Assignment = { id: string; agent_id: string; role: "agent_a" | "agent_b" | "agent_c"; is_active: boolean };
 type Target = { id: string; entity_code: string | null; entity_label: string | null; family_id: string | null; qty_systeme: number; current_round: number; status: string };
 type Result = { target_id: string; round: number; qty_a: number | null; qty_b: number | null; qty_c: number | null; ecart_ab: number | null; qty_finale: number | null; decision: string };
@@ -91,6 +91,7 @@ export default function InventoryCampaignDetail() {
             <p className="text-xs text-muted-foreground font-mono">{campaign.code}</p>
           </div>
           <Badge>{campaign.status}</Badge>
+          <Badge variant="outline">{campaign.campaign_type === "investissement" ? "Investissement" : "PDR"}</Badge>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />Actualiser</Button>

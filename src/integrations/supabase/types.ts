@@ -1031,6 +1031,7 @@ export type Database = {
       }
       inventory_campaigns: {
         Row: {
+          campaign_type: Database["public"]["Enums"]["inventory_campaign_type"]
           code: string | null
           created_at: string
           created_by: string | null
@@ -1042,6 +1043,8 @@ export type Database = {
           label: string
           motif: string | null
           responsable_id: string | null
+          scope_equipements: boolean
+          scope_machines: boolean
           scope_organes: boolean
           scope_pdr: boolean
           status: Database["public"]["Enums"]["inventory_campaign_status"]
@@ -1049,6 +1052,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          campaign_type?: Database["public"]["Enums"]["inventory_campaign_type"]
           code?: string | null
           created_at?: string
           created_by?: string | null
@@ -1060,6 +1064,8 @@ export type Database = {
           label: string
           motif?: string | null
           responsable_id?: string | null
+          scope_equipements?: boolean
+          scope_machines?: boolean
           scope_organes?: boolean
           scope_pdr?: boolean
           status?: Database["public"]["Enums"]["inventory_campaign_status"]
@@ -1067,6 +1073,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          campaign_type?: Database["public"]["Enums"]["inventory_campaign_type"]
           code?: string | null
           created_at?: string
           created_by?: string | null
@@ -1078,6 +1085,8 @@ export type Database = {
           label?: string
           motif?: string | null
           responsable_id?: string | null
+          scope_equipements?: boolean
+          scope_machines?: boolean
           scope_organes?: boolean
           scope_pdr?: boolean
           status?: Database["public"]["Enums"]["inventory_campaign_status"]
@@ -6223,13 +6232,14 @@ export type Database = {
         | "arbitrage"
         | "cloturee"
         | "annulee"
+      inventory_campaign_type: "pdr" | "investissement"
       inventory_decision:
         | "en_attente"
         | "conforme_ab"
         | "conforme_c_eq_a"
         | "conforme_c_eq_b"
         | "recompte_ab"
-      inventory_entity_type: "pdr" | "organe"
+      inventory_entity_type: "pdr" | "organe" | "machine" | "equipement"
       inventory_target_status:
         | "a_compter"
         | "en_arbitrage"
@@ -6571,6 +6581,7 @@ export const Constants = {
         "cloturee",
         "annulee",
       ],
+      inventory_campaign_type: ["pdr", "investissement"],
       inventory_decision: [
         "en_attente",
         "conforme_ab",
@@ -6578,7 +6589,7 @@ export const Constants = {
         "conforme_c_eq_b",
         "recompte_ab",
       ],
-      inventory_entity_type: ["pdr", "organe"],
+      inventory_entity_type: ["pdr", "organe", "machine", "equipement"],
       inventory_target_status: [
         "a_compter",
         "en_arbitrage",
