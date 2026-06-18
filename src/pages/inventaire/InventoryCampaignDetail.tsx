@@ -91,6 +91,7 @@ export default function InventoryCampaignDetail() {
             <p className="text-xs text-muted-foreground font-mono">{campaign.code}</p>
           </div>
           <Badge>{campaign.status}</Badge>
+          <Badge variant="outline">{campaign.campaign_type === "investissement" ? "Investissement" : "PDR"}</Badge>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={load}><RefreshCw className="h-4 w-4 mr-1" />Actualiser</Button>
