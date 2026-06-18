@@ -5,6 +5,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ImpersonationDialog } from "@/components/admin/ImpersonationDialog";
 import { Eye } from "lucide-react";
 import logoAsset from "@/assets/prod-in-time-logo.png.asset.json";
+import logoAmour from "@/assets/logo-amour.jpg.asset.json";
 import {
   IconDashboard, IconMachine, IconEquipment, IconFactory, IconSpare,
   IconTicket, IconPreventive, IconShift, IconAnalytics, IconChart,
