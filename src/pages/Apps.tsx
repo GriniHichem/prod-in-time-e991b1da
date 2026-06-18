@@ -192,55 +192,93 @@ export default function Apps() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              {items.map((m) => (
+              {items.map((m) => {
+                const isShift = m.badge === "Live";
+                return (
                 <button
                   key={m.url}
                   onClick={() => navigate(m.url)}
                   aria-label={`${m.title} — ${m.description}`}
                   className={cn(
-                    "group relative flex flex-col items-center text-center gap-3 p-4 rounded-xl border bg-card overflow-hidden",
-                    "hover:border-primary/40 hover:shadow-lg hover:-translate-y-1",
+                    "group relative flex flex-col items-center text-center gap-3 p-4 rounded-xl border overflow-hidden",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    "transition-all duration-200 ease-out"
+                    "transition-all duration-200 ease-out hover:-translate-y-1",
+                    isShift
+                      ? "border-transparent bg-gradient-to-br from-primary via-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl ring-1 ring-primary/30"
+                      : "bg-card hover:border-primary/40 hover:shadow-lg"
                   )}
                 >
-                  {/* halo au survol */}
-                  <span
-                    className={cn(
-                      "pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-24 w-24 rounded-full blur-2xl opacity-0",
-                      "bg-gradient-to-br group-hover:opacity-40 transition-opacity duration-300",
-                      m.accent
-                    )}
-                    aria-hidden
-                  />
+                  {!isShift && (
+                    /* halo au survol */
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-24 w-24 rounded-full blur-2xl opacity-0",
+                        "bg-gradient-to-br group-hover:opacity-40 transition-opacity duration-300",
+                        m.accent
+                      )}
+                      aria-hidden
+                    />
+                  )}
+                  {isShift && (
+                    /* texture lumineuse subtile */
+                    <span
+                      className="pointer-events-none absolute -bottom-12 -right-8 h-32 w-32 rounded-full bg-primary-foreground/15 blur-2xl"
+                      aria-hidden
+                    />
+                  )}
                   {m.badge && (
                     <Badge
                       variant="secondary"
-                      className="absolute top-2 right-2 h-5 px-1.5 text-[9px] font-bold tracking-wider uppercase bg-primary/15 text-primary border-0"
+                      className={cn(
+                        "absolute top-2 right-2 h-5 px-1.5 text-[9px] font-bold tracking-wider uppercase border-0",
+                        isShift
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-primary/15 text-primary"
+                      )}
                     >
-                      <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                      <span
+                        className={cn(
+                          "mr-1 inline-block h-1.5 w-1.5 rounded-full animate-pulse",
+                          isShift ? "bg-primary-foreground" : "bg-primary"
+                        )}
+                      />
                       {m.badge}
                     </Badge>
                   )}
                   <div
                     className={cn(
-                      "relative h-14 w-14 rounded-2xl flex items-center justify-center bg-gradient-to-br border border-border/40 shadow-sm",
+                      "relative h-14 w-14 rounded-2xl flex items-center justify-center border shadow-sm",
                       "group-hover:scale-110 group-hover:shadow-md transition-all duration-200",
-                      m.accent
+                      isShift
+                        ? "bg-primary-foreground/15 border-primary-foreground/25 text-primary-foreground"
+                        : cn("bg-gradient-to-br border-border/40", m.accent)
                     )}
                   >
                     <m.icon size={26} />
                   </div>
                   <div className="relative space-y-1 min-h-[3.5rem]">
-                    <p className="text-[13px] font-semibold leading-tight text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+                    <p
+                      className={cn(
+                        "text-[13px] font-semibold leading-tight line-clamp-2 transition-colors",
+                        isShift
+                          ? "text-primary-foreground"
+                          : "text-foreground group-hover:text-primary"
+                      )}
+                    >
                       {m.title}
                     </p>
-                    <p className="text-[10.5px] text-muted-foreground leading-snug line-clamp-2">
+                    <p
+                      className={cn(
+                        "text-[10.5px] leading-snug line-clamp-2",
+                        isShift ? "text-primary-foreground/75" : "text-muted-foreground"
+                      )}
+                    >
                       {m.description}
                     </p>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </section>
         );
