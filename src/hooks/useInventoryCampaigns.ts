@@ -7,8 +7,11 @@ export type InventoryCampaign = {
   label: string;
   description: string | null;
   status: "draft" | "en_cours" | "arbitrage" | "cloturee" | "annulee";
+  campaign_type: "pdr" | "investissement";
   scope_pdr: boolean;
   scope_organes: boolean;
+  scope_machines: boolean;
+  scope_equipements: boolean;
   date_debut: string | null;
   date_fin_prevue: string | null;
   date_cloture: string | null;
