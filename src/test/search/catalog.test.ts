@@ -66,12 +66,11 @@ describe("searchCatalog", () => {
   it("groups modules by category for facet rendering", () => {
     const groups = listModulesByGroup();
     expect(Object.keys(groups).sort()).toEqual(
-      ["Industriel", "Maintenance", "Production", "Stock", "Système"].sort(),
+      ["Industriel", "Maintenance", "Production", "Qualité", "Stock", "Système"].sort(),
     );
     expect(groups.Maintenance.some((m) => m.key === "tickets")).toBe(true);
-    expect(groups.Production.some((m) => m.key === "ordres_fabrication")).toBe(
-      true,
-    );
+    expect(groups.Production.some((m) => m.key === "of")).toBe(true);
+    expect(groups.Qualité.some((m) => m.key === "quality_nc")).toBe(true);
     expect(groups.Stock.some((m) => m.key === "pdr")).toBe(true);
   });
 
