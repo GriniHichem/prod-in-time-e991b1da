@@ -1,7 +1,7 @@
 // Centralized definitions for the data import module (Configuration > Importation).
 // Shared between template generation, CSV mapping and validation.
 
-export type ImportEntity = "machines" | "equipements" | "organes" | "pdr";
+export type ImportEntity = "machines" | "equipements" | "organes" | "pdr" | "products" | "articles";
 
 export interface ImportField {
   key: string;
