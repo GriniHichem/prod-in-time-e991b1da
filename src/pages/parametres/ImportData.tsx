@@ -50,7 +50,7 @@ export default function ImportData() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="machines">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto mb-4">
               {ENTITIES.map((e) => (
                 <TabsTrigger key={e} value={e}>{IMPORT_TEMPLATES[e].label}</TabsTrigger>
               ))}
