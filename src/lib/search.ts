@@ -42,7 +42,7 @@ function sanitizeModules(modules: string[]): string[] {
   if (!modules.length) return [];
   const resolved = modules
     .map((m) => resolveModuleKey(m))
-    .filter((m): m is string => Boolean(m));
+    .filter((m): m is NonNullable<typeof m> => Boolean(m));
   return Array.from(new Set(resolved));
 }
 
