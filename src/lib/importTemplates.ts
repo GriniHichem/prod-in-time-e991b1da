@@ -112,6 +112,42 @@ export const IMPORT_TEMPLATES: Record<ImportEntity, ImportTemplate> = {
       { key: "devise", label: "Devise", example: "DA" },
     ],
   },
+  products: {
+    entity: "products",
+    label: "Produits finis",
+    rpc: "import_products",
+    uniqueKey: "code",
+    fields: [
+      { key: "code", label: "Code", required: true, example: "PRD-001" },
+      { key: "designation", label: "Désignation", required: true, example: "Biscuit fourré 100g" },
+      { key: "famille", label: "Famille", hint: "Créée si absente", example: "Biscuiterie" },
+      { key: "sous_famille", label: "Sous-famille", hint: "Créée si absente", example: "Biscuits fourrés" },
+      { key: "unite", label: "Unité", hint: "Défaut g", example: "g" },
+      { key: "unite_base", label: "Unité de base", hint: "Défaut g", example: "g" },
+      { key: "poids_unitaire", label: "Poids unitaire", type: "number", example: "100" },
+      { key: "description", label: "Description", example: "" },
+      { key: "code_erp", label: "Code ERP", example: "" },
+    ],
+  },
+  articles: {
+    entity: "articles",
+    label: "Articles de consommation",
+    rpc: "import_articles",
+    uniqueKey: "code",
+    fields: [
+      { key: "code", label: "Code", required: true, example: "ART-001" },
+      { key: "designation", label: "Désignation", required: true, example: "Farine T55" },
+      { key: "famille", label: "Famille", hint: "Créée si absente", example: "Matières premières" },
+      { key: "sous_famille", label: "Sous-famille", hint: "Créée si absente", example: "Farines" },
+      { key: "unite", label: "Unité", hint: "Défaut g", example: "g" },
+      { key: "stock_actuel", label: "Stock actuel", type: "number", example: "5000" },
+      { key: "stock_min", label: "Stock min", type: "number", example: "1000" },
+      { key: "prix_unitaire", label: "Prix unitaire", type: "number", example: "0.05" },
+      { key: "fournisseur", label: "Fournisseur", example: "" },
+      { key: "description", label: "Description", example: "" },
+      { key: "code_erp", label: "Code ERP", example: "" },
+    ],
+  },
 };
 
 /** Build the CSV template content (BOM + header + one sample row), separator ';'. */
