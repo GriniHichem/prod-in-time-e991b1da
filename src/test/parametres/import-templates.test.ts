@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { IMPORT_TEMPLATES, buildTemplateCsv, isValidEnumValue, ImportEntity } from "@/lib/importTemplates";
 
-const ENTITIES: ImportEntity[] = ["machines", "equipements", "organes", "pdr"];
+const ENTITIES: ImportEntity[] = ["machines", "equipements", "organes", "pdr", "products", "articles"];
 
 describe("import templates", () => {
   it("defines all four entities with rpc and unique key", () => {
