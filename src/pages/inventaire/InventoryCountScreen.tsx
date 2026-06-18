@@ -7,12 +7,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Lock, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Lock, CheckCircle2, AlertTriangle, ExternalLink, XCircle } from "lucide-react";
 import { ScanButton } from "@/components/scanner/ScanButton";
 
 type Family = { id: string; name: string };
-type Target = { id: string; entity_id: string; entity_code: string | null; entity_label: string | null; family_id: string | null; qty_systeme: number; current_round: number; status: string };
+type EntityType = "pdr" | "organe" | "machine" | "equipement";
+type Target = { id: string; entity_type: EntityType; entity_id: string; entity_code: string | null; entity_label: string | null; family_id: string | null; qty_systeme: number; current_round: number; status: string };
 type Count = { target_id: string; round: number; qty_comptee: number };
+
+const FICHE_PATH: Record<EntityType, string> = {
+  pdr: "/pdr",
+  organe: "/organes",
+  machine: "/machines",
+  equipement: "/equipements",
+};
 
 export default function InventoryCountScreen() {
   const { campaignId } = useParams();
@@ -20,6 +28,7 @@ export default function InventoryCountScreen() {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const [campaignType, setCampaignType] = useState<"pdr" | "investissement">("pdr");
   const [families, setFamilies] = useState<Family[]>([]);
   const [allowedFamilyIds, setAllowedFamilyIds] = useState<string[]>([]);
   const [familyId, setFamilyId] = useState<string>("");
@@ -31,6 +40,12 @@ export default function InventoryCountScreen() {
 
   const load = useCallback(async () => {
     if (!campaignId || !user) return;
+
+    const { data: camp } = await supabase.from("inventory_campaigns" as any)
+      .select("campaign_type").eq("id", campaignId).maybeSingle();
+    const cType = ((camp as any)?.campaign_type ?? "pdr") as "pdr" | "investissement";
+    setCampaignType(cType);
+
     const { data: assn } = await supabase.from("inventory_assignments" as any)
       .select("id,role").eq("campaign_id", campaignId).eq("agent_id", user.id).eq("is_active", true).maybeSingle();
     if (!assn) { toast({ title: "Vous n'êtes pas affecté à cette campagne", variant: "destructive" }); return; }
@@ -40,7 +55,8 @@ export default function InventoryCountScreen() {
     const allowed = ((scopes as any) || []).map((s: any) => s.family_id as string);
     setAllowedFamilyIds(allowed);
 
-    const { data: fam } = await supabase.from("pdr_families").select("id,name").in("id", allowed.length ? allowed : ["00000000-0000-0000-0000-000000000000"]);
+    const famTable = cType === "pdr" ? "pdr_families" : "machine_families";
+    const { data: fam } = await supabase.from(famTable as any).select("id,name").in("id", allowed.length ? allowed : ["00000000-0000-0000-0000-000000000000"]);
     setFamilies(((fam as any) || []) as Family[]);
 
     const { data: t } = await supabase.from("inventory_targets" as any)
@@ -55,6 +71,8 @@ export default function InventoryCountScreen() {
   }, [campaignId, user, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  const isPresence = campaignType === "investissement";
 
   const visible = useMemo(() => {
     return targets.filter((t) => {
@@ -76,10 +94,8 @@ export default function InventoryCountScreen() {
     setActiveId(found.id); setQty("");
   }
 
-  async function handleValidate() {
+  async function registerCount(n: number) {
     if (!active) return;
-    const n = parseFloat(qty.replace(",", "."));
-    if (!isFinite(n) || n < 0) { toast({ title: "Quantité invalide", variant: "destructive" }); return; }
     setSaving(true);
     const { error } = await supabase.rpc("inv_register_count" as any, {
       p_target_id: active.id, p_qty: n, p_notes: null,
@@ -90,6 +106,14 @@ export default function InventoryCountScreen() {
     setActiveId(null); setQty(""); load();
   }
 
+  async function handleValidate() {
+    const n = parseFloat(qty.replace(",", "."));
+    if (!isFinite(n) || n < 0) { toast({ title: "Quantité invalide", variant: "destructive" }); return; }
+    registerCount(n);
+  }
+
+  const fichePath = active ? `${FICHE_PATH[active.entity_type]}/${active.entity_id}` : "#";
+
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center gap-3">
@@ -97,6 +121,7 @@ export default function InventoryCountScreen() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold">Comptage</h1>
+        <Badge variant="outline">{isPresence ? "Investissement" : "PDR"}</Badge>
       </div>
 
       <Card><CardContent className="p-3 flex items-center gap-2 flex-wrap">
@@ -104,22 +129,22 @@ export default function InventoryCountScreen() {
           <option value="">Toutes mes familles</option>
           {families.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
         </select>
-        <ScanButton allowedTypes={["pdr", "organe"]} onResolved={handleScanResolved} label="Scanner" />
+        <ScanButton allowedTypes={isPresence ? ["machine", "equipement", "organe"] : ["pdr", "organe"]} onResolved={handleScanResolved} label="Scanner" />
       </CardContent></Card>
 
       {active ? (
         <Card><CardContent className="p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-xs text-muted-foreground">Article</div>
+              <div className="text-xs text-muted-foreground">{active.entity_type}</div>
               <div className="font-mono">{active.entity_code}</div>
               <div className="text-sm">{active.entity_label}</div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(`/pdr/${active.entity_id}`, "_blank", "noopener")}
-              title="Ouvrir la fiche (image, fournisseur, équivalences) dans un nouvel onglet"
+              onClick={() => window.open(fichePath, "_blank", "noopener")}
+              title="Ouvrir la fiche dans un nouvel onglet"
             >
               <ExternalLink className="h-4 w-4 mr-1" />Fiche
             </Button>
@@ -127,8 +152,27 @@ export default function InventoryCountScreen() {
           {isLocked ? (
             <div className="rounded-md border bg-muted/40 p-3 flex items-center gap-2 text-sm">
               <Lock className="h-4 w-4 text-amber-600" />
-              Comptage déjà validé : <span className="font-semibold">{myCounts[active.id].qty_comptee}</span> (verrouillé)
+              {isPresence
+                ? <>Comptage déjà validé : <span className="font-semibold">{myCounts[active.id].qty_comptee > 0 ? "Présent" : "Absent"}</span> (verrouillé)</>
+                : <>Comptage déjà validé : <span className="font-semibold">{myCounts[active.id].qty_comptee}</span> (verrouillé)</>}
             </div>
+          ) : isPresence ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Button className="h-16 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={saving} onClick={() => registerCount(1)}>
+                  <CheckCircle2 className="h-5 w-5 mr-2" />Présent
+                </Button>
+                <Button variant="destructive" className="h-16" disabled={saving} onClick={() => registerCount(0)}>
+                  <XCircle className="h-5 w-5 mr-2" />Absent
+                </Button>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setActiveId(null)}>Annuler</Button>
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> La saisie devient définitive après validation.
+              </p>
+            </>
           ) : (
             <>
               <div>
