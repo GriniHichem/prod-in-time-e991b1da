@@ -216,6 +216,7 @@ const App = () => (
               {/* GMAO */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/apps" element={<Apps />} />
+              <Route path="/mon-profil" element={<MonProfil />} />
               <Route path="/securite" element={<SecurityHub />} />
               <Route path="/parametres/access-control" element={<Navigate to="/securite" replace />} />
               <Route path="/machines" element={<MachinesList />} />
