@@ -113,6 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasRole = (role: AppRole) => effectiveRoles.includes(role);
 
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
+  };
+
   const signOut = async () => {
     try { await logAuthEvent("logout", { email: user?.email ?? undefined }); } catch { /* ignore */ }
     await supabase.auth.signOut();
