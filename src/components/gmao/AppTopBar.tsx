@@ -356,6 +356,12 @@ export function AppTopBar() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/mon-profil")} className="gap-2">
+                <Avatar className="h-4 w-4">
+                  <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">{initials}</AvatarFallback>
+                </Avatar>
+                Mon profil
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/parametres")} className="gap-2">
                 <IconSettings size={15} />
                 Paramètres
