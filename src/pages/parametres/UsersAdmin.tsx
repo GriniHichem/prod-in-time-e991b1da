@@ -35,7 +35,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function UsersAdmin() {
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
@@ -67,6 +67,11 @@ export default function UsersAdmin() {
   const [newPoste, setNewPoste] = useState("");
   const [newRole, setNewRole] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Delete user dialog
+  const [deleteProfile, setDeleteProfile] = useState<any>(null);
+  const [confirmName, setConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     const [pRes, rRes, imgRes] = await Promise.all([
@@ -174,6 +179,33 @@ export default function UsersAdmin() {
       setCreating(false);
     }
   };
+
+  const deleteFullName = deleteProfile
+    ? `${deleteProfile.first_name || ""} ${deleteProfile.last_name || ""}`.trim()
+    : "";
+  const canConfirmDelete = confirmName.trim() === deleteFullName && deleteFullName.length > 0;
+
+  const handleDeleteUser = async () => {
+    if (!deleteProfile || !canConfirmDelete) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { user_id: deleteProfile.user_id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: "Utilisateur supprimé", description: `${deleteFullName} a été supprimé définitivement.` });
+      setDeleteProfile(null);
+      setConfirmName("");
+      load();
+    } catch (error: any) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
 
   const filtered = profiles.filter((p) =>
     `${p.first_name} ${p.last_name} ${p.poste}`.toLowerCase().includes(search.toLowerCase())
@@ -334,10 +366,23 @@ export default function UsersAdmin() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(p)} title="Modifier le profil">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(p)} title="Modifier le profil">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => { setDeleteProfile(p); setConfirmName(""); }}
+                          disabled={p.user_id === user?.id}
+                          title={p.user_id === user?.id ? "Vous ne pouvez pas vous supprimer" : "Supprimer l'utilisateur"}
+                          className="text-destructive hover:text-destructive disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
+
                   </TableRow>
                 );
               })}
@@ -394,6 +439,53 @@ export default function UsersAdmin() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete user confirmation dialog */}
+      <Dialog open={!!deleteProfile} onOpenChange={(open) => { if (!open) { setDeleteProfile(null); setConfirmName(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Supprimer l'utilisateur</DialogTitle>
+            <DialogDescription>
+              Cette action est <strong>irréversible</strong>. Le compte, le profil, les rôles et les photos de{" "}
+              <strong>{deleteFullName}</strong> seront définitivement supprimés.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>
+                Pour confirmer, saisissez le nom complet : <strong>{deleteFullName}</strong>
+              </Label>
+              <Input
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                className="h-12"
+                placeholder={deleteFullName}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => { setDeleteProfile(null); setConfirmName(""); }}
+                disabled={deleting}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 h-12"
+                onClick={handleDeleteUser}
+                disabled={!canConfirmDelete || deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? "Suppression..." : "Supprimer définitivement"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
