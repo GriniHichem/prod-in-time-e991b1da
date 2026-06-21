@@ -35,7 +35,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function UsersAdmin() {
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
