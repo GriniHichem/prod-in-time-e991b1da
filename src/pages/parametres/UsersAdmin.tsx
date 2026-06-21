@@ -180,6 +180,33 @@ export default function UsersAdmin() {
     }
   };
 
+  const deleteFullName = deleteProfile
+    ? `${deleteProfile.first_name || ""} ${deleteProfile.last_name || ""}`.trim()
+    : "";
+  const canConfirmDelete = confirmName.trim() === deleteFullName && deleteFullName.length > 0;
+
+  const handleDeleteUser = async () => {
+    if (!deleteProfile || !canConfirmDelete) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { user_id: deleteProfile.user_id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: "Utilisateur supprimé", description: `${deleteFullName} a été supprimé définitivement.` });
+      setDeleteProfile(null);
+      setConfirmName("");
+      load();
+    } catch (error: any) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
+
   const filtered = profiles.filter((p) =>
     `${p.first_name} ${p.last_name} ${p.poste}`.toLowerCase().includes(search.toLowerCase())
   );
