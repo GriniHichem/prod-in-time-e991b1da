@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Wrench, Save, ArrowLeft, ListChecks } from "lucide-react";
+import { Wrench, Save, ArrowLeft, ListChecks, Package } from "lucide-react";
 import { logAudit } from "@/lib/audit";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
 
