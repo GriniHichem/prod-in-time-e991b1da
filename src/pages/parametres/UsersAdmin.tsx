@@ -410,6 +410,9 @@ export default function UsersAdmin() {
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(p)} title="Modifier le profil">
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setPwdProfile(p); setNewPwd(""); }} title="Réinitialiser le mot de passe">
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
