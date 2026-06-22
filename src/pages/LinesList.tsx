@@ -12,6 +12,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 
 export default function LinesList() {
   const navigate = useNavWithFrom();
+  const { canEdit } = usePermissions();
   const [lines, setLines] = useState<any[]>([]);
   const [machineCounts, setMachineCounts] = useState<Record<string, number>>({});
 
