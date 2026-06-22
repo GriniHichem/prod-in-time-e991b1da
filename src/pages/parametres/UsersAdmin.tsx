@@ -390,6 +390,7 @@ export default function UsersAdmin() {
                       </button>
                     </TableCell>
                     <TableCell className="font-medium">{p.first_name} {p.last_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{emails[p.user_id] || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{p.poste || "—"}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
