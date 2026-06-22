@@ -296,9 +296,11 @@ export default function LineSynoptic() {
             <Button variant="outline" onClick={() => nav(`/preventif?line=${id}`)} className="h-10">
               <CalendarCheck className="h-4 w-4 mr-1.5" /> Plans préventifs
             </Button>
-            <Button variant="outline" onClick={() => nav(`/lignes/${id}/config`)} className="h-10">
-              <Settings className="h-4 w-4 mr-1.5" /> Configurer
-            </Button>
+            {canEdit("lignes") && (
+              <Button variant="outline" onClick={() => nav(`/lignes/${id}/config`)} className="h-10">
+                <Settings className="h-4 w-4 mr-1.5" /> Configurer
+              </Button>
+            )}
           </>
         )}
       </div>
