@@ -528,7 +528,44 @@ export default function UsersAdmin() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Reset password dialog */}
+      <Dialog open={!!pwdProfile} onOpenChange={(open) => { if (!open) { setPwdProfile(null); setNewPwd(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réinitialiser le mot de passe</DialogTitle>
+            <DialogDescription>
+              Définissez un nouveau mot de passe pour <strong>{pwdProfile?.first_name} {pwdProfile?.last_name}</strong>
+              {pwdProfile && emails[pwdProfile.user_id] ? ` (${emails[pwdProfile.user_id]})` : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nouveau mot de passe *</Label>
+              <Input
+                type="text"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                className="h-12"
+                minLength={6}
+                placeholder="Min. 6 caractères"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 h-12" onClick={() => { setPwdProfile(null); setNewPwd(""); }} disabled={savingPwd}>
+                Annuler
+              </Button>
+              <Button className="flex-1 h-12" onClick={handleResetPassword} disabled={newPwd.length < 6 || savingPwd}>
+                <KeyRound className="h-4 w-4 mr-2" />
+                {savingPwd ? "Enregistrement..." : "Définir le mot de passe"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+
 
   );
 }
