@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wrench, Save, ArrowLeft, ListChecks, Package } from "lucide-react";
 import { logAudit } from "@/lib/audit";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
+import { consumeMaintenanceHolding } from "@/hooks/usePdrRequests";
 
 /**
  * Maintenance shift kiosk:
