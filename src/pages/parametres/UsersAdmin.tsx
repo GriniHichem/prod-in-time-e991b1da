@@ -122,7 +122,7 @@ export default function UsersAdmin() {
     setEntityImages(imgRes.data || []);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadEmails(); }, []);
 
   useEffect(() => {
     if (!photoUserId) load();
