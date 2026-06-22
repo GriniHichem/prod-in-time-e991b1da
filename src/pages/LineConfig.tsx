@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Eye, Save } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ArrowLeft, ArrowUp, ArrowDown, Plus, Trash2, Eye, Save, Lock } from "lucide-react";
 
 interface Assignment {
   id: string;
