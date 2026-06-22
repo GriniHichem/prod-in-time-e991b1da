@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Wrench, Save, ArrowLeft, ListChecks } from "lucide-react";
+import { Wrench, Save, ArrowLeft, ListChecks, Package } from "lucide-react";
 import { logAudit } from "@/lib/audit";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
+import { consumeMaintenanceHolding } from "@/hooks/usePdrRequests";
 
 /**
  * Maintenance shift kiosk:
@@ -34,6 +35,10 @@ export default function MaintenanceShiftIntervention() {
   const [solution, setSolution] = useState("");
   const [closeTicket, setCloseTicket] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Maintenance stock held for this ticket (intermediate stock to consume on closure)
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [consumed, setConsumed] = useState<Record<string, string>>({});
 
   // List state (no ticketId)
   const [openTickets, setOpenTickets] = useState<any[]>([]);
@@ -78,6 +83,28 @@ export default function MaintenanceShiftIntervention() {
     loadOpenTickets,
     !ticketId && !!user,
   );
+
+  // Load maintenance stock (holdings) held by this user for this ticket's requests
+  const loadHoldings = async () => {
+    if (!ticketId || !user) { setHoldings([]); return; }
+    const { data: reqs } = await supabase.from("pdr_requests" as any).select("id").eq("ticket_id", ticketId);
+    const reqIds = (reqs ?? []).map((r: any) => r.id);
+    if (reqIds.length === 0) { setHoldings([]); return; }
+    const { data: items } = await supabase.from("pdr_request_items" as any).select("id").in("request_id", reqIds);
+    const itemIds = (items ?? []).map((i: any) => i.id);
+    if (itemIds.length === 0) { setHoldings([]); return; }
+    const { data: holds } = await supabase
+      .from("pdr_maintenance_holdings" as any)
+      .select("*, pdr(reference, designation)")
+      .eq("holder_id", user.id).eq("statut", "en_main").in("request_item_id", itemIds);
+    setHoldings((holds as any) ?? []);
+    const init: Record<string, string> = {};
+    (holds ?? []).forEach((h: any) => { init[h.id] = String(h.quantite); });
+    setConsumed(init);
+  };
+
+  useEffect(() => { loadHoldings(); /* eslint-disable-next-line */ }, [ticketId, user]);
+  useShiftRealtime(`maint-hold-tk-${ticketId ?? "none"}`, "pdr_maintenance_holdings", loadHoldings, !!ticketId && !!user);
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
 
@@ -165,6 +192,18 @@ export default function MaintenanceShiftIntervention() {
         .select("id")
         .single();
       if (error) throw error;
+
+      // Consume maintenance stock held for this ticket (generates leftover return automatically)
+      for (const h of holdings) {
+        const qte = Math.max(0, Math.min(h.quantite, parseInt(consumed[h.id] ?? String(h.quantite), 10) || 0));
+        try {
+          await consumeMaintenanceHolding({
+            holding_id: h.id, intervention_id: (interv as any).id, qte_consomme: qte,
+          });
+        } catch (e) { console.warn("[shift.intervention] holding consume failed", e); }
+      }
+
+
 
       if (closeTicket) {
         // Compute KPI durations: arrest = decl→now, intervention = prise_en_charge→now (or null fallback)
@@ -264,6 +303,11 @@ export default function MaintenanceShiftIntervention() {
           <p className="text-sm mt-2">{ticket.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Button asChild variant="outline" className="w-full min-h-[44px]">
+            <Link to={`/maintenance/shift/pieces?ticket=${ticket.id}${ticket.machine_id ? `&machine=${ticket.machine_id}` : ""}`}>
+              <Package className="h-4 w-4 mr-2" /> Demander / prendre des pièces
+            </Link>
+          </Button>
           <div>
             <Label>Description de l'intervention *</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Diagnostic, gestes effectués..." />
@@ -278,6 +322,29 @@ export default function MaintenanceShiftIntervention() {
               className="min-h-[48px] text-lg tabular-nums"
             />
           </div>
+
+          {holdings.length > 0 && (
+            <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+              <p className="text-sm font-semibold flex items-center gap-1.5">
+                <Package className="h-4 w-4 text-primary" /> Pièces prises — quantité consommée
+              </p>
+              {holdings.map((h) => (
+                <div key={h.id} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · pris : {h.quantite}</p>
+                  </div>
+                  <Input
+                    type="number" min={0} max={h.quantite}
+                    value={consumed[h.id] ?? String(h.quantite)}
+                    onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
+                    className="h-10 w-20 tabular-nums"
+                  />
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground">Le reliquat non consommé est automatiquement retourné au stock magasin.</p>
+            </div>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md border">
             <input
@@ -300,10 +367,8 @@ export default function MaintenanceShiftIntervention() {
                 <Textarea value={solution} onChange={(e) => setSolution(e.target.value)} rows={2} />
               </div>
               <div className="rounded-md border border-amber-300/40 bg-amber-50/30 dark:bg-amber-950/10 p-2 text-xs text-amber-800 dark:text-amber-300">
-                <strong>Pièces utilisées ?</strong> La saisie PDR n'est pas disponible en mobile.
-                Si vous avez consommé des pièces, ouvrez{" "}
-                <Link to={`/tickets/${ticket.id}`} className="underline font-medium">l'écran complet du ticket</Link>{" "}
-                avant de clôturer pour décrémenter le stock.
+                <strong>Pièces utilisées ?</strong> Demandez-les via le bouton « Demander / prendre des pièces ».
+                Les pièces prises apparaissent ci-dessus et leur consommation est enregistrée à la clôture.
               </div>
             </>
           )}

@@ -107,6 +107,8 @@ import ProductionShiftDeclare from "@/pages/shift/ProductionShiftDeclare";
 import ProductionShiftStop from "@/pages/shift/ProductionShiftStop";
 import ProductionShiftTicket from "@/pages/shift/ProductionShiftTicket";
 import MaintenanceShiftIntervention from "@/pages/shift/MaintenanceShiftIntervention";
+import MaintenancePieces from "@/pages/shift/MaintenancePieces";
+import PdrRequestsQueue from "@/pages/pdr/PdrRequestsQueue";
 import QualityShiftCheck from "@/pages/shift/QualityShiftCheck";
 import QualityShiftNc from "@/pages/shift/QualityShiftNc";
 import QualityShiftLines from "@/pages/shift/QualityShiftLines";
@@ -207,6 +209,7 @@ const App = () => (
             <Route path="/maintenance/shift/live" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenancierShiftView /></ProtectedShiftRoute>} />
             <Route path="/maintenance/shift/intervention" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenanceShiftIntervention /></ProtectedShiftRoute>} />
             <Route path="/maintenance/shift/intervention/:ticketId" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenanceShiftIntervention /></ProtectedShiftRoute>} />
+            <Route path="/maintenance/shift/pieces" element={<ProtectedShiftRoute kind="maintenance" allowWithoutShift><MaintenancePieces /></ProtectedShiftRoute>} />
             {/* Quality kiosk */}
             <Route path="/qualite/shift/live" element={<ProtectedShiftRoute kind="quality" allowWithoutShift><QualiteShiftScreen /></ProtectedShiftRoute>} />
             <Route path="/qualite/shift/check" element={<ProtectedShiftRoute kind="quality"><QualityShiftCheck /></ProtectedShiftRoute>} />
@@ -224,6 +227,7 @@ const App = () => (
               <Route path="/machines/:id" element={<MachineDetail />} />
               <Route path="/machines/:id/edit" element={<MachineForm />} />
               <Route path="/pdr" element={<PdrList />} />
+              <Route path="/pdr/demandes" element={<PdrRequestsQueue />} />
               <Route path="/pdr/new" element={<PdrForm />} />
               <Route path="/pdr/:id" element={<PdrDetail />} />
               <Route path="/pdr/:id/edit" element={<PdrForm />} />

@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.pdr_request_audit(text,uuid,text,jsonb,jsonb) FROM anon, public, authenticated;
+GRANT EXECUTE ON FUNCTION public.pdr_request_audit(text,uuid,text,jsonb,jsonb) TO service_role;

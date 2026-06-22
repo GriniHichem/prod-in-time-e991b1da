@@ -235,6 +235,9 @@ export default function PreventifDetail() {
               <Edit className="h-4 w-4 mr-2" /> Modifier
             </Button>
           )}
+          <Button variant="outline" onClick={() => navigate(`/maintenance/shift/pieces?plan=${id}${plan.machine_id ? `&machine=${plan.machine_id}` : ""}`)} className="h-12 px-4">
+            <Package className="h-4 w-4 mr-2" /> Demander des pièces
+          </Button>
         </div>
       </div>
 

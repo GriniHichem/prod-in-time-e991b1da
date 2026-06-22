@@ -3,9 +3,10 @@ import { useNavWithFrom } from "@/hooks/useNavWithFrom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, ChevronRight, AlertTriangle, CalendarCheck, Factory, ShieldAlert, ClipboardCheck, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertTriangle, CalendarCheck, Factory, ShieldAlert, ClipboardCheck, Clock, Package } from "lucide-react";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
 import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 import { useMaintenanceShiftWorkload } from "@/hooks/useMaintenanceShiftWorkload";
@@ -220,6 +221,9 @@ export default function MaintenancierShiftView() {
             <div className="h-2 w-2 rounded-full bg-primary" />
             <span className="text-xs font-medium tabular-nums">{plans.length} préventif</span>
           </div>
+          <Button size="sm" variant="outline" className="h-9" onClick={() => navigate("/maintenance/shift/pieces")}>
+            <Package className="h-4 w-4 mr-1.5" /> Pièces
+          </Button>
         </div>
       </div>
 
