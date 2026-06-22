@@ -84,6 +84,28 @@ export default function MaintenanceShiftIntervention() {
     !ticketId && !!user,
   );
 
+  // Load maintenance stock (holdings) held by this user for this ticket's requests
+  const loadHoldings = async () => {
+    if (!ticketId || !user) { setHoldings([]); return; }
+    const { data: reqs } = await supabase.from("pdr_requests" as any).select("id").eq("ticket_id", ticketId);
+    const reqIds = (reqs ?? []).map((r: any) => r.id);
+    if (reqIds.length === 0) { setHoldings([]); return; }
+    const { data: items } = await supabase.from("pdr_request_items" as any).select("id").in("request_id", reqIds);
+    const itemIds = (items ?? []).map((i: any) => i.id);
+    if (itemIds.length === 0) { setHoldings([]); return; }
+    const { data: holds } = await supabase
+      .from("pdr_maintenance_holdings" as any)
+      .select("*, pdr(reference, designation)")
+      .eq("holder_id", user.id).eq("statut", "en_main").in("request_item_id", itemIds);
+    setHoldings((holds as any) ?? []);
+    const init: Record<string, string> = {};
+    (holds ?? []).forEach((h: any) => { init[h.id] = String(h.quantite); });
+    setConsumed(init);
+  };
+
+  useEffect(() => { loadHoldings(); /* eslint-disable-next-line */ }, [ticketId, user]);
+  useShiftRealtime(`maint-hold-tk-${ticketId ?? "none"}`, "pdr_maintenance_holdings", loadHoldings, !!ticketId && !!user);
+
   if (loading) return <div className="p-8 text-center text-muted-foreground">Chargement...</div>;
 
   // ===== List mode =====
