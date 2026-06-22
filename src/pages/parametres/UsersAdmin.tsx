@@ -367,14 +367,15 @@ export default function UsersAdmin() {
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Nom</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Poste</TableHead>
                 <TableHead>Rôles</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
+                <TableHead className="w-28">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground"><Users className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun utilisateur</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground"><Users className="h-8 w-8 mx-auto mb-2 opacity-30" />Aucun utilisateur</TableCell></TableRow>
               ) : filtered.map((p) => {
                 const userRoles = getUserRoles(p.user_id);
                 const img = entityImages.find((i: any) => i.entity_id === p.user_id);
