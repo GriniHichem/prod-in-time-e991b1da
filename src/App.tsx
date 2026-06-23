@@ -264,6 +264,8 @@ const App = () => (
                   operatorRoles={["maintenancier"]}
                 />
               } />
+              {/* Magasin shift home — keepers redirected to kiosk, managers see dashboard */}
+              <Route path="/magasin/shift" element={<MagasinShiftHome />} />
               <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/maintenance/historique" element={<InterventionHistory />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
