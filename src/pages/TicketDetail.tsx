@@ -484,9 +484,11 @@ export default function TicketDetail() {
               .select("id, quantite")
               .eq("statut", "en_main").in("request_item_id", itemIds);
             for (const h of holds ?? []) {
+              const held = (h as any).quantite;
+              const qte = Math.max(0, Math.min(held, parseInt(consumed[(h as any).id] ?? String(held), 10) || 0));
               try {
                 await consumeMaintenanceHolding({
-                  holding_id: (h as any).id, intervention_id: activeIntervention.id, qte_consomme: (h as any).quantite,
+                  holding_id: (h as any).id, intervention_id: activeIntervention.id, qte_consomme: qte,
                 });
               } catch (e) { console.warn("[ticket.resolve] holding consume failed", e); }
             }
