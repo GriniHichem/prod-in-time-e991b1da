@@ -8,7 +8,7 @@ import {
   IconTicket, IconPreventive, IconShift, IconAnalytics, IconChart,
   IconOrder, IconProduct, IconArticle, IconRecipe, IconTimer,
   IconConsumption, IconStop, IconSettings, IconLogout,
-  IconMaintenance, IconProduction,
+  IconMaintenance, IconProduction, IconJournal,
 } from "@/components/icons/IndustrialIcons";
 import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText, Lock, CheckSquare, Cog, Timer, ClipboardList } from "lucide-react";
 import {
@@ -28,15 +28,20 @@ const gmaoItems: NavItem[] = [
   { title: "Équipements", url: "/equipements", icon: IconEquipment, module: "equipements" },
   { title: "Organes", url: "/organes", icon: IconEquipment, module: "organes" },
   { title: "Lignes", url: "/lignes", icon: IconFactory, module: "lignes" },
-  { title: "Pièces (PDR)", url: "/pdr", icon: IconSpare, module: "pdr" },
-  { title: "Demandes pièces", url: "/pdr/demandes", icon: IconSpare, module: "pdr_demandes" },
-  { title: "Shift Magasin", url: "/magasin/shift", icon: IconShift, module: "shift_magasin" },
   { title: "Tickets", url: "/tickets", icon: IconTicket, module: "tickets" },
   { title: "Préventif", url: "/preventif", icon: IconPreventive, module: "preventif" },
   { title: "Shift", url: "/maintenance/shift", icon: IconShift, module: "shift_maintenance" },
   { title: "Journal", url: "/maintenance/journal", icon: IconMaintenance, module: "journal" },
   { title: "Historique", url: "/maintenance/historique", icon: IconMaintenance, module: "historique" },
   { title: "Analyse & KPI", url: "/analytics", icon: IconAnalytics, module: "analytiques" },
+];
+
+const stockItems: NavItem[] = [
+  { title: "Dashboard PDR", url: "/magasin/shift", icon: IconChart, module: "shift_magasin" },
+  { title: "Shift Magasin", url: "/magasin/shift/live", icon: IconShift, module: "shift_magasin" },
+  { title: "Journal Stock", url: "/magasin/journal", icon: IconJournal, module: "journal_stock" },
+  { title: "Pièces (PDR)", url: "/pdr", icon: IconSpare, module: "pdr" },
+  { title: "Demandes pièces", url: "/pdr/demandes", icon: IconSpare, module: "pdr_demandes" },
 ];
 
 const gpaoItems: NavItem[] = [
@@ -87,6 +92,7 @@ export function AppSidebar() {
   };
 
   const visibleGmao = filterByPerm(gmaoItems);
+  const visibleStock = filterByPerm(stockItems);
   const visibleGpao = filterByPerm(gpaoItems);
   const visibleQualite = filterByPerm(qualiteItems);
   const visibleInventaire = filterByPerm(inventaireItems);
@@ -96,6 +102,7 @@ export function AppSidebar() {
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
   const isGmaoActive = visibleGmao.some((i) => isActive(i.url));
+  const isStockActive = visibleStock.some((i) => isActive(i.url));
   const isGpaoActive = visibleGpao.some((i) => isActive(i.url));
   const isQualiteActive = visibleQualite.some((i) => isActive(i.url));
   const isAdminActive = visibleAdmin.some((i) => isActive(i.url));
@@ -103,6 +110,7 @@ export function AppSidebar() {
   const showQualite = visibleQualite.length > 0;
   const showInventaire = visibleInventaire.length > 0;
   const showGmao = visibleGmao.length > 0;
+  const showStock = visibleStock.length > 0;
   const showGpao = visibleGpao.length > 0;
   const showAdmin = visibleAdmin.length > 0;
 
@@ -194,7 +202,14 @@ export function AppSidebar() {
       <SidebarContent className="pt-3 overflow-y-auto">
         {showGmao && renderGroup("Maintenance", IconMaintenance, visibleGmao, isGmaoActive || !isGpaoActive)}
 
-        {showGmao && showGpao && <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />}
+        {showStock && (
+          <>
+            <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
+            {renderGroup("Stock PDR", IconSpare, visibleStock, isStockActive)}
+          </>
+        )}
+
+        {(showGmao || showStock) && showGpao && <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />}
 
         {showGpao && renderGroup("Production", IconProduction, visibleGpao, isGpaoActive)}
 

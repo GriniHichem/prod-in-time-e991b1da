@@ -115,6 +115,7 @@ import QualityShiftLines from "@/pages/shift/QualityShiftLines";
 import { ShiftHomePage } from "@/components/shift/ShiftHomePage";
 import MagasinShiftHome from "@/pages/magasin/MagasinShiftHome";
 import MagasinKiosk from "@/pages/magasin/MagasinKiosk";
+import MagasinJournal from "@/pages/magasin/MagasinJournal";
 
 const queryClient = new QueryClient();
 
@@ -266,6 +267,8 @@ const App = () => (
               } />
               {/* Magasin shift home — keepers redirected to kiosk, managers see dashboard */}
               <Route path="/magasin/shift" element={<MagasinShiftHome />} />
+              <Route path="/magasin/journal" element={<MagasinJournal />} />
+
               <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/maintenance/historique" element={<InterventionHistory />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
