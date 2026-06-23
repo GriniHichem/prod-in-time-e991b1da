@@ -499,7 +499,6 @@ export default function TicketDetail() {
       }
     }
     toast({ title: "Ticket résolu" });
-    setSelectedPdr([]);
     loadTicket();
   };
 
