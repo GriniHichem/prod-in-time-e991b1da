@@ -157,10 +157,6 @@ export default function PreventifDetail() {
     setExecDureeMinutes(0);
     const now = new Date();
     setExecStartTime(now.toTimeString().slice(0, 5));
-    // C3: opt-in by default — opérateur coche uniquement les PDR réellement utilisées
-    const pdrMap: Record<string, boolean> = {};
-    planPdr.forEach(pp => { pdrMap[pp.id] = false; });
-    setExecPdrUsed(pdrMap);
     setExecOpen(true);
   };
 
