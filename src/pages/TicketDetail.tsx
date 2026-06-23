@@ -19,7 +19,7 @@ import { StickyActionBar } from "@/components/responsive/StickyActionBar";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { consumeMaintenanceHolding } from "@/hooks/usePdrRequests";
+import { consumeFromMinistock } from "@/hooks/usePdrRequests";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
 
 export default function TicketDetail() {
