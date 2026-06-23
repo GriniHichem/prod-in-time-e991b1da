@@ -122,7 +122,35 @@ export default function PreventifDetail() {
   };
 
   const isAssigned = user ? assigneeIds.includes(user.id) : false;
-  const canExecute = plan && (plan as any).statut_plan === "valide" && (isAssigned || hasRole("admin") || hasRole("resp_maintenance"));
+  const canWork = plan && (plan as any).statut_plan === "valide" && (isAssigned || hasRole("admin") || hasRole("resp_maintenance"));
+
+  // ===== Commencer : crée une exécution en cours =====
+  const startExecution = async () => {
+    if (!user || !id) return;
+    setStarting(true);
+    try {
+      const now = new Date();
+      const { data: exec, error } = await supabase.from("preventive_executions").insert({
+        plan_id: id,
+        executed_by: user.id,
+        statut: "en_cours",
+        heure_debut: now.toISOString(),
+      } as any).select("*").single();
+      if (error) throw error;
+      await logAudit({
+        action_type: "create", module: "preventif" as any, entity_type: "preventive_execution",
+        entity_id: (exec as any).id, entity_label: plan?.title,
+        action_label: "Début intervention plan préventif", severity: "low",
+        new_values: { plan_id: id, heure_debut: now.toISOString() },
+      });
+      toast({ title: "Intervention démarrée", description: "Vous pouvez demander/prendre des pièces puis clôturer." });
+      await loadAll();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const openExecDialog = () => {
     setExecNotes("");
@@ -130,68 +158,68 @@ export default function PreventifDetail() {
     const now = new Date();
     setExecStartTime(now.toTimeString().slice(0, 5));
     // C3: opt-in by default — opérateur coche uniquement les PDR réellement utilisées
-    // (sinon décrémentation PMP fausse à chaque exécution).
     const pdrMap: Record<string, boolean> = {};
     planPdr.forEach(pp => { pdrMap[pp.id] = false; });
     setExecPdrUsed(pdrMap);
     setExecOpen(true);
   };
 
+  // ===== Terminer : clôture l'exécution en cours + consomme les pièces prêtées =====
   const submitExecution = async () => {
-    if (!user || !id) return;
+    if (!user || !id || !openExec) return;
     if (execDureeMinutes <= 0) {
       toast({ title: "Durée obligatoire", description: "Veuillez saisir la durée de l'intervention", variant: "destructive" });
       return;
     }
     setExecLoading(true);
     try {
-      const usedPlanPdr = planPdr.filter(pp => execPdrUsed[pp.id]);
-      const pdrUsedList = usedPlanPdr.map(pp => ({ pdr_id: pp.pdr_id, reference: pp.pdr?.reference, quantite: pp.quantite }));
+      // Consommation des pièces prêtées (reliquat retourné au magasin auto)
+      for (const h of holdings) {
+        const qte = Math.max(0, Math.min(h.quantite, parseInt(consumedQty[h.id] ?? String(h.quantite), 10) || 0));
+        try {
+          await consumePreventiveHolding({ holding_id: h.id, execution_id: openExec.id, qte_consomme: qte });
+        } catch (e) { console.warn("[preventif] holding consume failed", e); }
+      }
 
-      const { data: exec, error } = await supabase.from("preventive_executions").insert({
-        plan_id: id,
-        executed_by: user.id,
+      const consumedList = holdings.map((h) => ({
+        pdr_id: h.pdr_id, reference: h.pdr?.reference,
+        quantite: Math.max(0, Math.min(h.quantite, parseInt(consumedQty[h.id] ?? String(h.quantite), 10) || 0)),
+      })).filter((c) => c.quantite > 0);
+
+      const now = new Date();
+      const { error } = await supabase.from("preventive_executions").update({
+        statut: "terminee",
+        heure_fin: now.toISOString(),
+        duree_minutes: execDureeMinutes,
         notes: [
           execStartTime ? `Début: ${execStartTime}` : null,
           `Durée: ${execDureeMinutes} min`,
           execNotes || null,
         ].filter(Boolean).join(" | "),
-        pdr_used: pdrUsedList as any,
-      }).select("id").single();
-
+        pdr_used: consumedList as any,
+      } as any).eq("id", openExec.id);
       if (error) throw error;
 
-      // PDR consumption for preventive plans goes EXCLUSIVELY through the validated request workflow
-      // (demande → préparation magasin → prise). No direct stock decrement here anymore.
-      if (usedPlanPdr.length > 0) {
-        toast({
-          title: "Pièces à demander",
-          description: "Les pièces préventives doivent être demandées via « Demander des pièces » (préparation magasin + prise).",
-        });
-      }
-
       // Update plan: derniere_execution + prochaine_echeance
-      const now = new Date();
       const days = FREQUENCE_DAYS[plan.frequence] || 30;
       const nextDate = new Date(now.getTime() + days * 86400000);
-
       await supabase.from("preventive_plans").update({
         derniere_execution: now.toISOString(),
         prochaine_echeance: nextDate.toISOString(),
       } as any).eq("id", id);
 
       await logAudit({
-        action_type: "create", module: "preventif" as any, entity_type: "preventive_execution",
-        entity_id: exec?.id ?? id!, entity_label: plan?.title,
-        action_label: "Exécution plan préventif",
+        action_type: "update", module: "preventif" as any, entity_type: "preventive_execution",
+        entity_id: openExec.id, entity_label: plan?.title,
+        action_label: "Clôture intervention plan préventif",
         new_values: {
           plan_id: id, duree_minutes: execDureeMinutes, heure_debut: execStartTime,
-          pdr_used: pdrUsedList, prochaine_echeance: nextDate.toISOString(),
+          pdr_used: consumedList, prochaine_echeance: nextDate.toISOString(),
         },
         severity: "low",
       });
 
-      toast({ title: "Exécution enregistrée", description: `Prochaine échéance : ${nextDate.toLocaleDateString("fr-FR")}` });
+      toast({ title: "Intervention clôturée", description: `Prochaine échéance : ${nextDate.toLocaleDateString("fr-FR")}` });
       setExecOpen(false);
       loadAll();
     } catch (err: any) {
