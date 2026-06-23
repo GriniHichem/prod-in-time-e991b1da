@@ -1,51 +1,125 @@
-## Objectif
+## Audit — problèmes confirmés
 
-Avant que le maintenancier confirme la prise d'une pièce (bouton « Confirmer la prise » de l'onglet **À prendre** dans `/maintenance/shift/pieces`), afficher un récapitulatif clair pour vérifier d'un coup d'œil — sans alourdir ni bloquer le flux.
+1. **Contournement direct depuis le ticket**
+   - L’écran détail ticket permet encore d’ajouter des “Pièces utilisées”.
+   - À la résolution, il écrit directement dans `intervention_pdr`, décrémente `pdr.stock_actuel`, puis crée une sortie stock.
+   - Résultat : consommation possible sans demande, sans préparation magasin, sans double validation.
 
-## Comportement
+2. **Contournement direct depuis le préventif**
+   - L’exécution préventive décrémente encore directement le stock pour les PDR cochées.
+   - Cela contourne la règle décidée : les PDR préventives doivent passer par demande + préparation + prise/réception.
 
-Au clic sur « Confirmer la prise », on ouvre une petite fenêtre récap au lieu de confirmer directement. Elle montre :
+3. **Règles backend trop ouvertes**
+   - Les rôles maintenance peuvent gérer directement `intervention_pdr`.
+   - Les mouvements stock peuvent être créés directement par un utilisateur authentifié si `user_id = auth.uid()`.
+   - Les holdings maintenance peuvent être manipulés directement par maintenance.
+   - Les demandes/items peuvent être modifiés directement, alors que le flux doit passer par les fonctions métier.
+
+4. **Fonction de prise pas assez stricte**
+   - La confirmation de prise accepte une quantité qui peut dépasser la quantité préparée.
+   - Le stock est forcé à zéro si dépassement, au lieu de bloquer l’opération.
+   - Il faut empêcher toute sortie si la quantité réelle disponible ne couvre pas la prise.
+
+## Correction proposée
+
+### 1. Supprimer les contournements UI
+
+- Dans l’écran ticket :
+  - retirer le bloc “Pièces utilisées” qui permet de choisir une PDR librement ;
+  - remplacer par un bouton unique **Demander / prendre des pièces** ;
+  - afficher seulement les pièces déjà prises via le stock maintenance intermédiaire.
+
+- À la résolution/clôture ticket :
+  - supprimer toute décrémentation directe de `pdr.stock_actuel` ;
+  - supprimer toute création directe de `pdr_stock_movements` ;
+  - consommer uniquement les `pdr_maintenance_holdings` validés par le cycle demande → prête → prise.
+
+- Dans le préventif :
+  - supprimer la décrémentation directe sur exécution ;
+  - garder le bouton **Demander des pièces** ;
+  - l’exécution peut enregistrer les tâches réalisées, mais la consommation PDR doit venir uniquement des pièces reçues/prêtes/pris via le workflow.
+
+### 2. Verrouiller le backend contre toute écriture directe
+
+Créer une migration de sécurité qui :
+
+- bloque l’insertion directe dans `intervention_pdr` depuis le client ;
+- bloque l’insertion directe dans `pdr_stock_movements` depuis le client ;
+- bloque la création/modification directe de `pdr_maintenance_holdings` ;
+- limite les modifications directes des demandes/items :
+  - création de demande autorisée par l’écran maintenance ;
+  - changement de statut uniquement via fonctions métier ;
+  - préparation uniquement par magasin ;
+  - prise uniquement par maintenance.
+
+Les fonctions backend `set_request_item_ready`, `confirm_request_item_taken`, `consume_maintenance_holding`, `cancel_pdr_request`, `refuse_request_item` resteront les seuls points d’écriture métier.
+
+### 3. Durcir les fonctions métier
+
+- `set_request_item_ready` :
+  - refuser quantité préparée <= 0 ;
+  - refuser quantité préparée > quantité demandée ;
+  - refuser si stock disponible insuffisant, sauf préparation partielle explicite.
+
+- `confirm_request_item_taken` :
+  - accepter uniquement une ligne au statut `prete` ;
+  - refuser quantité prise <= 0 ;
+  - refuser quantité prise > quantité préparée ;
+  - refuser quantité prise > stock disponible réel ;
+  - ne jamais utiliser `GREATEST(0, stock - qte)` pour masquer une erreur ;
+  - décrémenter stock seulement si toutes les validations passent ;
+  - créer automatiquement le mouvement de sortie et le stock maintenance intermédiaire.
+
+- `consume_maintenance_holding` :
+  - refuser tout holding non issu d’une demande validée ;
+  - refuser si le détenteur n’est pas l’utilisateur courant ou un responsable autorisé ;
+  - créer `intervention_pdr` uniquement depuis cette fonction ;
+  - retourner automatiquement le reliquat au stock magasin.
+
+### 4. Ajouter un garde-fou base de données final
+
+Ajouter des triggers de protection :
+
+- si quelqu’un tente une écriture directe non autorisée dans `intervention_pdr`, l’opération est rejetée ;
+- si quelqu’un tente une sortie directe PDR sans source `pdr_request`, l’opération est rejetée ;
+- si quelqu’un tente de modifier `pdr.stock_actuel` hors fonction métier autorisée, l’opération est rejetée pour les sorties maintenance.
+
+Objectif : même si un écran ancien, une requête manuelle, ou une erreur future existe, la base bloque.
+
+### 5. Améliorer l’écran maintenance sans ralentir les opérations
+
+- Garder le flux rapide :
+  - “Demander” ;
+  - “À prendre” ;
+  - “Mon stock maintenance”.
+
+- Ajouter sur l’écran ticket/shift une vue simple :
+  - pièces demandées ;
+  - pièces prêtes ;
+  - pièces prises ;
+  - reliquat prévu.
+
+- La clôture affiche uniquement les pièces réellement en main, avec quantité consommée rapide.
+
+### 6. Vérification finale
+
+- Tester qu’un maintenancier ne peut plus :
+  - ajouter une pièce directement dans un ticket ;
+  - décrémenter le stock depuis un ticket ;
+  - consommer une PDR préventive sans demande ;
+  - créer un mouvement stock direct.
+
+- Tester que le bon cycle fonctionne toujours :
 
 ```text
-┌─────────────────────────────────────────────┐
-│ Confirmer la prise — DPR-00042               │
-├─────────────────────────────────────────────┤
-│ Réf.        ROUL-6204                         │
-│ Désignation Roulement 6204 2RS               │
-│ Famille     Roulements › Billes              │
-│                                              │
-│ Demandée    3      Disponible   5            │
-│ Préparée    3      Reliquat     0            │
-├─────────────────────────────────────────────┤
-│ Qté à prendre : [ 3 ]                         │
-│            [ Annuler ]   [ Confirmer ]        │
-└─────────────────────────────────────────────┘
+Maintenance demande
+→ Magasin prépare/refuse
+→ Maintenance confirme la prise
+→ Stock principal décrémenté + stock maintenance crédité
+→ Intervention consomme
+→ Reliquat retourne automatiquement au stock magasin
 ```
 
-Champs affichés :
-- **Famille / sous-famille** : libellés résolus depuis `pdr_families` (chaîne « Famille › Sous-famille »).
-- **Quantité demandée** (`quantite_demandee`).
-- **Quantité préparée** par le magasin (`quantite_preparee`, défaut = demandée).
-- **Quantité disponible** en stock (`stock_actuel − stock_reserve` du PDR).
-- **Reliquat attendu** = `quantite_demandee − quantite_prise` (ici la qté à prendre), affiché en orange si > 0.
-- **Qté à prendre** : champ pré-rempli avec la qté préparée, modifiable (borné entre 1 et la qté préparée). Permet une prise partielle.
+## Résultat attendu
 
-Confirmation : appelle `confirmItemTaken(item.id, qteAPrendre)` (logique existante inchangée), puis ferme la fenêtre et affiche le toast existant. « Annuler » referme sans rien faire.
-
-## Principe « simple et rapide »
-
-- Une seule pièce à la fois (la ligne cliquée), pas de récap global multi-lignes.
-- Aucune nouvelle table, aucune RPC, aucun changement de logique serveur.
-- Le défaut est déjà bon (qté préparée) : le maintenancier peut confirmer en un clic supplémentaire, ou ajuster s'il prend moins.
-
-## Détails techniques
-
-- Nouveau composant `src/components/pdr/ConfirmTakeDialog.tsx` (basé sur `Dialog`) recevant `request`, `item` et un callback `onConfirm(qte)`.
-- Les libellés de famille : charger une fois la liste `pdr_families (id, name, parent_id)` dans `MaintenancePieces` (ou le dialog) et construire la chaîne famille › sous-famille à partir de `item.pdr.family_id`. (Le champ `family_id` est déjà présent sur `pdr`.)
-- `MaintenancePieces.tsx` : remplacer l'appel direct `handleTake` du bouton « Confirmer la prise » par l'ouverture du dialog avec l'item sélectionné ; `handleTake(itemId, qte)` reste la fonction appelée à la confirmation.
-- Aucun changement dans `usePdrRequests`, les migrations ou les politiques.
-
-## Fichiers touchés
-
-- `src/components/pdr/ConfirmTakeDialog.tsx` (nouveau)
-- `src/pages/shift/MaintenancePieces.tsx` (brancher le dialog sur l'onglet « À prendre »)
+Après correction, aucune consommation PDR ne sera possible sans demande validée par le magasin et confirmée par la maintenance.

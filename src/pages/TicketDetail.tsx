@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,7 @@ import { StickyActionBar } from "@/components/responsive/StickyActionBar";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { InterventionPdrLineEditor, type InterventionPdrLine } from "@/components/pdr/InterventionPdrLineEditor";
-import { CAUSE_OPTIONS } from "@/components/pdr/InterventionPdrLineEditor";
+import { consumeMaintenanceHolding } from "@/hooks/usePdrRequests";
 
 export default function TicketDetail() {
   const { id } = useParams();
@@ -36,8 +35,6 @@ export default function TicketDetail() {
   const [solution, setSolution] = useState("");
 
   const [pdrList, setPdrList] = useState<any[]>([]);
-  const [selectedPdr, setSelectedPdr] = useState<InterventionPdrLine[]>([]);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingResolve, setPendingResolve] = useState<null | (() => Promise<void>)>(null);
 
   // Co-intervenants
@@ -345,17 +342,8 @@ export default function TicketDetail() {
     }
   };
 
-  const addPdrLine = (line: InterventionPdrLine) => {
-    setSelectedPdr((prev) => {
-      // de-dup by (pdr, position) so same PDR can target multiple positions
-      const key = `${line.pdr_id}::${line.position_id || ""}`;
-      if (prev.find((p) => `${p.pdr_id}::${p.position_id || ""}` === key)) return prev;
-      return [...prev, line];
-    });
-  };
 
-  const removePdrLine = (pdrId: string, positionId?: string | null) =>
-    setSelectedPdr((prev) => prev.filter((p) => !(p.pdr_id === pdrId && (p.position_id || null) === (positionId || null))));
+
 
   const handleResolve = async () => {
     if (!causeRacine || !solution) {
@@ -454,58 +442,29 @@ export default function TicketDetail() {
     );
     if (activeIntervention) {
       await supabase.from("interventions").update({ statut: "terminee" as any, date_fin: now }).eq("id", activeIntervention.id);
-      if (selectedPdr.length > 0) {
-        await supabase.from("intervention_pdr").insert(selectedPdr.map((p) => ({
-          intervention_id: activeIntervention.id,
-          pdr_id: p.pdr_id,
-          quantite: p.quantite,
-          position_id: p.position_id ?? null,
-          compteur_fin: p.compteur_fin ?? null,
-          cause_remplacement: p.cause_remplacement ?? null,
-          commentaire_technique: p.commentaire_technique ?? null,
-          compteur_initial_new: p.compteur_initial_new ?? null,
-        } as any)));
-        for (const p of selectedPdr) {
-          const pdrItem = pdrList.find((x) => x.id === p.pdr_id);
-          if (pdrItem) {
-            const stockApres = Math.max(0, pdrItem.stock_actuel - p.quantite);
-            await supabase.from("pdr").update({ stock_actuel: stockApres }).eq("id", p.pdr_id);
-            const { data: mvt } = await supabase.from("pdr_stock_movements").insert({
-              pdr_id: p.pdr_id, type: "sortie" as any, quantite: p.quantite,
-              stock_avant: pdrItem.stock_actuel, stock_apres: stockApres,
-              source_type: "ticket", source_id: id,
-              reference_source: ticket.numero, motif: `Ticket ${ticket.numero}`,
-              user_id: user?.id,
-            }).select("id").single();
-
-            // Post-hoc validation: PDR exit tied to intervention/ticket (never blocks the field action)
-            try {
-              const { rule, enforcement } = await checkValidationRequired({
-                module: "pdr_stock", action_type: "exit_intervention", entity_type: "pdr_movement",
-              });
-              if (enforcement === "post_hoc" && rule && mvt?.id) {
-                await createValidationRequest({
-                  rule,
-                  request_type: "exit_intervention",
-                  module: "pdr_stock",
-                  requested_action: "exit_intervention",
-                  entity_type: "pdr_movement",
-                  entity_id: p.pdr_id,
-                  entity_code: pdrItem.code,
-                  entity_label: pdrItem.designation,
-                  target_record_id: mvt.id,
-                  title: `Sortie PDR ${pdrItem.code} (ticket ${ticket.numero})`,
-                  description: `Quantité: ${p.quantite} | Stock: ${pdrItem.stock_actuel} → ${stockApres}`,
-                  old_values: { stock_actuel: pdrItem.stock_actuel },
-                  proposed_values: { stock_actuel: stockApres, quantite: p.quantite },
-                  metadata: { ticket_id: id, ticket_numero: ticket.numero, intervention_id: activeIntervention.id },
-                  action_url: `/tickets/${id}`,
+      // PDR consumption goes exclusively through the validated request workflow.
+      // Consume any maintenance holdings already taken for this ticket (leftover auto-returned to stock).
+      try {
+        const { data: reqs } = await supabase.from("pdr_requests" as any).select("id").eq("ticket_id", id);
+        const reqIds = (reqs ?? []).map((r: any) => r.id);
+        if (reqIds.length > 0) {
+          const { data: items } = await supabase.from("pdr_request_items" as any).select("id").in("request_id", reqIds);
+          const itemIds = (items ?? []).map((i: any) => i.id);
+          if (itemIds.length > 0) {
+            const { data: holds } = await supabase
+              .from("pdr_maintenance_holdings" as any)
+              .select("id, quantite")
+              .eq("statut", "en_main").in("request_item_id", itemIds);
+            for (const h of holds ?? []) {
+              try {
+                await consumeMaintenanceHolding({
+                  holding_id: (h as any).id, intervention_id: activeIntervention.id, qte_consomme: (h as any).quantite,
                 });
-              }
-            } catch (e) { console.warn("[validation] pdr exit check failed", e); }
+              } catch (e) { console.warn("[ticket.resolve] holding consume failed", e); }
+            }
           }
         }
-      }
+      } catch (e) { console.warn("[ticket.resolve] holdings load failed", e); }
       // Close any still-open collaboration interventions (started at addCollaborator time)
       const openCollabIntvIds = interventions
         .filter((i) =>
@@ -540,7 +499,6 @@ export default function TicketDetail() {
       }
     }
     toast({ title: "Ticket résolu" });
-    setSelectedPdr([]);
     loadTicket();
   };
 
@@ -775,87 +733,27 @@ export default function TicketDetail() {
               )}
             </div>
 
-            {/* PDR utilisées (avec sélection de position si applicable) */}
+            {/* Pièces : exclusivement via le circuit de demande validé */}
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Pièces utilisées</Label>
-              <InterventionPdrLineEditor
-                pdrList={pdrList}
-                machineId={ticket.machine_id}
-                equipementId={ticket.equipement_id}
-                onAdd={addPdrLine}
-              />
-              {selectedPdr.length > 0 && (
-                <div className="space-y-1">
-                  {selectedPdr.map((sp) => {
-                    const pdr = pdrList.find((p) => p.id === sp.pdr_id);
-                    const causeLabel = sp.cause_remplacement ? CAUSE_OPTIONS.find((c) => c.value === sp.cause_remplacement)?.label : null;
-                    return (
-                      <div key={`${sp.pdr_id}-${sp.position_id || ""}`} className="text-sm py-1.5 px-3 rounded bg-muted/50">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate">{pdr?.reference} — {pdr?.designation}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="tabular-nums font-medium">×{sp.quantite}</span>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive"
-                              onClick={() => removePdrLine(sp.pdr_id, sp.position_id)}>×</Button>
-                          </div>
-                        </div>
-                        {sp.position_label && (
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            Position : <span className="font-medium">{sp.position_label}</span>
-                            {causeLabel && <> · {causeLabel}</>}
-                            {sp.compteur_fin != null && sp.compteur_max != null && (
-                              <> · {sp.compteur_fin.toFixed(0)}/{sp.compteur_max} {sp.unite || ""}</>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <Button asChild variant="outline" className="w-full h-11">
+                <Link to={`/maintenance/shift/pieces?ticket=${id}${ticket.machine_id ? `&machine=${ticket.machine_id}` : ""}`}>
+                  <Package className="h-4 w-4 mr-2" /> Demander / prendre des pièces
+                </Link>
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                La consommation de pièces passe par le circuit demande → préparation magasin → prise.
+                Les pièces prises sont consommées automatiquement à la résolution (reliquat retourné au stock).
+              </p>
             </div>
 
             <StickyActionBar>
-              <Button onClick={() => {
-                const positionLines = selectedPdr.filter((p) => p.position_id);
-                if (positionLines.length > 0) { setConfirmOpen(true); }
-                else { handleResolve(); }
-              }} className="w-full h-12">Résoudre</Button>
+              <Button onClick={() => handleResolve()} className="w-full h-12">Résoudre</Button>
             </StickyActionBar>
           </CardContent>
         </Card>
       )}
 
-      {/* Confirmation de remplacement de positions */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Confirmer le remplacement</DialogTitle></DialogHeader>
-          <div className="space-y-2 text-sm">
-            {selectedPdr.filter((sp) => sp.position_id).map((sp) => {
-              const pdr = pdrList.find((p) => p.id === sp.pdr_id);
-              const stockApres = pdr ? Math.max(0, pdr.stock_actuel - sp.quantite) : 0;
-              return (
-                <div key={`${sp.pdr_id}-${sp.position_id}`} className="rounded border p-2 bg-muted/40">
-                  <div><span className="text-muted-foreground">PDR :</span> <span className="font-medium">{pdr?.reference}</span></div>
-                  <div><span className="text-muted-foreground">Machine :</span> {ticket?.machines?.designation || "—"}</div>
-                  <div><span className="text-muted-foreground">Position :</span> <span className="font-medium">{sp.position_label}</span></div>
-                  {sp.compteur_fin != null && (
-                    <div><span className="text-muted-foreground">Compteur actuel :</span> <span className="tabular-nums">{sp.compteur_fin.toFixed(0)} {sp.unite || ""}</span></div>
-                  )}
-                  {sp.compteur_max != null && (
-                    <div><span className="text-muted-foreground">Durée max :</span> <span className="tabular-nums">{sp.compteur_max} {sp.unite || ""}</span></div>
-                  )}
-                  <div><span className="text-muted-foreground">Stock après :</span> <span className="tabular-nums">{stockApres}</span></div>
-                </div>
-              );
-            })}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>Annuler</Button>
-            <Button onClick={async () => { setConfirmOpen(false); await handleResolve(); }}>Confirmer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {canCloseTicket && (
         <StickyActionBar>
