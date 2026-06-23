@@ -120,6 +120,19 @@ export function useMaintenanceShiftWorkload(): MaintenanceWorkload {
     }
     const { data: loadedTickets } = await tq.order("heure_declaration", { ascending: false });
 
+    // Plans avec une exécution en cours (intervention démarrée)
+    const loadedPlanIds = (loadedPlans as any[]).map((p) => p.id);
+    let openIds: string[] = [];
+    if (loadedPlanIds.length > 0) {
+      const { data: openExecs } = await supabase
+        .from("preventive_executions")
+        .select("plan_id")
+        .eq("statut", "en_cours")
+        .in("plan_id", loadedPlanIds);
+      openIds = Array.from(new Set((openExecs ?? []).map((e: any) => e.plan_id)));
+    }
+    setInProgressPlanIds(openIds);
+
     setPlans(loadedPlans as any[]);
     setTickets((loadedTickets ?? []) as any[]);
     setLoading(false);
