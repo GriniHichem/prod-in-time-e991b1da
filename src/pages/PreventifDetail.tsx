@@ -43,7 +43,13 @@ export default function PreventifDetail() {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [executions, setExecutions] = useState<any[]>([]);
 
-  // Execution dialog state
+  // Open (in-progress) execution + held pieces
+  const [openExec, setOpenExec] = useState<any>(null);
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [consumedQty, setConsumedQty] = useState<Record<string, string>>({});
+  const [starting, setStarting] = useState(false);
+
+  // Execution dialog state (clôture)
   const [execOpen, setExecOpen] = useState(false);
   const [execNotes, setExecNotes] = useState("");
   const [execPdrUsed, setExecPdrUsed] = useState<Record<string, boolean>>({});
