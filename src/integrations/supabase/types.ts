@@ -6203,6 +6203,17 @@ export type Database = {
         Args: { p_item_id: string; p_qte?: number }
         Returns: string
       }
+      consume_from_ministock: {
+        Args: {
+          p_cause?: string
+          p_commentaire?: string
+          p_holding_id: string
+          p_intervention_id: string
+          p_position_id?: string
+          p_qte_consomme: number
+        }
+        Returns: undefined
+      }
       consume_maintenance_holding: {
         Args: {
           p_cause?: string
