@@ -92,6 +92,7 @@ export function AppSidebar() {
   };
 
   const visibleGmao = filterByPerm(gmaoItems);
+  const visibleStock = filterByPerm(stockItems);
   const visibleGpao = filterByPerm(gpaoItems);
   const visibleQualite = filterByPerm(qualiteItems);
   const visibleInventaire = filterByPerm(inventaireItems);
