@@ -377,7 +377,7 @@ export default function OfDetail() {
                       <TableCell className="capitalize">{s.type.replace("_", " ")}</TableCell>
                       <TableCell className="tabular-nums">{new Date(s.heure_debut).toLocaleString("fr-FR")}</TableCell>
                       <TableCell className="tabular-nums">{s.heure_fin ? new Date(s.heure_fin).toLocaleString("fr-FR") : "En cours"}</TableCell>
-                      <TableCell className="tabular-nums font-medium">{s.duree_minutes ? `${s.duree_minutes} min` : "—"}</TableCell>
+                      <TableCell className="tabular-nums font-medium">{s.duree_minutes ? formatDuration(s.duree_minutes) : "—"}</TableCell>
                       <TableCell>{s.ticket_id ? <span className="text-primary cursor-pointer" onClick={() => navigate(`/tickets/${s.ticket_id}`)}>Voir</span> : "—"}</TableCell>
                     </TableRow>
                   ))}
