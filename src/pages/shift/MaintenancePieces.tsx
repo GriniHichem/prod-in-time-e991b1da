@@ -95,7 +95,7 @@ export default function MaintenancePieces() {
                 <p className="text-xs text-muted-foreground truncate">{it.pdr?.designation}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{req.numero} · préparé : {it.quantite_preparee ?? it.quantite_demandee}</p>
               </div>
-              <Button size="sm" className="h-10" disabled={busy} onClick={() => handleTake(it.id, it.quantite_preparee ?? it.quantite_demandee)}>
+              <Button size="sm" className="h-10" disabled={busy} onClick={() => setTakeTarget({ req, it })}>
                 Confirmer la prise
               </Button>
             </CardContent></Card>
