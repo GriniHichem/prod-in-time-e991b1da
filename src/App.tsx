@@ -113,6 +113,8 @@ import QualityShiftCheck from "@/pages/shift/QualityShiftCheck";
 import QualityShiftNc from "@/pages/shift/QualityShiftNc";
 import QualityShiftLines from "@/pages/shift/QualityShiftLines";
 import { ShiftHomePage } from "@/components/shift/ShiftHomePage";
+import MagasinShiftHome from "@/pages/magasin/MagasinShiftHome";
+import MagasinKiosk from "@/pages/magasin/MagasinKiosk";
 
 const queryClient = new QueryClient();
 
