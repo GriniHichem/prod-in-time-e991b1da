@@ -523,7 +523,7 @@ export default function PreventifDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setExecOpen(false)}>Annuler</Button>
             <Button onClick={submitExecution} disabled={execLoading} className="bg-green-600 hover:bg-green-700">
-              {execLoading ? "Enregistrement..." : "Confirmer l'exécution"}
+              {execLoading ? "Clôture..." : "Clôturer l'intervention"}
             </Button>
           </DialogFooter>
         </DialogContent>
