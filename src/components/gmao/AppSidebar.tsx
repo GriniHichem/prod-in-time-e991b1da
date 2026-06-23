@@ -28,15 +28,20 @@ const gmaoItems: NavItem[] = [
   { title: "Équipements", url: "/equipements", icon: IconEquipment, module: "equipements" },
   { title: "Organes", url: "/organes", icon: IconEquipment, module: "organes" },
   { title: "Lignes", url: "/lignes", icon: IconFactory, module: "lignes" },
-  { title: "Pièces (PDR)", url: "/pdr", icon: IconSpare, module: "pdr" },
-  { title: "Demandes pièces", url: "/pdr/demandes", icon: IconSpare, module: "pdr_demandes" },
-  { title: "Shift Magasin", url: "/magasin/shift", icon: IconShift, module: "shift_magasin" },
   { title: "Tickets", url: "/tickets", icon: IconTicket, module: "tickets" },
   { title: "Préventif", url: "/preventif", icon: IconPreventive, module: "preventif" },
   { title: "Shift", url: "/maintenance/shift", icon: IconShift, module: "shift_maintenance" },
   { title: "Journal", url: "/maintenance/journal", icon: IconMaintenance, module: "journal" },
   { title: "Historique", url: "/maintenance/historique", icon: IconMaintenance, module: "historique" },
   { title: "Analyse & KPI", url: "/analytics", icon: IconAnalytics, module: "analytiques" },
+];
+
+const stockItems: NavItem[] = [
+  { title: "Dashboard PDR", url: "/magasin/shift", icon: IconChart, module: "shift_magasin" },
+  { title: "Shift Magasin", url: "/magasin/shift/live", icon: IconShift, module: "shift_magasin" },
+  { title: "Journal Stock", url: "/magasin/journal", icon: IconJournal, module: "journal_stock" },
+  { title: "Pièces (PDR)", url: "/pdr", icon: IconSpare, module: "pdr" },
+  { title: "Demandes pièces", url: "/pdr/demandes", icon: IconSpare, module: "pdr_demandes" },
 ];
 
 const gpaoItems: NavItem[] = [
