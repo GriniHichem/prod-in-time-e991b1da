@@ -18,6 +18,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { StickyActionBar } from "@/components/responsive/StickyActionBar";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
+import { formatDuration } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { consumeFromMinistock } from "@/hooks/usePdrRequests";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
