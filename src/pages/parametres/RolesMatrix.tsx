@@ -176,12 +176,13 @@ function ap(modules: string[], preset: Preset, base: Record<string, Preset> = {}
 }
 
 const MAINT_MODS = ["dashboard", "machines", "equipements", "organes", "lignes", "pdr", "tickets", "preventif", "shift_maintenance", "journal", "historique", "analytiques"];
+const LOG_MODS = ["pdr_demandes", "shift_magasin"];
 const PROD_MODS = ["gpao_dashboard", "of", "produits", "articles", "recettes", "shift_production", "consommations", "arrets"];
 const QUALITY_MODS = ["qualite", "qualite_dashboard", "qualite_of", "qualite_indicateurs", "qualite_controles", "qualite_nc", "qualite_actions", "qualite_recettes", "qualite_tracabilite", "qualite_rapports", "qualite_shift"];
 const INV_MODS = ["inventaire", "inventaire_campagnes"];
 const GOV_MODS = ["audit", "validations", "validations_rules", "notifications", "notifications_rules", "securite"];
 const CFG_MODS = ["parametres", "utilisateurs", "referentiels", "documents", "pdr_stock_config", "qualite_parametres", "smtp", "general", "images", "recherche", "apps"];
-const ALL_KEYS = [...MAINT_MODS, ...PROD_MODS, ...QUALITY_MODS, ...INV_MODS, ...GOV_MODS, ...CFG_MODS];
+const ALL_KEYS = [...MAINT_MODS, ...LOG_MODS, ...PROD_MODS, ...QUALITY_MODS, ...INV_MODS, ...GOV_MODS, ...CFG_MODS];
 
 const ROLE_DEFAULTS: Record<string, Record<string, Preset>> = {
   admin: ap(ALL_KEYS, FULL),
