@@ -55,6 +55,8 @@ export function useMaintenanceShiftWorkload(): MaintenanceWorkload {
   const [tickets, setTickets] = useState<MaintenanceWorkloadTicket[]>([]);
   const [plans, setPlans] = useState<MaintenanceWorkloadPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inProgressPlanIds, setInProgressPlanIds] = useState<string[]>([]);
+
 
   const shiftLineIds = useMemo(() => shift?.line_ids ?? [], [shift]);
   const restrictedToShiftLines = shiftLineIds.length > 0;
