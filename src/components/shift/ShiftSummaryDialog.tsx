@@ -99,7 +99,7 @@ export function ShiftSummaryDialog({ kind, session, open, onOpenChange }: Props)
         }, 0);
         totals.push({ label: "Interventions", value: (interv ?? []).length });
         totals.push({ label: "Tickets clôturés", value: (closedTickets ?? []).length });
-        totals.push({ label: "Temps intervention (min)", value: totalMin });
+        totals.push({ label: "Temps intervention", value: formatDuration(totalMin) });
         (interv ?? []).forEach((i: any) =>
           events.push({
             time: i.date_debut,
