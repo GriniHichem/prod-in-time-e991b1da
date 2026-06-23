@@ -38,9 +38,11 @@ export default function MaintenancePieces() {
     [queue],
   );
 
+  const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
+
   const handleTake = async (itemId: string, qte: number) => {
     setBusy(true);
-    try { await confirmItemTaken(itemId, qte); toast({ title: "Prise confirmée — pièce transférée à la maintenance" }); }
+    try { await confirmItemTaken(itemId, qte); toast({ title: "Prise confirmée — pièce transférée à la maintenance" }); setTakeTarget(null); }
     catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
     finally { setBusy(false); }
   };
