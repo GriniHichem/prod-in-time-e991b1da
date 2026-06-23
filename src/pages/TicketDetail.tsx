@@ -19,7 +19,7 @@ import { StickyActionBar } from "@/components/responsive/StickyActionBar";
 import { checkValidationRequired, createValidationRequest } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { consumeMaintenanceHolding } from "@/hooks/usePdrRequests";
+import { consumeFromMinistock } from "@/hooks/usePdrRequests";
 import { useShiftRealtime } from "@/hooks/useShiftRealtime";
 
 export default function TicketDetail() {
@@ -38,9 +38,10 @@ export default function TicketDetail() {
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [pendingResolve, setPendingResolve] = useState<null | (() => Promise<void>)>(null);
 
-  // Pièces détenues en stock maintenance pour ce ticket
+  // Mini-stock du maintenancier (toutes ses pièces en_main, tous tickets confondus)
   const [holdings, setHoldings] = useState<any[]>([]);
   const [consumed, setConsumed] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   // Co-intervenants
   const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
@@ -117,23 +118,21 @@ export default function TicketDetail() {
     })));
   };
 
-  // Pièces détenues par l'utilisateur connecté pour les demandes liées à ce ticket
+  // Tout le mini-stock du maintenancier connecté (toutes ses pièces en_main, tous tickets confondus)
   const loadHoldings = async () => {
-    if (!id || !user) { setHoldings([]); return; }
-    const { data: reqs } = await supabase.from("pdr_requests" as any).select("id").eq("ticket_id", id);
-    const reqIds = (reqs ?? []).map((r: any) => r.id);
-    if (reqIds.length === 0) { setHoldings([]); return; }
-    const { data: items } = await supabase.from("pdr_request_items" as any).select("id").in("request_id", reqIds);
-    const itemIds = (items ?? []).map((i: any) => i.id);
-    if (itemIds.length === 0) { setHoldings([]); return; }
+    if (!user) { setHoldings([]); return; }
     const { data: holds } = await supabase
       .from("pdr_maintenance_holdings" as any)
       .select("*, pdr(reference, designation)")
-      .eq("holder_id", user.id).eq("statut", "en_main").in("request_item_id", itemIds);
+      .eq("holder_id", user.id).eq("statut", "en_main")
+      .gt("quantite", 0)
+      .order("created_at", { ascending: false });
     setHoldings((holds as any) ?? []);
-    const init: Record<string, string> = {};
-    (holds ?? []).forEach((h: any) => { init[h.id] = String(h.quantite); });
-    setConsumed(init);
+    setConsumed((prev) => {
+      const next = { ...prev };
+      (holds ?? []).forEach((h: any) => { if (next[h.id] === undefined) next[h.id] = String(h.quantite); });
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -143,7 +142,7 @@ export default function TicketDetail() {
     supabase.from("pdr").select("id, reference, designation, stock_actuel").eq("is_active", true).order("reference").then(({ data }) => setPdrList(data || []));
   }, [id, user]);
 
-  useShiftRealtime(`ticket-hold-${id ?? "none"}`, "pdr_maintenance_holdings", loadHoldings, !!id && !!user);
+  useShiftRealtime(`ticket-hold-${user?.id ?? "none"}`, "pdr_maintenance_holdings", loadHoldings, !!user);
 
 
   const addCollaborator = async () => {
@@ -470,31 +469,22 @@ export default function TicketDetail() {
     );
     if (activeIntervention) {
       await supabase.from("interventions").update({ statut: "terminee" as any, date_fin: now }).eq("id", activeIntervention.id);
-      // PDR consumption goes exclusively through the validated request workflow.
-      // Consume any maintenance holdings already taken for this ticket (leftover auto-returned to stock).
+      // Consommer les pièces sélectionnées dans le mini-stock du maintenancier.
+      // Le reliquat reste dans son mini-stock (pas de retour magasin ici).
       try {
-        const { data: reqs } = await supabase.from("pdr_requests" as any).select("id").eq("ticket_id", id);
-        const reqIds = (reqs ?? []).map((r: any) => r.id);
-        if (reqIds.length > 0) {
-          const { data: items } = await supabase.from("pdr_request_items" as any).select("id").in("request_id", reqIds);
-          const itemIds = (items ?? []).map((i: any) => i.id);
-          if (itemIds.length > 0) {
-            const { data: holds } = await supabase
-              .from("pdr_maintenance_holdings" as any)
-              .select("id, quantite")
-              .eq("statut", "en_main").in("request_item_id", itemIds);
-            for (const h of holds ?? []) {
-              const held = (h as any).quantite;
-              const qte = Math.max(0, Math.min(held, parseInt(consumed[(h as any).id] ?? String(held), 10) || 0));
-              try {
-                await consumeMaintenanceHolding({
-                  holding_id: (h as any).id, intervention_id: activeIntervention.id, qte_consomme: qte,
-                });
-              } catch (e) { console.warn("[ticket.resolve] holding consume failed", e); }
-            }
-          }
+        for (const h of holdings) {
+          if (!selected[h.id]) continue;
+          const held = h.quantite;
+          const qte = Math.max(0, Math.min(held, parseInt(consumed[h.id] ?? "0", 10) || 0));
+          if (qte <= 0) continue;
+          try {
+            await consumeFromMinistock({
+              holding_id: h.id, intervention_id: activeIntervention.id, qte_consomme: qte,
+            });
+          } catch (e) { console.warn("[ticket.resolve] ministock consume failed", e); }
         }
-      } catch (e) { console.warn("[ticket.resolve] holdings load failed", e); }
+        await loadHoldings();
+      } catch (e) { console.warn("[ticket.resolve] ministock consume error", e); }
       // Close any still-open collaboration interventions (started at addCollaborator time)
       const openCollabIntvIds = interventions
         .filter((i) =>
@@ -763,7 +753,7 @@ export default function TicketDetail() {
               )}
             </div>
 
-            {/* Pièces : exclusivement via le circuit de demande validé */}
+            {/* Pièces : choisies dans le mini-stock du maintenancier */}
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Pièces utilisées</Label>
               <Button asChild variant="outline" className="w-full h-11">
@@ -772,34 +762,50 @@ export default function TicketDetail() {
                 </Link>
               </Button>
 
-              {holdings.length > 0 && (
+              {holdings.length > 0 ? (
                 <div className="rounded-md border p-3 space-y-2 bg-muted/20">
                   <p className="text-xs font-semibold flex items-center gap-1.5">
-                    <Package className="h-3.5 w-3.5 text-primary" /> Pièces prises — quantité consommée
+                    <Package className="h-3.5 w-3.5 text-primary" /> Mon stock maintenance — cochez et indiquez la quantité utilisée sur ce ticket
                   </p>
-                  {holdings.map((h) => (
-                    <div key={h.id} className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · pris : {h.quantite}</p>
+                  {holdings.map((h) => {
+                    const isOn = !!selected[h.id];
+                    return (
+                      <div key={h.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isOn}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setSelected((m) => ({ ...m, [h.id]: on }));
+                            if (on && (consumed[h.id] === undefined || consumed[h.id] === "0")) {
+                              setConsumed((m) => ({ ...m, [h.id]: String(Math.min(1, h.quantite)) }));
+                            }
+                          }}
+                          className="h-5 w-5 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · en stock : {h.quantite}</p>
+                        </div>
+                        <Input
+                          type="number" min={0} max={h.quantite}
+                          disabled={!isOn}
+                          value={consumed[h.id] ?? "0"}
+                          onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
+                          className="h-10 w-20 tabular-nums"
+                        />
                       </div>
-                      <Input
-                        type="number" min={0} max={h.quantite}
-                        value={consumed[h.id] ?? String(h.quantite)}
-                        onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
-                        className="h-10 w-20 tabular-nums"
-                      />
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-muted-foreground">Le reliquat non consommé est automatiquement retourné au stock magasin.</p>
+                    );
+                  })}
+                  <p className="text-[11px] text-muted-foreground">Le reliquat non consommé reste dans votre stock maintenance pour vos autres tickets.</p>
                 </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Aucune pièce dans votre stock maintenance. Utilisez « Demander / prendre des pièces » pour vous approvisionner.
+                </p>
               )}
-
-              <p className="text-[11px] text-muted-foreground">
-                La consommation de pièces passe par le circuit demande → préparation magasin → prise.
-                Les pièces prises sont consommées automatiquement à la résolution (reliquat retourné au stock).
-              </p>
             </div>
+
 
             <StickyActionBar>
               <Button onClick={() => handleResolve()} className="w-full h-12">Résoudre</Button>

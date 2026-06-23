@@ -1,39 +1,42 @@
-# Utiliser ses pièces en stock depuis le ticket
+# Consommer depuis le mini-stock du maintenancier (multi-tickets)
 
 ## Problème
-Dans le détail d'un ticket, section **« Pièces utilisées »**, il n'y a qu'un bouton qui renvoie vers le circuit *Demander / prendre des pièces*. Le maintenancier qui détient déjà des pièces dans son **stock maintenance** (holdings, déjà « prises » au magasin) ne peut pas les **voir ni indiquer la quantité réellement consommée** sur cette page. La consommation se fait silencieusement à la résolution, à quantité pleine, sans contrôle.
-
-Le kiosque shift (`MaintenanceShiftIntervention`) gère déjà ça correctement : il affiche les pièces détenues avec un champ quantité consommée. La page ticket classique, elle, ne le fait pas.
+Aujourd'hui, une pièce détenue (« holding ») est rattachée à **un seul ticket** via sa demande. À la résolution, elle est consommée en entier et le reliquat repart au magasin. Donc un maintenancier qui prend 4 pièces en une demande ne peut pas les répartir sur 3 tickets.
 
 ## Objectif
-Reproduire dans `TicketDetail.tsx`, section « Pièces utilisées », le même comportement que le kiosque : afficher les pièces détenues pour ce ticket et permettre de saisir la quantité consommée, le reliquat retournant au stock.
+Dans la section « Pièces utilisées » d'un ticket, le maintenancier voit **tout son mini-stock** (toutes ses pièces `en_main`, peu importe le ticket d'origine), en choisit certaines, saisit une quantité consommée par pièce, et le **reliquat reste dans son mini-stock** (dispo pour d'autres tickets). Rien ne repart au magasin tant qu'il détient les pièces.
 
-## Changements (UI uniquement, frontend)
+## Changement principal de logique
+Le « holding » devient une vraie réserve décrémentable :
+- Consommer 1 pièce sur 4 → le holding passe à 3 et reste `en_main`.
+- Quand il tombe à 0 → statut `consomme`.
+- Aucun retour automatique au magasin à la consommation. Le reliquat ne repart au magasin que via le circuit de retour existant (inchangé).
 
-### 1. Charger les holdings du ticket
-Dans `src/pages/TicketDetail.tsx`, ajouter un chargement des pièces détenues par l'utilisateur connecté pour les demandes liées à ce ticket (même logique que `loadHoldings` du kiosque) :
-- `pdr_requests` où `ticket_id = id`
-- → `pdr_request_items`
-- → `pdr_maintenance_holdings` (`holder_id = user`, `statut = 'en_main'`) avec `pdr(reference, designation)`
-- État local `holdings` + `consumed` (quantité saisie par pièce), initialisé à la quantité détenue.
-- Rafraîchissement via `useShiftRealtime` sur `pdr_maintenance_holdings`.
+## 1. Base de données — nouveau RPC
+Créer `consume_from_ministock(p_holding_id, p_intervention_id, p_qte_consomme, p_position_id, p_cause, p_commentaire)` (SECURITY DEFINER), basé sur l'actuel `consume_maintenance_holding` mais :
+- Mêmes contrôles de permission et de détenteur (`holder_id = auth.uid()` ou resp/admin).
+- `p_qte_consomme` entre 1 et `quantite` détenue.
+- Insère dans `intervention_pdr` la quantité consommée (via le flag `app.pdr_flow`).
+- **Décrémente** `pdr_maintenance_holdings.quantite` de la quantité consommée.
+- Si le solde atteint 0 → `statut = 'consomme'`, sinon reste `en_main`.
+- **Pas** d'insertion de mouvement de retour magasin (différence clé avec l'actuel).
 
-### 2. Affichage dans « Pièces utilisées »
-Sous le bouton existant, ajouter un encart (visible seulement si des holdings existent) listant chaque pièce détenue :
-- référence, désignation, quantité prise
-- un champ numérique « quantité consommée » (0 → quantité détenue)
-- note « Le reliquat non consommé est retourné au stock magasin. »
+L'ancien `consume_maintenance_holding` reste inchangé (toujours utilisé par le kiosque shift).
 
-Le bouton « Demander / prendre des pièces » reste, pour les pièces non encore prises.
+## 2. Frontend — `src/pages/TicketDetail.tsx`
+- `loadHoldings` : charger **toutes** les pièces de l'utilisateur (`holder_id = user`, `statut = 'en_main'`) avec `pdr(reference, designation)`, **sans** filtrer par demande/ticket.
+- État `selected` (pièces cochées pour ce ticket) + `consumed` (quantité par pièce, bornée à `quantite` détenue), au lieu de tout pré-cocher.
+- UI « Pièces utilisées » : liste du mini-stock avec, par pièce, une case à cocher + champ quantité (0 → quantité détenue). Le bouton « Demander / prendre des pièces » reste pour réapprovisionner le mini-stock.
+- Note d'aide mise à jour : « Le reliquat non consommé reste dans votre stock maintenance pour vos autres tickets. »
+- À la résolution (`handleResolve`) : pour chaque pièce sélectionnée avec `qte > 0`, appeler le nouveau RPC `consume_from_ministock`. Supprimer la boucle actuelle qui repassait par demande → request_item → holding.
 
-### 3. Consommation à la résolution
-Dans `handleResolve`, remplacer la boucle actuelle (qui consomme toutes les holdings à quantité pleine) par une consommation utilisant la **quantité saisie** dans `consumed`, bornée à la quantité détenue — comme le kiosque. Toujours via le RPC `consumeMaintenanceHolding` (aucun insert direct, le circuit validé est conservé).
+## 3. Hook — `src/hooks/usePdrRequests.ts`
+Ajouter `consumeFromMinistock(input)` qui appelle `supabase.rpc("consume_from_ministock", ...)`, sur le modèle de `consumeMaintenanceHolding`.
 
 ## Hors périmètre
-- Aucune modification de base de données, RPC ou RLS.
-- Pas de changement au circuit demande → préparation → prise.
-- Le bypass éventuel d'autres écrans (préventif, sorties manuelles) n'est pas traité ici.
+- Le kiosque shift (`MaintenanceShiftIntervention`) garde son comportement actuel.
+- Aucun changement au circuit demande → préparation → prise, ni au retour magasin manuel.
 
 ## Détails techniques
-- Réutiliser les imports déjà présents (`consumeMaintenanceHolding`, `useShiftRealtime`, `useAuth`).
-- La logique de consommation est strictement identique à `MaintenanceShiftIntervention.tsx` (lignes 88-104 et 196-204) pour garantir la cohérence du ledger (stock_actuel / stock_reserve gérés côté RPC).
+- Le contrôle `request_item_id IS NOT NULL` est conservé (la pièce provient toujours d'une prise validée).
+- Le ledger stock magasin n'est pas touché à la consommation : la pièce a déjà quitté le magasin à la prise ; elle est juste « brûlée » sur intervention.
