@@ -753,7 +753,7 @@ export default function TicketDetail() {
               )}
             </div>
 
-            {/* Pièces : exclusivement via le circuit de demande validé */}
+            {/* Pièces : choisies dans le mini-stock du maintenancier */}
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Pièces utilisées</Label>
               <Button asChild variant="outline" className="w-full h-11">
@@ -762,34 +762,50 @@ export default function TicketDetail() {
                 </Link>
               </Button>
 
-              {holdings.length > 0 && (
+              {holdings.length > 0 ? (
                 <div className="rounded-md border p-3 space-y-2 bg-muted/20">
                   <p className="text-xs font-semibold flex items-center gap-1.5">
-                    <Package className="h-3.5 w-3.5 text-primary" /> Pièces prises — quantité consommée
+                    <Package className="h-3.5 w-3.5 text-primary" /> Mon stock maintenance — cochez et indiquez la quantité utilisée sur ce ticket
                   </p>
-                  {holdings.map((h) => (
-                    <div key={h.id} className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · pris : {h.quantite}</p>
+                  {holdings.map((h) => {
+                    const isOn = !!selected[h.id];
+                    return (
+                      <div key={h.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isOn}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            setSelected((m) => ({ ...m, [h.id]: on }));
+                            if (on && (consumed[h.id] === undefined || consumed[h.id] === "0")) {
+                              setConsumed((m) => ({ ...m, [h.id]: String(Math.min(1, h.quantite)) }));
+                            }
+                          }}
+                          className="h-5 w-5 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · en stock : {h.quantite}</p>
+                        </div>
+                        <Input
+                          type="number" min={0} max={h.quantite}
+                          disabled={!isOn}
+                          value={consumed[h.id] ?? "0"}
+                          onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
+                          className="h-10 w-20 tabular-nums"
+                        />
                       </div>
-                      <Input
-                        type="number" min={0} max={h.quantite}
-                        value={consumed[h.id] ?? String(h.quantite)}
-                        onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
-                        className="h-10 w-20 tabular-nums"
-                      />
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-muted-foreground">Le reliquat non consommé est automatiquement retourné au stock magasin.</p>
+                    );
+                  })}
+                  <p className="text-[11px] text-muted-foreground">Le reliquat non consommé reste dans votre stock maintenance pour vos autres tickets.</p>
                 </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Aucune pièce dans votre stock maintenance. Utilisez « Demander / prendre des pièces » pour vous approvisionner.
+                </p>
               )}
-
-              <p className="text-[11px] text-muted-foreground">
-                La consommation de pièces passe par le circuit demande → préparation magasin → prise.
-                Les pièces prises sont consommées automatiquement à la résolution (reliquat retourné au stock).
-              </p>
             </div>
+
 
             <StickyActionBar>
               <Button onClick={() => handleResolve()} className="w-full h-12">Résoudre</Button>
