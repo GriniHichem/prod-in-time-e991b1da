@@ -267,6 +267,8 @@ const App = () => (
               } />
               {/* Magasin shift home — keepers redirected to kiosk, managers see dashboard */}
               <Route path="/magasin/shift" element={<MagasinShiftHome />} />
+              <Route path="/magasin/journal" element={<MagasinJournal />} />
+
               <Route path="/maintenance/journal" element={<InterventionJournal />} />
               <Route path="/maintenance/historique" element={<InterventionHistory />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
