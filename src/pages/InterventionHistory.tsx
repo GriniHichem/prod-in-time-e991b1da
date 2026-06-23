@@ -26,7 +26,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
 
 type SortField = "date" | "machine" | "duration";
