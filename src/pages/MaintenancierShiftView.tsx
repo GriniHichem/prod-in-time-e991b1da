@@ -175,6 +175,9 @@ export default function MaintenancierShiftView() {
                               {item.prochaine_echeance && new Date(item.prochaine_echeance) < new Date() && (
                                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">En retard</Badge>
                               )}
+                              {inProgressPlanIds.includes(item.id) && (
+                                <Badge className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-600">En cours</Badge>
+                              )}
                             </div>
                             {item.type_maintenance && (
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.type_maintenance}</p>
