@@ -202,7 +202,14 @@ export function AppSidebar() {
       <SidebarContent className="pt-3 overflow-y-auto">
         {showGmao && renderGroup("Maintenance", IconMaintenance, visibleGmao, isGmaoActive || !isGpaoActive)}
 
-        {showGmao && showGpao && <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />}
+        {showStock && (
+          <>
+            <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />
+            {renderGroup("Stock PDR", IconSpare, visibleStock, isStockActive)}
+          </>
+        )}
+
+        {(showGmao || showStock) && showGpao && <div className="mx-3 my-1 h-px bg-gradient-to-r from-transparent via-sidebar-border/50 to-transparent" />}
 
         {showGpao && renderGroup("Production", IconProduction, visibleGpao, isGpaoActive)}
 
