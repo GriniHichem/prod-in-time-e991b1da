@@ -771,6 +771,30 @@ export default function TicketDetail() {
                   <Package className="h-4 w-4 mr-2" /> Demander / prendre des pièces
                 </Link>
               </Button>
+
+              {holdings.length > 0 && (
+                <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                  <p className="text-xs font-semibold flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5 text-primary" /> Pièces prises — quantité consommée
+                  </p>
+                  {holdings.map((h) => (
+                    <div key={h.id} className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono text-xs font-semibold truncate">{h.pdr?.reference}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{h.pdr?.designation} · pris : {h.quantite}</p>
+                      </div>
+                      <Input
+                        type="number" min={0} max={h.quantite}
+                        value={consumed[h.id] ?? String(h.quantite)}
+                        onChange={(e) => setConsumed((m) => ({ ...m, [h.id]: e.target.value }))}
+                        className="h-10 w-20 tabular-nums"
+                      />
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-muted-foreground">Le reliquat non consommé est automatiquement retourné au stock magasin.</p>
+                </div>
+              )}
+
               <p className="text-[11px] text-muted-foreground">
                 La consommation de pièces passe par le circuit demande → préparation magasin → prise.
                 Les pièces prises sont consommées automatiquement à la résolution (reliquat retourné au stock).
