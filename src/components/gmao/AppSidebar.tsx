@@ -8,7 +8,7 @@ import {
   IconTicket, IconPreventive, IconShift, IconAnalytics, IconChart,
   IconOrder, IconProduct, IconArticle, IconRecipe, IconTimer,
   IconConsumption, IconStop, IconSettings, IconLogout,
-  IconMaintenance, IconProduction,
+  IconMaintenance, IconProduction, IconJournal,
 } from "@/components/icons/IndustrialIcons";
 import { ShieldCheck, ClipboardCheck, AlertTriangle, Wrench, FileText, Lock, CheckSquare, Cog, Timer, ClipboardList } from "lucide-react";
 import {
