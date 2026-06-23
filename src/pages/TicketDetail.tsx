@@ -38,9 +38,10 @@ export default function TicketDetail() {
   const [pdrList, setPdrList] = useState<any[]>([]);
   const [pendingResolve, setPendingResolve] = useState<null | (() => Promise<void>)>(null);
 
-  // Pièces détenues en stock maintenance pour ce ticket
+  // Mini-stock du maintenancier (toutes ses pièces en_main, tous tickets confondus)
   const [holdings, setHoldings] = useState<any[]>([]);
   const [consumed, setConsumed] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   // Co-intervenants
   const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
