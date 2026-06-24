@@ -85,6 +85,7 @@ export default function PreventifDetail() {
       setAssignees(profiles || []);
     }
     await loadHoldings();
+    await loadPlanRequests();
   };
 
   // Pieces taken (held) by the user for this plan's validated requests
