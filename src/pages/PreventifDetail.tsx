@@ -327,15 +327,45 @@ export default function PreventifDetail() {
 
       {openExec && (
         <Card className="border-green-600/40 bg-green-50/40 dark:bg-green-950/10">
-          <CardContent className="flex items-center gap-3 p-4 flex-wrap">
-            <ClipboardCheck className="h-5 w-5 text-green-600 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Intervention en cours</p>
-              <p className="text-xs text-muted-foreground">
-                Démarrée {openExec.heure_debut ? new Date(openExec.heure_debut).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
-                {holdings.length > 0 ? ` · ${holdings.length} pièce(s) prêtée(s)` : ""}
-              </p>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <ClipboardCheck className="h-5 w-5 text-green-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">Intervention en cours</p>
+                <p className="text-xs text-muted-foreground">
+                  Démarrée {openExec.heure_debut ? new Date(openExec.heure_debut).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                  {` · ${holdings.length} prise(s)`}
+                  {itemsAPrendre.length > 0 ? ` · ${itemsAPrendre.length} à prendre` : ""}
+                  {itemsEnPreparation.length > 0 ? ` · ${itemsEnPreparation.length} en préparation` : ""}
+                </p>
+              </div>
             </div>
+
+            {(itemsAPrendre.length > 0 || itemsEnPreparation.length > 0) && (
+              <div className="border rounded-lg divide-y bg-background">
+                {itemsAPrendre.map(({ req, it }) => (
+                  <div key={it.id} className="flex items-center gap-3 p-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-xs font-semibold truncate">{it.pdr?.reference}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{it.pdr?.designation} · {req.numero} · préparé : {it.quantite_preparee ?? it.quantite_demandee}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-600/40">Prête</Badge>
+                    <Button size="sm" className="h-9" disabled={takeBusy} onClick={() => setTakeTarget({ req, it })}>
+                      Confirmer la prise
+                    </Button>
+                  </div>
+                ))}
+                {itemsEnPreparation.map(({ req, it }) => (
+                  <div key={it.id} className="flex items-center gap-3 p-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-xs font-semibold truncate">{it.pdr?.reference}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{it.pdr?.designation} · {req.numero} · demandé : {it.quantite_demandee}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40">En préparation (magasin)</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -343,6 +373,7 @@ export default function PreventifDetail() {
       <Tabs defaultValue="info">
         <TabsList className="h-11">
           <TabsTrigger value="info" className="h-9">Infos</TabsTrigger>
+
           <TabsTrigger value="pdr" className="h-9"><Package className="h-3.5 w-3.5 mr-1" />PDR</TabsTrigger>
           <TabsTrigger value="assignees" className="h-9"><Users className="h-3.5 w-3.5 mr-1" />Affectés</TabsTrigger>
           <TabsTrigger value="executions" className="h-9"><CalendarCheck className="h-3.5 w-3.5 mr-1" />Exécutions</TabsTrigger>
