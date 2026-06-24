@@ -51,6 +51,11 @@ export default function PreventifDetail() {
   const [consumedQty, setConsumedQty] = useState<Record<string, string>>({});
   const [starting, setStarting] = useState(false);
 
+  // Pieces requested for this plan (full requests with items)
+  const [planRequests, setPlanRequests] = useState<PdrRequest[]>([]);
+  const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
+  const [takeBusy, setTakeBusy] = useState(false);
+
   // Execution dialog state (clôture)
   const [execOpen, setExecOpen] = useState(false);
   const [execNotes, setExecNotes] = useState("");
