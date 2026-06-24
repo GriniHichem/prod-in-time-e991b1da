@@ -266,6 +266,11 @@ export default function PreventifDetail() {
   const statutInfo = STATUT_LABELS[(plan as any).statut_plan] || STATUT_LABELS.valide;
   const isOverdue = plan.prochaine_echeance && new Date(plan.prochaine_echeance) < new Date();
 
+  // Items demandés pour ce plan, à plat avec leur demande parente
+  const allReqItems = planRequests.flatMap((r) => (r.items ?? []).map((it) => ({ req: r, it })));
+  const itemsAPrendre = allReqItems.filter(({ it }) => it.statut === "prete");
+  const itemsEnPreparation = allReqItems.filter(({ it }) => it.statut === "demandee");
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
