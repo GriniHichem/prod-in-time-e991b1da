@@ -316,6 +316,51 @@ export default function PreventifDetail() {
   const itemsAPrendre = allReqItems.filter(({ it }) => it.statut === "prete");
   const itemsEnPreparation = allReqItems.filter(({ it }) => it.statut === "demandee");
 
+  // ===== Historique PDR : chronologie par pièce =====
+  const userName = (uid?: string | null) => (uid ? (profileMap[uid] || "—") : "—");
+  const execLabel = (execId?: string | null) => {
+    const e = executions.find((x: any) => x.id === execId);
+    return e ? `exéc. du ${new Date(e.date_execution).toLocaleDateString("fr-FR")}` : "exécution";
+  };
+  type HistEvent = { ts: number; type: "demandee" | "preparee" | "prise" | "consommee"; date: string; qte: number; user: string; note?: string };
+  const histByPiece: { pdrId: string; reference: string; designation: string; events: HistEvent[] }[] = (() => {
+    const groups = new Map<string, { pdrId: string; reference: string; designation: string; events: HistEvent[] }>();
+    const ensure = (pdrId: string, reference: string, designation: string) => {
+      if (!groups.has(pdrId)) groups.set(pdrId, { pdrId, reference, designation, events: [] });
+      return groups.get(pdrId)!;
+    };
+    allReqItems.forEach(({ req, it }) => {
+      const pid = it.pdr_id as string;
+      const g = ensure(pid, it.pdr?.reference ?? "—", it.pdr?.designation ?? "");
+      if ((it as any).created_at || req.created_at) {
+        g.events.push({ ts: new Date(req.created_at).getTime(), type: "demandee", date: req.created_at, qte: it.quantite_demandee ?? 0, user: userName(req.requested_by || (req as any).created_by), note: req.numero });
+      }
+      if ((it as any).prepared_at) {
+        g.events.push({ ts: new Date((it as any).prepared_at).getTime(), type: "preparee", date: (it as any).prepared_at, qte: it.quantite_preparee ?? it.quantite_demandee ?? 0, user: userName((it as any).prepared_by) });
+      }
+      if ((it as any).taken_at) {
+        const reliquat = Math.max(0, (it.quantite_demandee ?? 0) - (it.quantite_prise ?? 0));
+        g.events.push({ ts: new Date((it as any).taken_at).getTime(), type: "prise", date: (it as any).taken_at, qte: it.quantite_prise ?? 0, user: userName((it as any).taken_by), note: reliquat > 0 ? `reliquat ${reliquat} non fourni` : undefined });
+      }
+    });
+    consumptions.forEach((c: any) => {
+      const pid = c.pdr_id as string;
+      const g = ensure(pid, c.pdr?.reference ?? "—", c.pdr?.designation ?? "");
+      g.events.push({ ts: new Date(c.created_at).getTime(), type: "consommee", date: c.created_at, qte: c.quantite ?? 0, user: "", note: execLabel(c.preventive_execution_id) });
+    });
+    return [...groups.values()]
+      .map((g) => ({ ...g, events: g.events.sort((a, b) => a.ts - b.ts) }))
+      .sort((a, b) => (b.events[0]?.ts ?? 0) - (a.events[0]?.ts ?? 0));
+  })();
+
+  const HIST_META: Record<HistEvent["type"], { label: string; cls: string }> = {
+    demandee: { label: "Demandée", cls: "text-blue-600 border-blue-600/40" },
+    preparee: { label: "Préparée", cls: "text-amber-600 border-amber-600/40" },
+    prise: { label: "Prise", cls: "text-emerald-600 border-emerald-600/40" },
+    consommee: { label: "Consommée", cls: "text-purple-600 border-purple-600/40" },
+  };
+
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
