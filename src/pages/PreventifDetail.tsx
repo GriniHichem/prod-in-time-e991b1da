@@ -550,6 +550,30 @@ export default function PreventifDetail() {
                 ))}
               </div>
             )}
+
+            {/* Actions rapides */}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={showRequest ? "secondary" : "default"} className="h-10" onClick={() => setShowRequest((v) => !v)}>
+                <PackagePlus className="h-4 w-4 mr-1.5" /> {showRequest ? "Fermer" : "Demander une pièce non prévue"}
+              </Button>
+              {planPdr.length > 0 && (
+                <Button size="sm" variant="outline" className="h-10" disabled={requestingPlanned} onClick={requestPlannedPieces}>
+                  <Plus className="h-4 w-4 mr-1.5" /> {requestingPlanned ? "Envoi…" : "Demander les pièces prévues"}
+                </Button>
+              )}
+            </div>
+
+            {/* Demande inline — reste sur le plan, cycle magasin sécurisé conservé */}
+            {showRequest && (
+              <div className="border rounded-lg p-3 bg-background">
+                <PdrRequestComposer
+                  type="preventive"
+                  preventivePlanId={id}
+                  machineId={plan.machine_id ?? null}
+                  onSubmitted={() => { reloadPdrLive(); setShowRequest(false); }}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
