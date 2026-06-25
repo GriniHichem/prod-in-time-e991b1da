@@ -832,9 +832,10 @@ export default function PreventifDetail() {
                         </TableCell>
                         <TableCell className="tabular-nums text-sm">{e.duree_minutes ? `${e.duree_minutes} min` : "—"}</TableCell>
                         <TableCell className="text-sm">
-                          {assignees.find((a: any) => a.user_id === e.executed_by)
-                            ? `${assignees.find((a: any) => a.user_id === e.executed_by)?.first_name} ${assignees.find((a: any) => a.user_id === e.executed_by)?.last_name}`
-                            : "—"}
+                          {profileMap[e.executed_by]
+                            || (assignees.find((a: any) => a.user_id === e.executed_by)
+                              ? `${assignees.find((a: any) => a.user_id === e.executed_by)?.first_name} ${assignees.find((a: any) => a.user_id === e.executed_by)?.last_name}`
+                              : "—")}
                         </TableCell>
                         <TableCell className="text-sm">
                           {pdrUsed.length > 0 ? (
