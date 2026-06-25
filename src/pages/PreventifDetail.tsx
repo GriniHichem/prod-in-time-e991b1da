@@ -58,6 +58,8 @@ export default function PreventifDetail() {
   const [planRequests, setPlanRequests] = useState<PdrRequest[]>([]);
   const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
   const [takeBusy, setTakeBusy] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [requestingPlanned, setRequestingPlanned] = useState(false);
 
   // Consumptions (intervention_pdr) of this plan + resolved user names
   const [consumptions, setConsumptions] = useState<any[]>([]);
