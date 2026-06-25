@@ -270,9 +270,16 @@ export default function PreventifDetail() {
 
   const openExecDialog = async () => {
     setExecNotes("");
-    setExecDureeMinutes(0);
-    const now = new Date();
-    setExecStartTime(now.toTimeString().slice(0, 5));
+    // Pré-remplissage de la durée et de l'heure de début depuis le démarrage réel de l'intervention.
+    if (openExec?.heure_debut) {
+      const start = new Date(openExec.heure_debut);
+      setExecStartTime(start.toTimeString().slice(0, 5));
+      setExecDureeMinutes(Math.max(1, Math.round((Date.now() - start.getTime()) / 60000)));
+    } else {
+      const now = new Date();
+      setExecStartTime(now.toTimeString().slice(0, 5));
+      setExecDureeMinutes(0);
+    }
     setExecOpen(true);
   };
 
