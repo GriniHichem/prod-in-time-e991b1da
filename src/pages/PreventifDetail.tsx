@@ -391,26 +391,18 @@ export default function PreventifDetail() {
       } as any).eq("id", openExec.id);
       if (error) throw error;
 
-      // Update plan: derniere_execution + prochaine_echeance
-      const days = FREQUENCE_DAYS[plan.frequence] || 30;
-      const nextDate = new Date(now.getTime() + days * 86400000);
-      await supabase.from("preventive_plans").update({
-        derniere_execution: now.toISOString(),
-        prochaine_echeance: nextDate.toISOString(),
-      } as any).eq("id", id);
-
       await logAudit({
         action_type: "update", module: "preventif" as any, entity_type: "preventive_execution",
         entity_id: openExec.id, entity_label: plan?.title,
-        action_label: "Clôture intervention plan préventif",
+        action_label: "Clôture de ma part — intervention préventive",
         new_values: {
           plan_id: id, duree_minutes: execDureeMinutes, heure_debut: execStartTime,
-          pdr_used: consumedList, prochaine_echeance: nextDate.toISOString(),
+          pdr_used: consumedList,
         },
         severity: "low",
       });
 
-      toast({ title: "Intervention clôturée", description: `Prochaine échéance : ${nextDate.toLocaleDateString("fr-FR")}` });
+      toast({ title: "Votre part est clôturée", description: "Clôturez l'action commune quand tous les intervenants ont terminé." });
       setExecOpen(false);
       loadAll();
     } catch (err: any) {
