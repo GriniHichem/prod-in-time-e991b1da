@@ -50,6 +50,7 @@ export default function TicketDetail() {
   const [newCollabId, setNewCollabId] = useState("");
   const [newCollabRole, setNewCollabRole] = useState<"aide" | "co_intervenant">("aide");
   const [assigneeName, setAssigneeName] = useState<string>("");
+  const [declarantName, setDeclarantName] = useState<string>("");
 
   // Handover (transfer / release)
   const [transferTargetId, setTransferTargetId] = useState("");
@@ -74,6 +75,14 @@ export default function TicketDetail() {
         setAssigneeName(prof ? `${prof.first_name ?? ""} ${prof.last_name ?? ""}`.trim() : "");
       } else {
         setAssigneeName("");
+      }
+      // Resolve declarant name
+      if (data.declarant_id) {
+        const { data: dprof } = await supabase
+          .from("profiles").select("first_name,last_name").eq("user_id", data.declarant_id).maybeSingle();
+        setDeclarantName(dprof ? `${dprof.first_name ?? ""} ${dprof.last_name ?? ""}`.trim() : "");
+      } else {
+        setDeclarantName("");
       }
     }
 
@@ -604,8 +613,9 @@ export default function TicketDetail() {
           {ticket.ordres_fabrication?.numero && <InfoItem label="OF lié" value={ticket.ordres_fabrication.numero} mono />}
           {ticket.production_lines?.designation && <InfoItem label="Ligne" value={`${ticket.production_lines.code} — ${ticket.production_lines.designation}`} />}
           <InfoItem label="Déclaration" value={fmtDate(ticket.heure_declaration)} icon={<Clock className="h-3 w-3" />} mono />
+          <InfoItem label="Déclaré par" value={declarantName || "—"} icon={<User className="h-3 w-3" />} />
           {ticket.heure_prise_en_charge && <InfoItem label="Prise en charge" value={fmtDate(ticket.heure_prise_en_charge)} icon={<User className="h-3 w-3" />} mono />}
-          {ticket.assignee_id && (
+          {ticket.assignee_id && ticket.heure_prise_en_charge && (
             <div className="col-span-full">
               <p className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Pris en charge par</p>
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
