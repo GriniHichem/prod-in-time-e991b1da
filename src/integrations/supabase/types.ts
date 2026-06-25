@@ -3560,6 +3560,7 @@ export type Database = {
           is_active: boolean
           line_id: string | null
           machine_id: string
+          numero: string | null
           organe_id: string | null
           prochaine_echeance: string | null
           search_vector: unknown
@@ -3581,6 +3582,7 @@ export type Database = {
           is_active?: boolean
           line_id?: string | null
           machine_id: string
+          numero?: string | null
           organe_id?: string | null
           prochaine_echeance?: string | null
           search_vector?: unknown
@@ -3602,6 +3604,7 @@ export type Database = {
           is_active?: boolean
           line_id?: string | null
           machine_id?: string
+          numero?: string | null
           organe_id?: string | null
           prochaine_echeance?: string | null
           search_vector?: unknown
