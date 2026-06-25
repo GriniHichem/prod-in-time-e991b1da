@@ -239,41 +239,11 @@ export default function PreventifDetail() {
   const openExecDialog = async () => {
     setExecNotes("");
     setExecDureeMinutes(0);
-    setAdhocLines([]);
-    setAdhocSearch("");
-    setAdhocPdrId("");
-    setAdhocQte("1");
     const now = new Date();
     setExecStartTime(now.toTimeString().slice(0, 5));
     setExecOpen(true);
-    // Charge le catalogue PDR (référence, désignation, stock) pour la saisie ad-hoc
-    const { data } = await supabase
-      .from("pdr")
-      .select("id, reference, designation, stock_actuel")
-      .order("reference", { ascending: true })
-      .limit(500);
-    setPdrCatalog((data as any) ?? []);
   };
 
-  const addAdhocLine = () => {
-    if (!adhocPdrId) return;
-    const p = pdrCatalog.find((x) => x.id === adhocPdrId);
-    if (!p) return;
-    const qte = parseInt(adhocQte, 10) || 0;
-    if (qte <= 0) return;
-    setAdhocLines((prev) => {
-      const existing = prev.find((l) => l.pdr_id === p.id);
-      if (existing) {
-        return prev.map((l) => (l.pdr_id === p.id ? { ...l, quantite: l.quantite + qte } : l));
-      }
-      return [...prev, { pdr_id: p.id, reference: p.reference, designation: p.designation, quantite: qte, stock: p.stock_actuel ?? 0 }];
-    });
-    setAdhocPdrId("");
-    setAdhocQte("1");
-    setAdhocSearch("");
-  };
-
-  const removeAdhocLine = (pdrId: string) => setAdhocLines((prev) => prev.filter((l) => l.pdr_id !== pdrId));
 
   // ===== Terminer : clôture l'exécution en cours + consomme les pièces prêtées =====
   const submitExecution = async () => {
