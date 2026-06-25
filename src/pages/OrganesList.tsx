@@ -45,6 +45,8 @@ export default function OrganesList() {
       .then(({ data }) => setRows((data as any) || []));
   }, []);
 
+  const organeImages = useEntityPrimaryImages("organe", rows.map((r) => r.id));
+
   const filtered = useMemo(() => rows.filter((r) => {
     if (type !== "__all__" && r.type !== type) return false;
     if (statut !== "__all__" && r.statut !== statut) return false;
