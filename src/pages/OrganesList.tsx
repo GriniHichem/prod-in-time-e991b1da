@@ -12,6 +12,8 @@ import { Plus, Search, RotateCcw, Component } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ListScanButton } from "@/components/scanner/ListScanButton";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 const TYPE_LABELS: Record<string, string> = {
   mecanique: "Mécanique", electrique: "Électrique", pneumatique: "Pneumatique",
