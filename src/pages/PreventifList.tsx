@@ -110,9 +110,10 @@ export default function PreventifList() {
       if (searchText.trim()) {
         const q = searchText.toLowerCase();
         const matchTitle = p.title?.toLowerCase().includes(q);
+        const matchNumero = p.numero?.toLowerCase().includes(q);
         const matchMCode = p.machines?.code?.toLowerCase().includes(q);
         const matchMDesig = p.machines?.designation?.toLowerCase().includes(q);
-        if (!matchTitle && !matchMCode && !matchMDesig) return false;
+        if (!matchTitle && !matchNumero && !matchMCode && !matchMDesig) return false;
       }
 
       return true;
@@ -151,6 +152,7 @@ export default function PreventifList() {
           <ExportCsvButton
             data={filtered}
             columns={[
+              { key: "numero", label: "N° Action" },
               { key: "title", label: "Plan" },
               { key: "machines.code", label: "Machine code" },
               { key: "machines.designation", label: "Machine" },
@@ -283,6 +285,7 @@ export default function PreventifList() {
           <Table>
              <TableHeader>
               <TableRow>
+                <TableHead>N° Action</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Machine</TableHead>
                 <TableHead>Ligne</TableHead>
@@ -295,7 +298,7 @@ export default function PreventifList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     <CalendarCheck className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     Aucun plan préventif
                   </TableCell>
@@ -310,6 +313,7 @@ export default function PreventifList() {
                       className={`cursor-pointer hover:bg-muted/50 ${isOverdue ? "bg-destructive/5" : ""}`}
                       onClick={() => navigate(`/preventif/${p.id}`)}
                     >
+                      <TableCell className="font-mono text-xs">{p.numero || "—"}</TableCell>
                       <TableCell className="font-medium">{p.title}</TableCell>
                       <TableCell>
                         <p className="text-sm">{p.machines?.designation}</p>
