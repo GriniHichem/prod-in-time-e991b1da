@@ -1,49 +1,52 @@
-# Correction du flux PDR — Plan préventif
+## Objectif
 
-## Contexte / audit
+Permettre au maintenancier, **sans quitter le plan préventif en cours**, de :
+1. Demander une pièce non prévue (panneau intégré dans la carte « Intervention en cours »).
+2. Voir automatiquement (temps réel) quand le magasin l'a préparée.
+3. Confirmer la prise en un geste.
+4. Confirmer la quantité consommée à la clôture.
 
-Deux anomalies confirmées dans `src/pages/PreventifDetail.tsx` :
+Tout en gardant le **cycle sécurisé** déjà figé : Demande → Préparation magasin → Prise → Consommation. Aucune consommation directe du stock n'est introduite (la règle anti-contournement reste intacte).
 
-1. **Faille de contournement du cycle** : le dialogue « Terminer » contient une section « Ajouter une pièce non prévue » avec un menu déroulant sur tout le catalogue PDR. Elle appelle `consume_adhoc_pdr_preventive`, qui **décrémente directement le stock magasin sans demande ni validation**. C'est contraire au cycle obligatoire Demande → Préparation magasin → Prise → Consommation.
+## Ce qui change
 
-2. **Onglet PDR pauvre** : il n'affiche que la nomenclature planifiée (`preventive_plan_pdr`), vide pour 21 plans sur 25. Aucune visibilité sur l'état réel (demandée / prête / prise / consommée).
+### 1. Demande inline dans la carte « Intervention en cours »
+Ajout d'un bloc dépliable **« + Demander une pièce non prévue »** directement dans la carte verte (`PreventifDetail.tsx`), réutilisant le composant existant `PdrRequestComposer` (recherche, famille/sous-famille, dispo en direct).
+- Pré-rempli avec `type="preventive"`, `preventivePlanId`, `machineId`.
+- À l'envoi (`onSubmitted`), la liste se recharge et le bloc se referme — le maintenancier reste sur le plan.
+- Le bouton « Demander / prendre des pièces » qui redirigeait vers une autre page devient secondaire (conservé en repli, mais le flux principal est inline).
 
-## Décisions retenues
+### 2. Temps réel (rapidité)
+Le détail du plan ne s'actualise qu'au montage aujourd'hui. Ajout d'abonnements temps réel (hook `useShiftRealtime`, déjà utilisé ailleurs) sur `pdr_requests`, `pdr_request_items` et `pdr_maintenance_holdings` filtrés sur ce plan :
+- Dès que le magasin prépare → la pièce passe de « En préparation » à « Prête » + bouton **Confirmer la prise** apparaît sans recharger.
+- Dès qu'une prise est confirmée → elle bascule dans « Pièces prises ».
 
-- **Imprévus** : toujours via demande. Le maintenancier ne décrémente jamais le stock magasin directement. Pour toute pièce non planifiée, il utilise « Demander / prendre des pièces ».
-- **Onglet PDR** : afficher le prévu (nomenclature) **et** l'état réel du cycle pour chaque pièce.
+### 3. Confirmation de prise déjà en place — consolidée
+Le `ConfirmTakeDialog` (récap famille/qté demandée/dispo/reliquat) reste le point de confirmation, déjà branché. On s'assure qu'il s'ouvre aussi pour les pièces non prévues fraîchement préparées.
 
-## Modifications
+### 4. Clôture inchangée mais clarifiée
+Le dialogue « Terminer » continue de ne lister que les pièces réellement prises (holdings) pour saisir la quantité consommée ; le reliquat retourne au magasin. Le bloc d'aide « pièce manquante » est remplacé par le même panneau inline de demande rapide.
 
-### 1. Dialogue « Terminer » — retirer la consommation directe
-Dans `PreventifDetail.tsx` :
-- Supprimer toute la section UI « Ajouter une pièce non prévue » (Select catalogue, recherche, quantité, lignes ad-hoc, alertes stock).
-- Supprimer les états associés : `adhocLines`, `pdrCatalog`, `adhocSearch`, `adhocPdrId`, `adhocQte`, et les fonctions `addAdhocLine` / `removeAdhocLine`.
-- Retirer le chargement du catalogue dans `openExecDialog` (plus de `select` sur `pdr`).
-- Dans `submitExecution`, supprimer la boucle d'appel à `consumeAdhocPdrPreventive` et la fusion `adhocLines` dans `consumedList`.
-- Retirer l'import `consumeAdhocPdrPreventive` (et icônes devenues inutiles : `Plus`, `Trash2`, `AlertTriangle`, `Select*`, `Input` si plus utilisé).
-- Conserver tel quel : la confirmation des quantités consommées sur les pièces **prises** (holdings), avec retour du reliquat au magasin.
-- Ajouter dans le dialogue un message clair : « Pièce manquante ? Fermez et utilisez Demander / prendre des pièces. » avec un bouton/raccourci vers `/maintenance/shift/pieces?plan=…&exec=…`.
+## Améliorations proposées pour la rapidité / facilité
 
-### 2. Onglet PDR — prévu + état réel
-Refondre l'onglet `pdr` pour afficher, par pièce, une fusion de :
-- La **nomenclature planifiée** (`preventive_plan_pdr` → quantité prévue).
-- L'**état réel** issu des demandes (`planRequests` déjà chargé) : quantité demandée, préparée, prise, et statut (demandée / prête / prise / refusée).
-- La **quantité consommée** (depuis `consumptions` déjà chargé) et le **reliquat** (prévu − consommé).
-
-Présentation : tableau avec colonnes Référence · Désignation · Prévu · Demandé · Pris · Consommé · État (badge couleur). Les pièces planifiées sans demande apparaissent en « Non demandée ». Message vide explicite si aucune pièce planifiée ni demandée.
-
-### 3. Garde-fou backend (sécurité)
-Neutraliser la voie de contournement côté base pour que la suppression UI ne soit pas contournable :
-- Migration : retirer le type de source `pdr_adhoc` du garde-fou autorisé dans `guard_pdr_stock_movements`, et faire échouer `consume_adhoc_pdr_preventive` (RPC) avec une erreur explicite « consommation directe interdite : passez par une demande de pièces », OU la supprimer. Cela garantit qu'aucune consommation préventive ne se fait hors du circuit demande/validation.
-
-## Validation
-- `tsgo` (typecheck) après modifications front.
-- Vérification visuelle (Playwright) : dialogue Terminer sans dropdown, onglet PDR affichant prévu + état.
-- Test manuel : tenter une consommation ad-hoc → bloquée ; cycle normal (demande → prête → prise → consommée) → OK et tracé dans Historique PDR.
+1. **Compteurs d'action en tête de carte** : badges cliquables « X à prendre » / « X en préparation » qui scrollent/filtrent la liste — repérage immédiat.
+2. **Bouton « Tout prendre »** : si plusieurs pièces sont « Prêtes », un seul clic ouvre une confirmation groupée (qté préparée par défaut) au lieu d'une par une.
+3. **Réutilisation des pièces déjà demandées** : suggestion en un clic des pièces de la nomenclature planifiée (`preventive_plan_pdr`) non encore demandées → « Demander les pièces prévues » en bloc.
+4. **Pré-remplissage durée** : calcul auto de la durée à la clôture à partir de `heure_debut` (modifiable), pour éviter la saisie manuelle.
+5. **Indicateur dispo dans la demande** : déjà présent (badge Disponible/Non dispo) ; ajout d'un tri « disponibles d'abord » pour accélérer le choix.
+6. **Notification magasin prioritaire** : marquer la priorité par défaut selon l'urgence du plan (ex. plan en retard → priorité haute).
 
 ## Détails techniques
-- Fichier principal : `src/pages/PreventifDetail.tsx`.
-- Hook : `src/hooks/usePdrRequests.ts` — l'export `consumeAdhocPdrPreventive` devient inutilisé (à supprimer).
-- Données déjà disponibles dans le composant : `planPdr`, `planRequests`, `consumptions` — pas de nouvelle requête nécessaire pour l'onglet PDR.
-- Migration SQL pour le garde-fou / RPC `consume_adhoc_pdr_preventive`.
+
+Fichiers touchés (frontend uniquement) :
+- `src/pages/PreventifDetail.tsx` :
+  - État `showRequest` pour le panneau inline + intégration `PdrRequestComposer` avec `onSubmitted={() => { loadPlanRequests(); loadHoldings(); setShowRequest(false); }}`.
+  - Ajout des abonnements `useShiftRealtime` (3 tables) déclenchant `loadPlanRequests` / `loadHoldings`.
+  - Optionnel : helper « Demander les pièces prévues » à partir de `planPdr` via `createPdrRequest`.
+  - Pré-remplissage durée depuis `heure_debut`.
+- Aucune migration : les RPC `confirm_request_item_taken`, `consume_maintenance_holding_preventive` et `createPdrRequest` existent déjà.
+- Aucun changement de logique métier backend : on s'appuie sur le circuit sécurisé existant.
+
+## Hors périmètre
+- Pas de consommation directe du stock magasin (interdit, RPC neutralisée — on n'y touche pas).
+- Pas de modification des droits du maintenancier (toujours pas de modification du plan).
