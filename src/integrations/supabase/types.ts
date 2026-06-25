@@ -6225,6 +6225,17 @@ export type Database = {
         Args: { p_item_id: string; p_qte?: number }
         Returns: string
       }
+      consume_adhoc_pdr_preventive: {
+        Args: {
+          p_cause?: string
+          p_commentaire?: string
+          p_execution_id: string
+          p_pdr_id: string
+          p_position_id?: string
+          p_qte: number
+        }
+        Returns: undefined
+      }
       consume_from_ministock: {
         Args: {
           p_cause?: string
