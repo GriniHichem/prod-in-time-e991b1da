@@ -531,14 +531,24 @@ export default function PreventifDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canWork && !openExec && (
+          {canWork && !openExec && !isLockedUntilEcheance && (
             <Button onClick={startExecution} disabled={starting} className="h-12 px-4 bg-green-600 hover:bg-green-700">
-              <Play className="h-4 w-4 mr-2" /> {starting ? "Démarrage..." : "Commencer"}
+              <Play className="h-4 w-4 mr-2" /> {starting ? "Démarrage..." : activeSession ? "Rejoindre l'action" : "Commencer"}
             </Button>
           )}
           {canWork && openExec && (
             <Button onClick={openExecDialog} className="h-12 px-4 bg-green-600 hover:bg-green-700">
-              <ClipboardCheck className="h-4 w-4 mr-2" /> Terminer
+              <ClipboardCheck className="h-4 w-4 mr-2" /> Terminer ma part
+            </Button>
+          )}
+          {canWork && activeSession && (
+            <Button onClick={closeAction} disabled={closingAction} variant="default" className="h-12 px-4">
+              <CheckCircle className="h-4 w-4 mr-2" /> {closingAction ? "Clôture..." : "Clôturer l'action"}
+            </Button>
+          )}
+          {isLockedUntilEcheance && isResponsable && (
+            <Button onClick={() => setReopenOpen(true)} variant="outline" className="h-12 px-4">
+              <Play className="h-4 w-4 mr-2" /> Débloquer (responsable)
             </Button>
           )}
           {canEdit("preventif") && (plan as any).statut_plan === "brouillon" && (
