@@ -30,10 +30,8 @@ const STATUT_LABELS: Record<string, { label: string; variant: "default" | "secon
   suspendu: { label: "Suspendu", variant: "outline" },
 };
 
-const FREQUENCE_DAYS: Record<string, number> = {
-  quotidien: 1, hebdomadaire: 7, bimensuel: 14, mensuel: 30,
-  trimestriel: 90, semestriel: 180, annuel: 365,
-};
+
+
 
 export default function PreventifDetail() {
   const { id } = useParams();
