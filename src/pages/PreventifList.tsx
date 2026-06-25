@@ -110,9 +110,10 @@ export default function PreventifList() {
       if (searchText.trim()) {
         const q = searchText.toLowerCase();
         const matchTitle = p.title?.toLowerCase().includes(q);
+        const matchNumero = p.numero?.toLowerCase().includes(q);
         const matchMCode = p.machines?.code?.toLowerCase().includes(q);
         const matchMDesig = p.machines?.designation?.toLowerCase().includes(q);
-        if (!matchTitle && !matchMCode && !matchMDesig) return false;
+        if (!matchTitle && !matchNumero && !matchMCode && !matchMDesig) return false;
       }
 
       return true;
