@@ -3427,6 +3427,62 @@ export type Database = {
           },
         ]
       }
+      preventive_action_sessions: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          echeance_cible: string | null
+          id: string
+          opened_at: string
+          opened_by: string | null
+          plan_id: string
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          statut: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          echeance_cible?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          plan_id: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          statut?: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          echeance_cible?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          plan_id?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
+          statut?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_action_sessions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preventive_executions: {
         Row: {
           checklist_results: Json | null
@@ -3440,6 +3496,7 @@ export type Database = {
           notes: string | null
           pdr_used: Json | null
           plan_id: string
+          session_id: string | null
           statut: string
         }
         Insert: {
@@ -3454,6 +3511,7 @@ export type Database = {
           notes?: string | null
           pdr_used?: Json | null
           plan_id: string
+          session_id?: string | null
           statut?: string
         }
         Update: {
@@ -3468,6 +3526,7 @@ export type Database = {
           notes?: string | null
           pdr_used?: Json | null
           plan_id?: string
+          session_id?: string | null
           statut?: string
         }
         Relationships: [
@@ -3476,6 +3535,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "preventive_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_executions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_action_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -6224,6 +6290,10 @@ export type Database = {
         Args: { _action: string; _module: string; _user_id: string }
         Returns: boolean
       }
+      close_preventive_action: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       confirm_request_item_taken: {
         Args: { p_item_id: string; p_qte?: number }
         Returns: string
@@ -6475,6 +6545,10 @@ export type Database = {
         Args: { p_item_id: string; p_motif: string }
         Returns: undefined
       }
+      reopen_preventive_action: {
+        Args: { p_plan_id: string; p_reason: string }
+        Returns: string
+      }
       resolve_scanned_code: {
         Args: { p_code: string }
         Returns: {
@@ -6523,6 +6597,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      start_or_join_preventive_action: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
       unaccent: { Args: { "": string }; Returns: string }
       user_has_role_text: {
         Args: { _role_text: string; _user_id: string }
