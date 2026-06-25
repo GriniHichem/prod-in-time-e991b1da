@@ -12,6 +12,8 @@ import { Plus, Search, RotateCcw, Component } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ListScanButton } from "@/components/scanner/ListScanButton";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
+import { EntityThumbnail } from "@/components/images/EntityThumbnail";
+import { useEntityPrimaryImages } from "@/hooks/useEntityPrimaryImages";
 
 const TYPE_LABELS: Record<string, string> = {
   mecanique: "Mécanique", electrique: "Électrique", pneumatique: "Pneumatique",
@@ -42,6 +44,8 @@ export default function OrganesList() {
       .order("code")
       .then(({ data }) => setRows((data as any) || []));
   }, []);
+
+  const organeImages = useEntityPrimaryImages("organe", rows.map((r) => r.id));
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (type !== "__all__" && r.type !== type) return false;
@@ -127,6 +131,7 @@ export default function OrganesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Type</TableHead>
@@ -137,9 +142,12 @@ export default function OrganesList() {
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Aucun organe</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Aucun organe</TableCell></TableRow>
               ) : filtered.map((r) => (
                 <TableRow key={r.id} className="cursor-pointer hover:bg-muted/40" onClick={() => navigate(`/organes/${r.id}`)}>
+                  <TableCell className="w-10 pr-0">
+                    <EntityThumbnail imageUrl={organeImages[r.id]} alt={r.designation} size="sm" rounded="md" enableLightbox />
+                  </TableCell>
                   <TableCell className="font-mono">{r.code}</TableCell>
                   <TableCell>{r.designation}</TableCell>
                   <TableCell><Badge variant="outline" className="text-xs">{TYPE_LABELS[r.type]}</Badge></TableCell>

@@ -33,8 +33,11 @@ const ROUND_MAP = {
 export function EntityThumbnail({ imageUrl, alt = "", size = "md", className, rounded = "md", enableLightbox = false }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const handleClick = () => {
-    if (enableLightbox && imageUrl) setLightboxOpen(true);
+  const handleClick = (e: React.MouseEvent) => {
+    if (enableLightbox && imageUrl) {
+      e.stopPropagation();
+      setLightboxOpen(true);
+    }
   };
 
   return (
