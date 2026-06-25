@@ -188,7 +188,7 @@ export default function MachinesList() {
                       onClick={() => navigate(`/machines/${m.id}`)}
                     >
                       <TableCell className="w-10 pr-0">
-                        <EntityThumbnail imageUrl={img?.image_url} alt={m.designation} size="sm" rounded="md" />
+                        <EntityThumbnail imageUrl={img?.image_url} alt={m.designation} size="sm" rounded="md" enableLightbox />
                       </TableCell>
                       <TableCell className="font-mono font-medium">{m.code}</TableCell>
                       <TableCell>{m.designation}</TableCell>
