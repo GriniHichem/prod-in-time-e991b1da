@@ -30,10 +30,8 @@ const STATUT_LABELS: Record<string, { label: string; variant: "default" | "secon
   suspendu: { label: "Suspendu", variant: "outline" },
 };
 
-const FREQUENCE_DAYS: Record<string, number> = {
-  quotidien: 1, hebdomadaire: 7, bimensuel: 14, mensuel: 30,
-  trimestriel: 90, semestriel: 180, annuel: 365,
-};
+
+
 
 export default function PreventifDetail() {
   const { id } = useParams();
@@ -53,6 +51,14 @@ export default function PreventifDetail() {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [consumedQty, setConsumedQty] = useState<Record<string, string>>({});
   const [starting, setStarting] = useState(false);
+
+  // Action partagée (session commune) + contributions par maintenancier
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [sessionContribs, setSessionContribs] = useState<any[]>([]);
+  const [closingAction, setClosingAction] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [reopening, setReopening] = useState(false);
 
   // Pieces requested for this plan (full requests with items)
   const [planRequests, setPlanRequests] = useState<PdrRequest[]>([]);
@@ -87,7 +93,24 @@ export default function PreventifDetail() {
     setPlanPdr(ppRes.data || []);
     const execs = eRes.data || [];
     setExecutions(execs);
-    const open = execs.find((e: any) => e.statut === "en_cours" && (!user || e.executed_by === user.id)) || null;
+
+    // Session d'action commune ouverte pour ce plan
+    const { data: sessions } = await supabase
+      .from("preventive_action_sessions" as any)
+      .select("*")
+      .eq("plan_id", id)
+      .eq("statut", "en_cours")
+      .order("opened_at", { ascending: false })
+      .limit(1);
+    const session = (sessions as any[])?.[0] ?? null;
+    setActiveSession(session);
+
+    // Contributions de la session ouverte (toutes personnes confondues)
+    const contribs = session ? execs.filter((e: any) => e.session_id === session.id) : [];
+    setSessionContribs(contribs);
+
+    // Ma contribution en cours (note + stock m'appartiennent)
+    const open = contribs.find((e: any) => user && e.executed_by === user.id && e.statut === "en_cours") || null;
     setOpenExec(open);
 
     const userIds = (aRes.data || []).map((a: any) => a.user_id);
@@ -195,6 +218,9 @@ export default function PreventifDetail() {
   useShiftRealtime(`prv-req-${id ?? "x"}`, "pdr_requests", reloadPdrLive, !!id, id ? `preventive_plan_id=eq.${id}` : undefined);
   useShiftRealtime(`prv-items-${id ?? "x"}`, "pdr_request_items", reloadPdrLive, !!id);
   useShiftRealtime(`prv-hold-${id ?? "x"}`, "pdr_maintenance_holdings", reloadPdrLive, !!id);
+  // Temps réel sur l'action commune et les contributions (multi-shift / multi-intervenant)
+  useShiftRealtime(`prv-sess-${id ?? "x"}`, "preventive_action_sessions", () => loadAll(), !!id, id ? `plan_id=eq.${id}` : undefined);
+  useShiftRealtime(`prv-exec-${id ?? "x"}`, "preventive_executions", () => loadAll(), !!id, id ? `plan_id=eq.${id}` : undefined);
 
   // Demander en un clic les pièces prévues (nomenclature) non encore demandées.
   const requestPlannedPieces = async () => {
@@ -238,33 +264,78 @@ export default function PreventifDetail() {
   };
 
   const isAssigned = user ? assigneeIds.includes(user.id) : false;
-  const canWork = plan && (plan as any).statut_plan === "valide" && (isAssigned || hasRole("admin") || hasRole("resp_maintenance"));
+  const isResponsable = hasRole("admin") || hasRole("resp_maintenance");
+  const canWork = plan && (plan as any).statut_plan === "valide" && (isAssigned || isResponsable);
 
-  // ===== Commencer : crée une exécution en cours =====
+  // Verrou : action déjà clôturée + prochaine échéance non atteinte → on ne relance pas
+  const isLockedUntilEcheance = !!plan && !activeSession
+    && !!plan.prochaine_echeance && new Date(plan.prochaine_echeance) > new Date()
+    && !!plan.derniere_execution;
+
+  // ===== Commencer / rejoindre l'action commune =====
   const startExecution = async () => {
     if (!user || !id) return;
     setStarting(true);
     try {
-      const now = new Date();
-      const { data: exec, error } = await supabase.from("preventive_executions").insert({
-        plan_id: id,
-        executed_by: user.id,
-        statut: "en_cours",
-        heure_debut: now.toISOString(),
-      } as any).select("*").single();
+      const { data: execId, error } = await supabase.rpc("start_or_join_preventive_action" as any, { p_plan_id: id });
       if (error) throw error;
       await logAudit({
         action_type: "create", module: "preventif" as any, entity_type: "preventive_execution",
-        entity_id: (exec as any).id, entity_label: plan?.title,
-        action_label: "Début intervention plan préventif", severity: "low",
-        new_values: { plan_id: id, heure_debut: now.toISOString() },
+        entity_id: (execId as any) ?? id, entity_label: plan?.title,
+        action_label: "Début / reprise intervention plan préventif", severity: "low",
+        new_values: { plan_id: id },
       });
-      toast({ title: "Intervention démarrée", description: "Vous pouvez demander/prendre des pièces puis clôturer." });
+      toast({ title: "Intervention démarrée", description: "Vous pouvez demander/prendre des pièces puis clôturer votre part." });
+      await loadAll();
+    } catch (err: any) {
+      toast({ title: "Action impossible", description: err.message, variant: "destructive" });
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  // ===== Clôturer l'action commune (affecté ou responsable) =====
+  const closeAction = async () => {
+    if (!activeSession) return;
+    setClosingAction(true);
+    try {
+      const { error } = await supabase.rpc("close_preventive_action" as any, { p_session_id: activeSession.id });
+      if (error) throw error;
+      await logAudit({
+        action_type: "update", module: "preventif" as any, entity_type: "preventive_action_session",
+        entity_id: activeSession.id, entity_label: plan?.title,
+        action_label: "Clôture action préventive commune", severity: "low",
+        new_values: { plan_id: id },
+      });
+      toast({ title: "Action clôturée", description: "Verrouillée jusqu'à la prochaine échéance." });
       await loadAll();
     } catch (err: any) {
       toast({ title: "Erreur", description: err.message, variant: "destructive" });
     } finally {
-      setStarting(false);
+      setClosingAction(false);
+    }
+  };
+
+  // ===== Débloquer (responsable) une action verrouillée =====
+  const reopenAction = async () => {
+    if (!id || !reopenReason.trim()) return;
+    setReopening(true);
+    try {
+      const { error } = await supabase.rpc("reopen_preventive_action" as any, { p_plan_id: id, p_reason: reopenReason.trim() });
+      if (error) throw error;
+      await logAudit({
+        action_type: "update", module: "preventif" as any, entity_type: "preventive_action_session",
+        entity_id: id, entity_label: plan?.title,
+        action_label: "Déblocage exceptionnel action préventive", severity: "medium",
+        new_values: { plan_id: id, motif: reopenReason.trim() },
+      });
+      toast({ title: "Action débloquée", description: "Vous pouvez redémarrer l'intervention." });
+      setReopenOpen(false); setReopenReason("");
+      await loadAll();
+    } catch (err: any) {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -321,26 +392,18 @@ export default function PreventifDetail() {
       } as any).eq("id", openExec.id);
       if (error) throw error;
 
-      // Update plan: derniere_execution + prochaine_echeance
-      const days = FREQUENCE_DAYS[plan.frequence] || 30;
-      const nextDate = new Date(now.getTime() + days * 86400000);
-      await supabase.from("preventive_plans").update({
-        derniere_execution: now.toISOString(),
-        prochaine_echeance: nextDate.toISOString(),
-      } as any).eq("id", id);
-
       await logAudit({
         action_type: "update", module: "preventif" as any, entity_type: "preventive_execution",
         entity_id: openExec.id, entity_label: plan?.title,
-        action_label: "Clôture intervention plan préventif",
+        action_label: "Clôture de ma part — intervention préventive",
         new_values: {
           plan_id: id, duree_minutes: execDureeMinutes, heure_debut: execStartTime,
-          pdr_used: consumedList, prochaine_echeance: nextDate.toISOString(),
+          pdr_used: consumedList,
         },
         severity: "low",
       });
 
-      toast({ title: "Intervention clôturée", description: `Prochaine échéance : ${nextDate.toLocaleDateString("fr-FR")}` });
+      toast({ title: "Votre part est clôturée", description: "Clôturez l'action commune quand tous les intervenants ont terminé." });
       setExecOpen(false);
       loadAll();
     } catch (err: any) {
@@ -471,14 +534,24 @@ export default function PreventifDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {canWork && !openExec && (
+          {canWork && !openExec && !isLockedUntilEcheance && (
             <Button onClick={startExecution} disabled={starting} className="h-12 px-4 bg-green-600 hover:bg-green-700">
-              <Play className="h-4 w-4 mr-2" /> {starting ? "Démarrage..." : "Commencer"}
+              <Play className="h-4 w-4 mr-2" /> {starting ? "Démarrage..." : activeSession ? "Rejoindre l'action" : "Commencer"}
             </Button>
           )}
           {canWork && openExec && (
             <Button onClick={openExecDialog} className="h-12 px-4 bg-green-600 hover:bg-green-700">
-              <ClipboardCheck className="h-4 w-4 mr-2" /> Terminer
+              <ClipboardCheck className="h-4 w-4 mr-2" /> Terminer ma part
+            </Button>
+          )}
+          {canWork && activeSession && (
+            <Button onClick={closeAction} disabled={closingAction} variant="default" className="h-12 px-4">
+              <CheckCircle className="h-4 w-4 mr-2" /> {closingAction ? "Clôture..." : "Clôturer l'action"}
+            </Button>
+          )}
+          {isLockedUntilEcheance && isResponsable && (
+            <Button onClick={() => setReopenOpen(true)} variant="outline" className="h-12 px-4">
+              <Play className="h-4 w-4 mr-2" /> Débloquer (responsable)
             </Button>
           )}
           {canEdit("preventif") && (plan as any).statut_plan === "brouillon" && (
@@ -509,7 +582,53 @@ export default function PreventifDetail() {
         </div>
       </div>
 
+      {isLockedUntilEcheance && (
+        <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
+          <CardContent className="p-4 flex items-center gap-3">
+            <PauseCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Action clôturée — verrouillée</p>
+              <p className="text-xs text-muted-foreground">
+                Prochaine intervention le {plan.prochaine_echeance ? new Date(plan.prochaine_echeance).toLocaleDateString("fr-FR") : "—"}.
+                {isResponsable ? " Vous pouvez débloquer en cas d'urgence (motif requis)." : " Contactez le responsable maintenance en cas d'urgence."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSession && sessionContribs.length > 0 && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Action commune — {sessionContribs.length} intervenant(s)</p>
+            </div>
+            <div className="border rounded-lg divide-y bg-background">
+              {sessionContribs.map((c: any) => (
+                <div key={c.id} className="flex items-center gap-3 p-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {profileMap[c.executed_by] || (assignees.find((a: any) => a.user_id === c.executed_by) ? `${assignees.find((a: any) => a.user_id === c.executed_by)?.first_name} ${assignees.find((a: any) => a.user_id === c.executed_by)?.last_name}` : "—")}
+                      {user && c.executed_by === user.id ? " (vous)" : ""}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {c.heure_debut ? `Depuis ${new Date(c.heure_debut).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : "—"}
+                      {c.duree_minutes ? ` · ${c.duree_minutes} min` : ""}
+                    </p>
+                  </div>
+                  <Badge variant={c.statut === "en_cours" ? "outline" : "default"} className="text-[10px]">
+                    {c.statut === "en_cours" ? "En cours" : "Part clôturée"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {openExec && (
+
         <Card className="border-green-600/40 bg-green-50/40 dark:bg-green-950/10">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -713,9 +832,10 @@ export default function PreventifDetail() {
                         </TableCell>
                         <TableCell className="tabular-nums text-sm">{e.duree_minutes ? `${e.duree_minutes} min` : "—"}</TableCell>
                         <TableCell className="text-sm">
-                          {assignees.find((a: any) => a.user_id === e.executed_by)
-                            ? `${assignees.find((a: any) => a.user_id === e.executed_by)?.first_name} ${assignees.find((a: any) => a.user_id === e.executed_by)?.last_name}`
-                            : "—"}
+                          {profileMap[e.executed_by]
+                            || (assignees.find((a: any) => a.user_id === e.executed_by)
+                              ? `${assignees.find((a: any) => a.user_id === e.executed_by)?.first_name} ${assignees.find((a: any) => a.user_id === e.executed_by)?.last_name}`
+                              : "—")}
                         </TableCell>
                         <TableCell className="text-sm">
                           {pdrUsed.length > 0 ? (
@@ -779,7 +899,7 @@ export default function PreventifDetail() {
       <Dialog open={execOpen} onOpenChange={setExecOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Terminer l'intervention préventive</DialogTitle>
+            <DialogTitle>Terminer ma part — intervention préventive</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             {/* Timing */}
@@ -888,7 +1008,7 @@ export default function PreventifDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setExecOpen(false)}>Annuler</Button>
             <Button onClick={submitExecution} disabled={execLoading} className="bg-green-600 hover:bg-green-700">
-              {execLoading ? "Clôture..." : "Clôturer l'intervention"}
+              {execLoading ? "Clôture..." : "Clôturer ma part"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -902,6 +1022,37 @@ export default function PreventifDetail() {
         onConfirm={(qte) => takeTarget && handleTake(takeTarget.it.id, qte)}
         onCancel={() => setTakeTarget(null)}
       />
+
+      {/* Déblocage responsable */}
+      <Dialog open={reopenOpen} onOpenChange={setReopenOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Débloquer l'action (responsable)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Cette action est verrouillée jusqu'à la prochaine échéance. Indiquez le motif du déblocage exceptionnel (tracé dans l'audit).
+            </p>
+            <div>
+              <Label htmlFor="reopen-reason">Motif</Label>
+              <Textarea
+                id="reopen-reason"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder="Ex : panne récurrente avant échéance, contrôle complémentaire…"
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReopenOpen(false)}>Annuler</Button>
+            <Button onClick={reopenAction} disabled={reopening || !reopenReason.trim()}>
+              {reopening ? "Déblocage..." : "Débloquer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
