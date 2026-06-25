@@ -131,6 +131,7 @@ export default function OrganesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10"></TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Désignation</TableHead>
                 <TableHead>Type</TableHead>
