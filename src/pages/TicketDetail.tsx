@@ -76,6 +76,14 @@ export default function TicketDetail() {
       } else {
         setAssigneeName("");
       }
+      // Resolve declarant name
+      if (data.declarant_id) {
+        const { data: dprof } = await supabase
+          .from("profiles").select("first_name,last_name").eq("user_id", data.declarant_id).maybeSingle();
+        setDeclarantName(dprof ? `${dprof.first_name ?? ""} ${dprof.last_name ?? ""}`.trim() : "");
+      } else {
+        setDeclarantName("");
+      }
     }
 
     const { data: intData } = await supabase
