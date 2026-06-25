@@ -72,9 +72,19 @@ export default function MaintenanceShiftIntervention() {
       .select("*, machines(id, code, designation), production_lines(code, designation)")
       .eq("id", ticketId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         setTicket(data);
         setLoading(false);
+        if (data?.declarant_id) {
+          const { data: prof } = await supabase
+            .from("profiles").select("first_name, last_name, poste").eq("user_id", data.declarant_id).maybeSingle();
+          setDeclarant(prof ?? null);
+        } else setDeclarant(null);
+        if (data?.of_id) {
+          const { data: ofData } = await supabase
+            .from("ordres_fabrication").select("numero, products(designation)").eq("id", data.of_id).maybeSingle();
+          setOf(ofData ?? null);
+        } else setOf(null);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId, user]);
