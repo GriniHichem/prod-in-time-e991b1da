@@ -365,6 +365,55 @@ export default function PreventifDetail() {
     consommee: { label: "Consommée", cls: "text-purple-600 border-purple-600/40" },
   };
 
+  // ===== Onglet PDR : prévu (nomenclature) + état réel (demandé / pris / consommé) =====
+  type PdrRow = {
+    pdrId: string; reference: string; designation: string;
+    prevu: number; demande: number; pris: number; consomme: number;
+    statut: "non_demandee" | "demandee" | "prete" | "prise" | "refusee" | "consommee";
+  };
+  const pdrOverview: PdrRow[] = (() => {
+    const map = new Map<string, PdrRow>();
+    const ensure = (pdrId: string, reference: string, designation: string) => {
+      if (!map.has(pdrId)) {
+        map.set(pdrId, { pdrId, reference, designation, prevu: 0, demande: 0, pris: 0, consomme: 0, statut: "non_demandee" });
+      }
+      return map.get(pdrId)!;
+    };
+    // Nomenclature planifiée
+    planPdr.forEach((pp: any) => {
+      if (!pp.pdr_id && !pp.pdr) return;
+      const pid = pp.pdr_id ?? pp.pdr?.id;
+      const r = ensure(pid, pp.pdr?.reference ?? "—", pp.pdr?.designation ?? "");
+      r.prevu += pp.quantite ?? 0;
+    });
+    // Demandes / prises
+    allReqItems.forEach(({ it }) => {
+      const pid = it.pdr_id as string;
+      const r = ensure(pid, it.pdr?.reference ?? "—", it.pdr?.designation ?? "");
+      r.demande += it.quantite_demandee ?? 0;
+      r.pris += it.quantite_prise ?? 0;
+      const rank = { non_demandee: 0, refusee: 1, demandee: 2, prete: 3, prise: 4, consommee: 5 } as const;
+      const cur = it.statut === "refusee" ? "refusee" : it.statut === "prete" ? "prete" : it.statut === "prise" ? "prise" : "demandee";
+      if (rank[cur] > rank[r.statut]) r.statut = cur as PdrRow["statut"];
+    });
+    // Consommations réelles
+    consumptions.forEach((c: any) => {
+      const pid = c.pdr_id as string;
+      const r = ensure(pid, c.pdr?.reference ?? "—", c.pdr?.designation ?? "");
+      r.consomme += c.quantite ?? 0;
+    });
+    map.forEach((r) => { if (r.consomme > 0) r.statut = "consommee"; });
+    return [...map.values()].sort((a, b) => a.reference.localeCompare(b.reference));
+  })();
+  const PDR_STATUT_META: Record<PdrRow["statut"], { label: string; cls: string }> = {
+    non_demandee: { label: "Non demandée", cls: "text-muted-foreground border-border" },
+    demandee: { label: "Demandée", cls: "text-blue-600 border-blue-600/40" },
+    prete: { label: "Prête", cls: "text-amber-600 border-amber-600/40" },
+    prise: { label: "Prise", cls: "text-emerald-600 border-emerald-600/40" },
+    refusee: { label: "Refusée", cls: "text-destructive border-destructive/40" },
+    consommee: { label: "Consommée", cls: "text-purple-600 border-purple-600/40" },
+  };
+
 
   return (
     <div className="space-y-4">
