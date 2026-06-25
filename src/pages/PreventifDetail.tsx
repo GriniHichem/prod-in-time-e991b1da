@@ -18,8 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { logAudit } from "@/lib/audit";
-import { consumePreventiveHolding, confirmItemTaken, type PdrRequest, type PdrRequestItem } from "@/hooks/usePdrRequests";
+import { consumePreventiveHolding, confirmItemTaken, createPdrRequest, type PdrRequest, type PdrRequestItem } from "@/hooks/usePdrRequests";
 import { ConfirmTakeDialog } from "@/components/pdr/ConfirmTakeDialog";
+import { PdrRequestComposer } from "@/components/pdr/PdrRequestComposer";
+import { useShiftRealtime } from "@/hooks/useShiftRealtime";
+import { Plus, PackagePlus } from "lucide-react";
 
 const STATUT_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   brouillon: { label: "Brouillon", variant: "secondary" },
@@ -55,6 +58,8 @@ export default function PreventifDetail() {
   const [planRequests, setPlanRequests] = useState<PdrRequest[]>([]);
   const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
   const [takeBusy, setTakeBusy] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [requestingPlanned, setRequestingPlanned] = useState(false);
 
   // Consumptions (intervention_pdr) of this plan + resolved user names
   const [consumptions, setConsumptions] = useState<any[]>([]);
@@ -185,6 +190,33 @@ export default function PreventifDetail() {
 
   useEffect(() => { loadAll(); }, [id]);
 
+  // Temps réel : dès que le magasin prépare/valide une pièce, la liste se met à jour sans recharger.
+  const reloadPdrLive = () => { loadPlanRequests(); loadHoldings(); };
+  useShiftRealtime(`prv-req-${id ?? "x"}`, "pdr_requests", reloadPdrLive, !!id, id ? `preventive_plan_id=eq.${id}` : undefined);
+  useShiftRealtime(`prv-items-${id ?? "x"}`, "pdr_request_items", reloadPdrLive, !!id);
+  useShiftRealtime(`prv-hold-${id ?? "x"}`, "pdr_maintenance_holdings", reloadPdrLive, !!id);
+
+  // Demander en un clic les pièces prévues (nomenclature) non encore demandées.
+  const requestPlannedPieces = async () => {
+    if (!id) return;
+    const alreadyRequested = new Set(allReqItems.map(({ it }) => it.pdr_id));
+    const toRequest = planPdr
+      .filter((pp: any) => (pp.pdr_id ?? pp.pdr?.id) && !alreadyRequested.has(pp.pdr_id ?? pp.pdr?.id))
+      .map((pp: any) => ({ pdr_id: pp.pdr_id ?? pp.pdr?.id, quantite_demandee: pp.quantite ?? 1 }));
+    if (toRequest.length === 0) { toast({ title: "Toutes les pièces prévues sont déjà demandées" }); return; }
+    setRequestingPlanned(true);
+    try {
+      await createPdrRequest({
+        type: "preventive", preventive_plan_id: id, machine_id: plan?.machine_id ?? null,
+        priorite: isOverdue ? "haute" : "normale", items: toRequest,
+      });
+      toast({ title: "Pièces prévues demandées au magasin" });
+      reloadPdrLive();
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    } finally { setRequestingPlanned(false); }
+  };
+
 
 
   const updateStatut = async (newStatut: string) => {
@@ -238,9 +270,16 @@ export default function PreventifDetail() {
 
   const openExecDialog = async () => {
     setExecNotes("");
-    setExecDureeMinutes(0);
-    const now = new Date();
-    setExecStartTime(now.toTimeString().slice(0, 5));
+    // Pré-remplissage de la durée et de l'heure de début depuis le démarrage réel de l'intervention.
+    if (openExec?.heure_debut) {
+      const start = new Date(openExec.heure_debut);
+      setExecStartTime(start.toTimeString().slice(0, 5));
+      setExecDureeMinutes(Math.max(1, Math.round((Date.now() - start.getTime()) / 60000)));
+    } else {
+      const now = new Date();
+      setExecStartTime(now.toTimeString().slice(0, 5));
+      setExecDureeMinutes(0);
+    }
     setExecOpen(true);
   };
 
@@ -509,6 +548,30 @@ export default function PreventifDetail() {
                     <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40">En préparation (magasin)</Badge>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Actions rapides */}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={showRequest ? "secondary" : "default"} className="h-10" onClick={() => setShowRequest((v) => !v)}>
+                <PackagePlus className="h-4 w-4 mr-1.5" /> {showRequest ? "Fermer" : "Demander une pièce non prévue"}
+              </Button>
+              {planPdr.length > 0 && (
+                <Button size="sm" variant="outline" className="h-10" disabled={requestingPlanned} onClick={requestPlannedPieces}>
+                  <Plus className="h-4 w-4 mr-1.5" /> {requestingPlanned ? "Envoi…" : "Demander les pièces prévues"}
+                </Button>
+              )}
+            </div>
+
+            {/* Demande inline — reste sur le plan, cycle magasin sécurisé conservé */}
+            {showRequest && (
+              <div className="border rounded-lg p-3 bg-background">
+                <PdrRequestComposer
+                  type="preventive"
+                  preventivePlanId={id}
+                  machineId={plan.machine_id ?? null}
+                  onSubmitted={() => { reloadPdrLive(); setShowRequest(false); }}
+                />
               </div>
             )}
           </CardContent>
@@ -791,7 +854,7 @@ export default function PreventifDetail() {
               <Package className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">
-                  Pièce manquante ou imprévu ? Fermez ce dialogue et utilisez « Demander / prendre des pièces ». Le magasin prépare et valide, puis vous confirmez ici la quantité consommée.
+                  Pièce manquante ou imprévu ? Fermez ce dialogue et utilisez « Demander une pièce non prévue » sur l'intervention. Le magasin prépare et valide, puis vous confirmez la prise et la quantité consommée.
                 </p>
                 {openExec && (
                   <Button
@@ -799,12 +862,9 @@ export default function PreventifDetail() {
                     variant="outline"
                     size="sm"
                     className="mt-2 h-9"
-                    onClick={() => {
-                      setExecOpen(false);
-                      navigate(`/maintenance/shift/pieces?plan=${id}&exec=${openExec.id}${plan.machine_id ? `&machine=${plan.machine_id}` : ""}`);
-                    }}
+                    onClick={() => { setExecOpen(false); setShowRequest(true); }}
                   >
-                    <Package className="h-4 w-4 mr-2" /> Demander / prendre des pièces
+                    <PackagePlus className="h-4 w-4 mr-2" /> Demander une pièce non prévue
                   </Button>
                 )}
               </div>
