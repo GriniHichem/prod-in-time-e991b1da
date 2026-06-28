@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Warehouse, Search, RotateCcw, ArrowDownToLine, ArrowUpFromLine, PackagePlus, PackageCheck, AlertTriangle } from "lucide-react";
+import { Warehouse, Search, RotateCcw, ArrowDownToLine, ArrowUpFromLine, PackagePlus, PackageCheck, AlertTriangle, RefreshCw, Boxes } from "lucide-react";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
 import { PdrQueuePanel } from "@/components/pdr/PdrQueuePanel";
 import { useMagasinActivity, type MagasinMovement } from "@/hooks/useMagasinActivity";
@@ -32,8 +33,12 @@ function withinPeriod(dateStr: string, period: string) {
 }
 
 export function MagasinDashboard() {
-  const { movements, loading, stats } = useMagasinActivity();
+  const navigate = useNavigate();
+  const { movements, loading, stats, reload } = useMagasinActivity();
   const { requests: openReqs } = usePdrRequestQueue(false);
+
+  const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -86,13 +91,24 @@ export function MagasinDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Warehouse className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-xl font-bold">Tableau de bord Magasin</h1>
-          <p className="text-xs text-muted-foreground">Supervision temps réel — entrées, sorties et demandes de pièces</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Warehouse className="h-6 w-6 text-primary shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight">Console Responsable Magasin</h1>
+            <p className="text-sm text-muted-foreground capitalize">{today}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" onClick={() => navigate("/magasin/shift/live")}>
+            <Boxes className="h-4 w-4 mr-1.5" /> Aller au poste magasinier
+          </Button>
+          <Button variant="outline" size="sm" onClick={reload}>
+            <RefreshCw className="h-4 w-4 mr-1.5" /> Rafraîchir
+          </Button>
         </div>
       </div>
+
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <CounterCard label="À préparer" value={counters.toPrepare} cls="text-amber-600" icon={<PackagePlus className="h-4 w-4" />} />
