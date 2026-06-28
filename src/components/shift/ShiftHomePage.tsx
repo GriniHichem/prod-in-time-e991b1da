@@ -39,5 +39,8 @@ export function ShiftHomePage({ kind, operatorRedirect, managerRoles, operatorRo
   }
 
   // Manager (or admin) → responsable console
+  if (kind === "maintenance") {
+    return <MaintenanceRespDashboard />;
+  }
   return <RespShiftConsole kind={kind} />;
 }
