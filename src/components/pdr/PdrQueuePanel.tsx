@@ -155,6 +155,38 @@ export function PdrQueuePanel({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <div className="space-y-4">
+      {actionable && returns.length > 0 && (
+        <Card className="border-sky-600/40">
+          <CardHeader className="py-3 px-4 border-b border-border/50">
+            <CardTitle className="text-sm flex items-center gap-2 text-sky-700">
+              <Undo2 className="h-4 w-4" /> Retours à confirmer ({returns.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-border/40">
+            {returns.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 p-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-sm font-semibold truncate">{t.pdr?.reference}</p>
+                  <p className="text-xs text-muted-foreground truncate">{t.pdr?.designation}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Retour de : <strong>{t.from_name}</strong>{t.motif ? ` · ${t.motif}` : ""}
+                  </p>
+                </div>
+                <Badge variant="outline" className="tabular-nums">x{t.quantite}</Badge>
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="h-9" disabled={busy} onClick={() => confirmReturn(t.id)}>
+                    <PackageCheck className="h-4 w-4 mr-1" /> Réceptionner
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-destructive" disabled={busy} onClick={() => refuseReturn(t.id)}>
+                    <PackageX className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-3 gap-3">
         <CounterCard label="À préparer" value={counters.toPrepare} cls="text-amber-600" icon={<PackagePlus className="h-4 w-4" />} />
         <CounterCard label="Prêtes en attente" value={counters.ready} cls="text-emerald-600" icon={<PackageCheck className="h-4 w-4" />} />
