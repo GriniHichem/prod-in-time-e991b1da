@@ -41,6 +41,8 @@ export default function MaintenancePieces() {
   );
 
   const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
+  const [transferTarget, setTransferTarget] = useState<{ holding: MaintenanceHolding; mode: TransferDestination } | null>(null);
+  const { incoming, outgoing } = useMyHoldingTransfers();
 
   const handleTake = async (itemId: string, qte: number) => {
     setBusy(true);
@@ -52,6 +54,20 @@ export default function MaintenancePieces() {
   const handleCancel = async (requestId: string) => {
     setBusy(true);
     try { await cancelPdrRequest(requestId); toast({ title: "Demande annulée" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
+  const handleConfirmTransfer = async (id: string) => {
+    setBusy(true);
+    try { await confirmHoldingTransfer(id); toast({ title: "Réception confirmée — pièce ajoutée à votre stock" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
+  const handleCancelTransfer = async (id: string, refuse: boolean) => {
+    setBusy(true);
+    try { await cancelHoldingTransfer(id); toast({ title: refuse ? "Transfert refusé" : "Transfert annulé — pièce restituée" }); }
     catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
     finally { setBusy(false); }
   };
