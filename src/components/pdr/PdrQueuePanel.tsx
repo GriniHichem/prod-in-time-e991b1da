@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   PackageCheck, PackageX, Clock, Wrench, RotateCcw, Search,
-  AlertTriangle, PackagePlus, ArrowDownUp,
+  AlertTriangle, PackagePlus, ArrowDownUp, Undo2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePdrRequestQueue, setItemReady, refuseItem, type PdrRequest, type PdrRequestItem } from "@/hooks/usePdrRequests";
+import { useMagasinReturns, confirmHoldingTransfer, cancelHoldingTransfer } from "@/hooks/usePdrHoldingTransfers";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   demandee: { label: "Demandée", cls: "text-amber-600 border-amber-600/40" },
@@ -38,6 +39,7 @@ export function PdrQueuePanel({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const { requests: openReqs, loading } = usePdrRequestQueue(false);
   const { requests: closedReqs, loading: loadingClosed } = usePdrRequestQueue(true);
+  const { returns } = useMagasinReturns();
 
   const [readyItem, setReadyItem] = useState<PdrRequestItem | null>(null);
   const [readyQte, setReadyQte] = useState("1");
@@ -93,6 +95,20 @@ export function PdrQueuePanel({ readOnly = false }: { readOnly?: boolean }) {
     finally { setBusy(false); }
   };
 
+  const confirmReturn = async (id: string) => {
+    setBusy(true);
+    try { await confirmHoldingTransfer(id); toast({ title: "Retour réceptionné — stock ré-incrémenté" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
+  const refuseReturn = async (id: string) => {
+    setBusy(true);
+    try { await cancelHoldingTransfer(id); toast({ title: "Retour refusé — pièce restituée au maintenancier" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
   const counters = useMemo(() => {
     let toPrepare = 0, ready = 0, short = 0;
     for (const r of openReqs) for (const it of r.items ?? []) {
@@ -139,6 +155,38 @@ export function PdrQueuePanel({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <div className="space-y-4">
+      {actionable && returns.length > 0 && (
+        <Card className="border-sky-600/40">
+          <CardHeader className="py-3 px-4 border-b border-border/50">
+            <CardTitle className="text-sm flex items-center gap-2 text-sky-700">
+              <Undo2 className="h-4 w-4" /> Retours à confirmer ({returns.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 divide-y divide-border/40">
+            {returns.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 p-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-sm font-semibold truncate">{t.pdr?.reference}</p>
+                  <p className="text-xs text-muted-foreground truncate">{t.pdr?.designation}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Retour de : <strong>{t.from_name}</strong>{t.motif ? ` · ${t.motif}` : ""}
+                  </p>
+                </div>
+                <Badge variant="outline" className="tabular-nums">x{t.quantite}</Badge>
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="h-9" disabled={busy} onClick={() => confirmReturn(t.id)}>
+                    <PackageCheck className="h-4 w-4 mr-1" /> Réceptionner
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-destructive" disabled={busy} onClick={() => refuseReturn(t.id)}>
+                    <PackageX className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-3 gap-3">
         <CounterCard label="À préparer" value={counters.toPrepare} cls="text-amber-600" icon={<PackagePlus className="h-4 w-4" />} />
         <CounterCard label="Prêtes en attente" value={counters.ready} cls="text-emerald-600" icon={<PackageCheck className="h-4 w-4" />} />

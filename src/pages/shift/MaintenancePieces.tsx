@@ -4,12 +4,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, PackagePlus, ListChecks, HandHelping, Boxes, Clock } from "lucide-react";
+import { ArrowLeft, PackagePlus, ListChecks, HandHelping, Boxes, Clock, ArrowRightLeft, Warehouse, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PdrRequestComposer } from "@/components/pdr/PdrRequestComposer";
 import { ConfirmTakeDialog } from "@/components/pdr/ConfirmTakeDialog";
+import { HoldingTransferDialog } from "@/components/pdr/HoldingTransferDialog";
 import { usePdrRequestQueue, useMyPdrRequests, confirmItemTaken, cancelPdrRequest, type PdrRequest, type PdrRequestItem } from "@/hooks/usePdrRequests";
-import { useMaintenanceHoldings } from "@/hooks/useMaintenanceHoldings";
+import { useMaintenanceHoldings, type MaintenanceHolding } from "@/hooks/useMaintenanceHoldings";
+import { useMyHoldingTransfers, confirmHoldingTransfer, cancelHoldingTransfer, type TransferDestination } from "@/hooks/usePdrHoldingTransfers";
 
 const ITEM_BADGE: Record<string, { label: string; cls: string }> = {
   demandee: { label: "Demandée", cls: "text-amber-600 border-amber-600/40" },
@@ -39,6 +41,8 @@ export default function MaintenancePieces() {
   );
 
   const [takeTarget, setTakeTarget] = useState<{ req: PdrRequest; it: PdrRequestItem } | null>(null);
+  const [transferTarget, setTransferTarget] = useState<{ holding: MaintenanceHolding; mode: TransferDestination } | null>(null);
+  const { incoming, outgoing } = useMyHoldingTransfers();
 
   const handleTake = async (itemId: string, qte: number) => {
     setBusy(true);
@@ -54,6 +58,20 @@ export default function MaintenancePieces() {
     finally { setBusy(false); }
   };
 
+  const handleConfirmTransfer = async (id: string) => {
+    setBusy(true);
+    try { await confirmHoldingTransfer(id); toast({ title: "Réception confirmée — pièce ajoutée à votre stock" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
+  const handleCancelTransfer = async (id: string, refuse: boolean) => {
+    setBusy(true);
+    try { await cancelHoldingTransfer(id); toast({ title: refuse ? "Transfert refusé" : "Transfert annulé — pièce restituée" }); }
+    catch (e: any) { toast({ title: "Erreur", description: e.message, variant: "destructive" }); }
+    finally { setBusy(false); }
+  };
+
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
@@ -62,7 +80,7 @@ export default function MaintenancePieces() {
       <h1 className="text-xl font-bold">Pièces (PDR)</h1>
 
       <Tabs defaultValue="demander">
-        <TabsList className="grid grid-cols-4 h-11 w-full">
+        <TabsList className="grid grid-cols-5 h-11 w-full">
           <TabsTrigger value="demander" className="gap-1 text-xs"><PackagePlus className="h-4 w-4" />Demander</TabsTrigger>
           <TabsTrigger value="prendre" className="gap-1 text-xs">
             <HandHelping className="h-4 w-4" />À prendre
@@ -71,6 +89,10 @@ export default function MaintenancePieces() {
           <TabsTrigger value="stock" className="gap-1 text-xs">
             <Boxes className="h-4 w-4" />Mon stock
             {holdings.length > 0 && <Badge variant="secondary" className="ml-0.5 text-[10px] px-1 h-4">{holdings.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="transferts" className="gap-1 text-xs">
+            <ArrowRightLeft className="h-4 w-4" />Transferts
+            {incoming.length > 0 && <Badge variant="secondary" className="ml-0.5 text-[10px] px-1 h-4">{incoming.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="mes" className="gap-1 text-xs"><ListChecks className="h-4 w-4" />Mes demandes</TabsTrigger>
         </TabsList>
@@ -105,20 +127,88 @@ export default function MaintenancePieces() {
         <TabsContent value="stock" className="mt-3 space-y-2">
           {holdings.length === 0 && <EmptyState text="Aucune pièce détenue en stock maintenance" />}
           {holdings.map((h) => (
-            <Card key={h.id}><CardContent className="flex items-center gap-3 p-3">
-              <Boxes className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-mono text-sm font-semibold truncate">{h.pdr?.reference}</p>
-                <p className="text-xs text-muted-foreground truncate">{h.pdr?.designation}</p>
+            <Card key={h.id}><CardContent className="p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <Boxes className="h-5 w-5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-sm font-semibold truncate">{h.pdr?.reference}</p>
+                  <p className="text-xs text-muted-foreground truncate">{h.pdr?.designation}</p>
+                </div>
+                <Badge variant="outline" className="tabular-nums">x{h.quantite}</Badge>
               </div>
-              <Badge variant="outline" className="tabular-nums">x{h.quantite}</Badge>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="h-9 flex-1" disabled={busy}
+                  onClick={() => setTransferTarget({ holding: h, mode: "maintainer" })}>
+                  <ArrowRightLeft className="h-4 w-4 mr-1.5" /> Passer à…
+                </Button>
+                <Button size="sm" variant="outline" className="h-9 flex-1" disabled={busy}
+                  onClick={() => setTransferTarget({ holding: h, mode: "magasin" })}>
+                  <Warehouse className="h-4 w-4 mr-1.5" /> Retour magasin
+                </Button>
+              </div>
             </CardContent></Card>
           ))}
           {holdings.length > 0 && (
             <p className="text-xs text-muted-foreground px-1">
-              Les pièces détenues sont consommées (ou retournées) automatiquement à la clôture de l'intervention.
+              Vous pouvez passer une pièce à un collègue/responsable ou la retourner au magasin (confirmation requise).
             </p>
           )}
+        </TabsContent>
+
+        <TabsContent value="transferts" className="mt-3 space-y-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Check className="h-4 w-4" /> À confirmer (reçues)
+            </p>
+            {incoming.length === 0 && <EmptyState text="Aucune pièce à réceptionner" />}
+            {incoming.map((t) => (
+              <Card key={t.id}><CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <ArrowRightLeft className="h-5 w-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-semibold truncate">{t.pdr?.reference}</p>
+                    <p className="text-xs text-muted-foreground truncate">{t.pdr?.designation}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">De : {t.from_name}{t.motif ? ` · ${t.motif}` : ""}</p>
+                  </div>
+                  <Badge variant="outline" className="tabular-nums">x{t.quantite}</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-9 flex-1" disabled={busy} onClick={() => handleConfirmTransfer(t.id)}>
+                    <Check className="h-4 w-4 mr-1.5" /> Confirmer la réception
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-destructive" disabled={busy} onClick={() => handleCancelTransfer(t.id, true)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent></Card>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Clock className="h-4 w-4" /> En attente (envoyées)
+            </p>
+            {outgoing.length === 0 && <EmptyState text="Aucun transfert en attente" />}
+            {outgoing.map((t) => (
+              <Card key={t.id}><CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  {t.destination === "magasin"
+                    ? <Warehouse className="h-5 w-5 text-muted-foreground shrink-0" />
+                    : <ArrowRightLeft className="h-5 w-5 text-muted-foreground shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-semibold truncate">{t.pdr?.reference}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Vers : {t.destination === "magasin" ? "Magasin" : t.to_name}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="tabular-nums">x{t.quantite}</Badge>
+                </div>
+                <Button size="sm" variant="ghost" className="h-8 text-destructive" disabled={busy} onClick={() => handleCancelTransfer(t.id, false)}>
+                  Annuler le transfert
+                </Button>
+              </CardContent></Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="mes" className="mt-3 space-y-2">
@@ -161,6 +251,12 @@ export default function MaintenancePieces() {
         busy={busy}
         onConfirm={(qte) => takeTarget && handleTake(takeTarget.it.id, qte)}
         onCancel={() => setTakeTarget(null)}
+      />
+
+      <HoldingTransferDialog
+        holding={transferTarget?.holding ?? null}
+        mode={transferTarget?.mode ?? null}
+        onClose={() => setTransferTarget(null)}
       />
     </div>
   );
