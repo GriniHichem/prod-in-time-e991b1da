@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   PackageCheck, PackageX, Clock, Wrench, RotateCcw, Search,
-  AlertTriangle, PackagePlus, ArrowDownUp,
+  AlertTriangle, PackagePlus, ArrowDownUp, Undo2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePdrRequestQueue, setItemReady, refuseItem, type PdrRequest, type PdrRequestItem } from "@/hooks/usePdrRequests";
+import { useMagasinReturns, confirmHoldingTransfer, cancelHoldingTransfer } from "@/hooks/usePdrHoldingTransfers";
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   demandee: { label: "Demandée", cls: "text-amber-600 border-amber-600/40" },
