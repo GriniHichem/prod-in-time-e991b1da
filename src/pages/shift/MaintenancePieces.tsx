@@ -80,7 +80,7 @@ export default function MaintenancePieces() {
       <h1 className="text-xl font-bold">Pièces (PDR)</h1>
 
       <Tabs defaultValue="demander">
-        <TabsList className="grid grid-cols-4 h-11 w-full">
+        <TabsList className="grid grid-cols-5 h-11 w-full">
           <TabsTrigger value="demander" className="gap-1 text-xs"><PackagePlus className="h-4 w-4" />Demander</TabsTrigger>
           <TabsTrigger value="prendre" className="gap-1 text-xs">
             <HandHelping className="h-4 w-4" />À prendre
@@ -89,6 +89,10 @@ export default function MaintenancePieces() {
           <TabsTrigger value="stock" className="gap-1 text-xs">
             <Boxes className="h-4 w-4" />Mon stock
             {holdings.length > 0 && <Badge variant="secondary" className="ml-0.5 text-[10px] px-1 h-4">{holdings.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="transferts" className="gap-1 text-xs">
+            <ArrowRightLeft className="h-4 w-4" />Transferts
+            {incoming.length > 0 && <Badge variant="secondary" className="ml-0.5 text-[10px] px-1 h-4">{incoming.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="mes" className="gap-1 text-xs"><ListChecks className="h-4 w-4" />Mes demandes</TabsTrigger>
         </TabsList>
