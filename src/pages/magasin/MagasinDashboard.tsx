@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Warehouse, Search, RotateCcw, ArrowDownToLine, ArrowUpFromLine, PackagePlus, PackageCheck, AlertTriangle } from "lucide-react";
+import { Warehouse, Search, RotateCcw, ArrowDownToLine, ArrowUpFromLine, PackagePlus, PackageCheck, AlertTriangle, RefreshCw, Boxes } from "lucide-react";
 import { ExportCsvButton } from "@/components/common/ExportCsvButton";
 import { PdrQueuePanel } from "@/components/pdr/PdrQueuePanel";
 import { useMagasinActivity, type MagasinMovement } from "@/hooks/useMagasinActivity";
