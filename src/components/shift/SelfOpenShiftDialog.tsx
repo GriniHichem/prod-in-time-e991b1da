@@ -49,7 +49,8 @@ interface Props {
 export function SelfOpenShiftDialog({ kind }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { refresh } = useActiveShift();
+  const activeShift = useActiveShiftOptional();
+  const refresh = activeShift?.refresh ?? (async () => {});
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
