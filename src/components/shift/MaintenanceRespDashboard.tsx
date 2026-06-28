@@ -12,7 +12,7 @@ import { formatDuration } from "@/lib/utils";
 import { useMaintenanceRespOverview } from "@/hooks/useMaintenanceRespOverview";
 import { RespShiftConsole } from "@/components/shift/RespShiftConsole";
 import { SelfOpenShiftDialog } from "@/components/shift/SelfOpenShiftDialog";
-import { useActiveShift } from "@/contexts/ActiveShiftContext";
+import { useActiveMaintenanceShift } from "@/hooks/useActiveMaintenanceShift";
 import { Wrench } from "lucide-react";
 
 function ageMinutes(iso?: string | null): number {
