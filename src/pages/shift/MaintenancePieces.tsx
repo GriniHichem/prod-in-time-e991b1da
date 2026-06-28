@@ -252,6 +252,12 @@ export default function MaintenancePieces() {
         onConfirm={(qte) => takeTarget && handleTake(takeTarget.it.id, qte)}
         onCancel={() => setTakeTarget(null)}
       />
+
+      <HoldingTransferDialog
+        holding={transferTarget?.holding ?? null}
+        mode={transferTarget?.mode ?? null}
+        onClose={() => setTransferTarget(null)}
+      />
     </div>
   );
 }
