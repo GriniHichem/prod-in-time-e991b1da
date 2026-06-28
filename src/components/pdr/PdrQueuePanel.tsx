@@ -39,6 +39,7 @@ export function PdrQueuePanel({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const { requests: openReqs, loading } = usePdrRequestQueue(false);
   const { requests: closedReqs, loading: loadingClosed } = usePdrRequestQueue(true);
+  const { returns } = useMagasinReturns();
 
   const [readyItem, setReadyItem] = useState<PdrRequestItem | null>(null);
   const [readyQte, setReadyQte] = useState("1");
