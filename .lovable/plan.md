@@ -1,64 +1,31 @@
-# Gestion des pièces du mini-stock maintenance
+# Personnalisation du tableau Pièces de Rechange
 
-Permettre à un maintenancier de **passer une pièce** de son mini-stock (`pdr_maintenance_holdings`) à un autre maintenancier/responsable, ou de **la retourner au magasin** — toujours selon le même principe de **confirmation en deux étapes** déjà utilisé pour les demandes (demander → préparer → prendre).
+## Objectif
+Dans la liste **Pièces de Rechange** (`/pdr`) :
+1. Afficher **Famille** et **Sous-famille** comme colonnes par défaut.
+2. Ajouter un **sélecteur de colonnes** simple pour afficher/masquer d'autres champs déjà présents sur la pièce. Le choix est mémorisé sur l'appareil (localStorage).
 
-## Règles validées
-- Destinataire d'un transfert : n'importe quel maintenancier ou responsable maintenance (choisi dans une liste).
-- Pendant l'attente de confirmation, la pièce est **bloquée/réservée** chez l'expéditeur (non consommable).
-- Le retour au magasin est confirmé par le **magasinier / responsable magasin**.
+## 1. Famille / Sous-famille
+La hiérarchie est portée par `pdr_families.parent_id` : la pièce pointe vers `family_id` (le niveau le plus fin).
+- Si la famille a un parent → **Famille** = parent, **Sous-famille** = famille de la pièce.
+- Si la famille n'a pas de parent → **Famille** = famille de la pièce, **Sous-famille** = «—».
 
-## Principe de fonctionnement
+Le chargement récupère déjà toutes les familles ; on construit une petite map `id → {name, parent_id}` pour résoudre les deux niveaux sans requête supplémentaire. La colonne unique « Famille » actuelle est remplacée par deux colonnes **Famille** et **Sous-famille** (visibles par défaut).
 
-```text
-  TRANSFERT entre maintenanciers
-  ──────────────────────────────
-  A: "Passer x2 à B"  ──►  [en_attente]  ──►  B confirme la réception
-       (qté retirée du stock de A)              (qté ajoutée au stock de B)
-                              │
-                              └─► B refuse / A annule ──► qté restituée à A
+## 2. Sélecteur de colonnes
+Un bouton **« Colonnes »** (icône réglages) à côté de Export CSV ouvre un menu (Popover + cases à cocher) listant toutes les colonnes optionnelles. Cocher/décocher affiche/masque la colonne instantanément. Un bouton « Réinitialiser » remet l'affichage par défaut.
 
-  RETOUR au magasin
-  ─────────────────
-  A: "Retour x2"      ──►  [en_attente]  ──►  Magasinier confirme réception
-       (qté retirée du stock de A)              (stock magasin ré-incrémenté + mouvement audité)
-                              │
-                              └─► magasin refuse / A annule ──► qté restituée à A
-```
+Colonnes gérées :
+- **Toujours visibles** (non désactivables) : miniature, Référence, Désignation, Stock, Niveau.
+- **Visibles par défaut, désactivables** : Famille, Sous-famille, Statut, PMP (DA), Appro.
+- **Masquées par défaut, activables** : Stock min, Stock max, Stock sécurité, Point de commande, Fournisseur, Emplacement, Code ERP, Code-barres, Durée de vie (min/max).
 
-Le blocage est obtenu en **retirant immédiatement** la quantité du holding de l'expéditeur dès l'envoi (elle « part en transit » dans la ligne de transfert), donc elle n'est plus consommable. En cas d'annulation/refus, la quantité est restituée.
-
-## Backend (migration)
-
-Nouvelle table `pdr_holding_transfers` :
-- `pdr_id`, `quantite`, `from_holder` (expéditeur)
-- `destination` (`maintainer` | `magasin`), `to_holder` (nullable, rempli si destination maintainer)
-- `statut` (`en_attente` | `confirme` | `refuse` | `annule`), `motif`
-- `confirmed_by`, `confirmed_at`, `request_item_id` (origine, pour traçabilité), timestamps + trigger updated_at
-- GRANT authenticated/service_role, RLS : lecture par expéditeur, destinataire et rôles magasin ; écriture via RPC uniquement.
-
-Trois fonctions `SECURITY DEFINER` (mêmes garde-fous que l'existant, utilisant `set_config('app.pdr_flow','on')` pour les mouvements de stock) :
-- `initiate_holding_transfer(holding_id, qte, destination, to_holder, motif)` — vérifie que l'appelant est le détenteur, statut `en_main`, `qte ≤ quantite` ; décrémente le holding (consomme la ligne si tout part) ; crée le transfert `en_attente`.
-- `confirm_holding_transfer(transfer_id)` —
-  - destination `maintainer` : appelant = `to_holder` (ou admin) ; crée/incrémente un holding `en_main` pour le destinataire.
-  - destination `magasin` : appelant magasinier/resp_magasin/admin ; ré-incrémente `pdr.stock_actuel` + insère un `pdr_stock_movements` type `entree` (motif « Retour stock maintenance »).
-- `cancel_holding_transfer(transfer_id, raison)` — expéditeur, destinataire (refus) ou admin ; restitue la quantité au holding de l'expéditeur.
-
-Realtime : ajouter `pdr_holding_transfers` à la publication (REPLICA IDENTITY FULL).
-
-## Frontend
-
-Hook `usePdrHoldingTransfers` (transferts entrants à confirmer + mes transferts sortants), avec abonnement realtime.
-
-`src/pages/shift/MaintenancePieces.tsx` (onglet **Mon stock**) :
-- Sur chaque pièce détenue : bouton **« Passer à… »** (dialogue : destinataire dans une liste de maintenanciers/responsables + quantité + motif) et **« Retour magasin »** (quantité + motif).
-- Nouveau sous-bloc / onglet **« À confirmer »** listant les transferts entrants vers moi → boutons **Confirmer la réception** / **Refuser**.
-- Mes envois en attente affichés avec possibilité d'**Annuler**.
-- Réutilisation du composant de confirmation existant (`ConfirmTakeDialog` comme modèle) pour garder l'UX cohérente et rapide (un récap + un bouton).
-
-Côté magasin (`MagasinKiosk` / `PdrQueuePanel`) :
-- Section **« Retours à confirmer »** : liste des transferts `destination=magasin` en attente → bouton **Confirmer la réception** (ré-entrée en stock) ou **Refuser**.
+Le tableau (en-têtes + cellules) est rendu dynamiquement à partir de la configuration des colonnes pour rester maintenable. L'export CSV exporte les colonnes actuellement visibles (en plus des champs clés).
 
 ## Détails techniques
-- Aucune écriture directe sur `pdr_maintenance_holdings` / `pdr_stock_movements` depuis le client : tout passe par les RPC (cohérent avec le durcissement `guard_pdr_stock_movements`).
-- Liste des destinataires : requête `profiles` filtrée sur les rôles `maintenancier`/`resp_maintenance` (hors soi-même).
-- Pas de blocage des opérations : si un destinataire est absent, l'expéditeur peut annuler à tout moment et récupérer sa pièce.
+- Fichier modifié : `src/pages/PdrList.tsx`.
+- Définition d'un tableau `COLUMN_DEFS` : `{ key, label, defaultVisible, alwaysOn?, render(p, ctx), className? }`.
+- État `visibleCols` (Set des clés) initialisé depuis `localStorage["pdr_list_columns"]` ou les valeurs par défaut ; persistance via `useEffect`.
+- Header et lignes générés via `.map` sur les colonnes actives ; `colSpan` de l'état vide calculé dynamiquement.
+- Résolution famille/sous-famille via une map mémoïsée des familles ; aucune migration ni changement backend.
+- Aucune dépendance nouvelle (Popover, Checkbox, Button déjà disponibles dans shadcn).

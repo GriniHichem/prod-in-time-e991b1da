@@ -6,13 +6,16 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Package, AlertCircle, Download, ShieldAlert, TrendingDown, DollarSign, RotateCcw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Search, Package, AlertCircle, Download, ShieldAlert, DollarSign, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { exportToCsv } from "@/lib/exportCsv";
 import { EntityThumbnail } from "@/components/images/EntityThumbnail";
-import { useNavigate } from "react-router-dom";
 import { useNavWithFrom } from "@/hooks/useNavWithFrom";
 import { ListScanButton } from "@/components/scanner/ListScanButton";
+
+const STORAGE_KEY = "pdr_list_columns";
 
 function KpiMini({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color?: string }) {
   return (
@@ -28,6 +31,64 @@ function KpiMini({ icon: Icon, label, value, color }: { icon: any; label: string
   );
 }
 
+type ColCtx = { stockBadge: (p: any) => JSX.Element };
+
+type ColDef = {
+  key: string;
+  label: string;
+  defaultVisible: boolean;
+  alwaysOn?: boolean;
+  className?: string;
+  render: (p: any, ctx: ColCtx) => React.ReactNode;
+  csv?: (p: any) => string | number;
+};
+
+const num = (v: any) => (v === null || v === undefined || v === "" ? "—" : Number(v).toLocaleString("fr-FR"));
+
+const COLUMN_DEFS: ColDef[] = [
+  { key: "reference", label: "Référence", defaultVisible: true, alwaysOn: true, className: "font-mono font-medium", render: (p) => p.reference, csv: (p) => p.reference },
+  { key: "designation", label: "Désignation", defaultVisible: true, alwaysOn: true, className: "max-w-[200px] truncate", render: (p) => p.designation, csv: (p) => p.designation },
+  { key: "famille", label: "Famille", defaultVisible: true, className: "text-muted-foreground text-sm", render: (p) => p._famille || "—", csv: (p) => p._famille || "" },
+  { key: "sous_famille", label: "Sous-famille", defaultVisible: true, className: "text-muted-foreground text-sm", render: (p) => p._sousFamille || "—", csv: (p) => p._sousFamille || "" },
+  {
+    key: "statut",
+    label: "Statut",
+    defaultVisible: true,
+    render: (p) => (
+      <Badge variant={p.statut_pdr === "strategique" ? "destructive" : "secondary"} className="text-xs">
+        {p.statut_pdr === "strategique" ? "Stratégique" : "Commune"}
+      </Badge>
+    ),
+    csv: (p) => (p.statut_pdr === "strategique" ? "Stratégique" : "Commune"),
+  },
+  { key: "stock", label: "Stock", defaultVisible: true, alwaysOn: true, className: "tabular-nums font-medium", render: (p) => p.stock_actuel, csv: (p) => p.stock_actuel },
+  { key: "niveau", label: "Niveau", defaultVisible: true, alwaysOn: true, render: (p, ctx) => ctx.stockBadge(p) },
+  { key: "pmp", label: "PMP (DA)", defaultVisible: true, className: "tabular-nums", render: (p) => num(p.pmp), csv: (p) => p.pmp ?? "" },
+  {
+    key: "appro",
+    label: "Appro.",
+    defaultVisible: true,
+    render: (p) => (
+      <Badge variant="outline" className="text-xs">
+        {p.approvisionnement === "importation" ? "Import" : p.approvisionnement === "mixte" ? "Mixte" : "Local"}
+      </Badge>
+    ),
+    csv: (p) => p.approvisionnement || "local",
+  },
+  { key: "stock_min", label: "Stock min", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.stock_min), csv: (p) => p.stock_min ?? "" },
+  { key: "stock_max", label: "Stock max", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.stock_max), csv: (p) => p.stock_max ?? "" },
+  { key: "stock_securite", label: "Stock sécurité", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.stock_securite), csv: (p) => p.stock_securite ?? "" },
+  { key: "point_commande", label: "Point cmd.", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.point_commande), csv: (p) => p.point_commande ?? "" },
+  { key: "fournisseur", label: "Fournisseur", defaultVisible: false, className: "text-sm", render: (p) => p.fournisseur || "—", csv: (p) => p.fournisseur || "" },
+  { key: "emplacement", label: "Emplacement", defaultVisible: false, className: "text-sm", render: (p) => p.emplacement || "—", csv: (p) => p.emplacement || "" },
+  { key: "code_erp", label: "Code ERP", defaultVisible: false, className: "font-mono text-sm", render: (p) => p.code_erp || "—", csv: (p) => p.code_erp || "" },
+  { key: "code_barres", label: "Code-barres", defaultVisible: false, className: "font-mono text-sm", render: (p) => p.code_barres || "—", csv: (p) => p.code_barres || "" },
+  { key: "duree_vie_min_jours", label: "Durée vie min (j)", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.duree_vie_min_jours), csv: (p) => p.duree_vie_min_jours ?? "" },
+  { key: "duree_vie_max_jours", label: "Durée vie max (j)", defaultVisible: false, className: "tabular-nums", render: (p) => num(p.duree_vie_max_jours), csv: (p) => p.duree_vie_max_jours ?? "" },
+];
+
+const defaultVisibleKeys = () => COLUMN_DEFS.filter((c) => c.defaultVisible).map((c) => c.key);
+
 export default function PdrList() {
   const navigate = useNavWithFrom();
   const { canCreate } = usePermissions();
@@ -38,6 +99,32 @@ export default function PdrList() {
   const [filterFamily, setFilterFamily] = useState("__all__");
   const [filterStatut, setFilterStatut] = useState("__all__");
   const [filterStock, setFilterStock] = useState("__all__");
+
+  const [visibleCols, setVisibleCols] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        const valid = parsed.filter((k) => COLUMN_DEFS.some((c) => c.key === k));
+        // always-on columns must stay visible
+        COLUMN_DEFS.filter((c) => c.alwaysOn).forEach((c) => {
+          if (!valid.includes(c.key)) valid.push(c.key);
+        });
+        return valid;
+      }
+    } catch { /* ignore */ }
+    return defaultVisibleKeys();
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleCols)); } catch { /* ignore */ }
+  }, [visibleCols]);
+
+  const toggleCol = (key: string) => {
+    const def = COLUMN_DEFS.find((c) => c.key === key);
+    if (def?.alwaysOn) return;
+    setVisibleCols((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -53,8 +140,33 @@ export default function PdrList() {
     load();
   }, []);
 
+  const familyMap = useMemo(() => {
+    const m = new Map<string, { name: string; parent_id: string | null }>();
+    families.forEach((f) => m.set(f.id, { name: f.name, parent_id: f.parent_id || null }));
+    return m;
+  }, [families]);
+
+  // enrich rows with resolved famille / sous-famille
+  const enriched = useMemo(() => {
+    return pdrList.map((p) => {
+      const fid = (p as any).family_id as string | null;
+      let famille = "";
+      let sousFamille = "";
+      if (fid && familyMap.has(fid)) {
+        const f = familyMap.get(fid)!;
+        if (f.parent_id && familyMap.has(f.parent_id)) {
+          famille = familyMap.get(f.parent_id)!.name;
+          sousFamille = f.name;
+        } else {
+          famille = f.name;
+        }
+      }
+      return { ...p, _famille: famille, _sousFamille: sousFamille };
+    });
+  }, [pdrList, familyMap]);
+
   const filtered = useMemo(() => {
-    return pdrList.filter((p) => {
+    return enriched.filter((p) => {
       if (search && !p.reference.toLowerCase().includes(search.toLowerCase()) && !p.designation.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterFamily !== "__all__" && (p as any).family_id !== filterFamily) return false;
       if (filterStatut !== "__all__" && (p as any).statut_pdr !== filterStatut) return false;
@@ -63,7 +175,7 @@ export default function PdrList() {
       if (filterStock === "a_commander" && p.stock_actuel > (p as any).point_commande) return false;
       return true;
     });
-  }, [pdrList, search, filterFamily, filterStatut, filterStock]);
+  }, [enriched, search, filterFamily, filterStatut, filterStock]);
 
   const lowStock = pdrList.filter((p) => p.stock_actuel <= p.stock_min).length;
   const rupture = pdrList.filter((p) => p.stock_actuel === 0).length;
@@ -77,6 +189,19 @@ export default function PdrList() {
     return <Badge variant="secondary" className="text-xs">OK</Badge>;
   };
 
+  const activeCols = useMemo(() => COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)), [visibleCols]);
+  const colCtx: ColCtx = { stockBadge };
+
+  const handleExport = () => {
+    const cols = activeCols.filter((c) => c.csv).map((c) => ({ key: c.key, label: c.label }));
+    const rows = filtered.map((p) => {
+      const row: Record<string, any> = {};
+      activeCols.forEach((c) => { if (c.csv) row[c.key] = c.csv(p); });
+      return row;
+    });
+    exportToCsv(rows, cols, "pieces_rechange");
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -85,13 +210,35 @@ export default function PdrList() {
           <p className="text-muted-foreground">{pdrList.length} références</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportToCsv(filtered, [
-            { key: "reference", label: "Référence" }, { key: "designation", label: "Désignation" },
-            { key: "statut_pdr", label: "Statut" }, { key: "approvisionnement", label: "Appro." },
-            { key: "stock_actuel", label: "Stock" }, { key: "stock_min", label: "Min" },
-            { key: "stock_max", label: "Max" }, { key: "pmp", label: "PMP (DA)" },
-            { key: "fournisseur", label: "Fournisseur" }, { key: "emplacement", label: "Emplacement" },
-          ], "pieces_rechange")}>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <SlidersHorizontal className="h-4 w-4 mr-1" /> Colonnes
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium">Colonnes affichées</p>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => setVisibleCols(defaultVisibleKeys())}>
+                  <RotateCcw className="h-3 w-3 mr-1" /> Défaut
+                </Button>
+              </div>
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {COLUMN_DEFS.map((c) => (
+                  <label key={c.key} className={`flex items-center gap-2 text-sm py-1 ${c.alwaysOn ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                    <Checkbox
+                      checked={visibleCols.includes(c.key)}
+                      disabled={c.alwaysOn}
+                      onCheckedChange={() => toggleCol(c.key)}
+                    />
+                    {c.label}
+                    {c.alwaysOn && <span className="text-[10px] text-muted-foreground ml-auto">requis</span>}
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" /> CSV
           </Button>
           {canCreate("pdr") && (
@@ -168,20 +315,15 @@ export default function PdrList() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead>Référence</TableHead>
-                <TableHead>Désignation</TableHead>
-                <TableHead className="hidden md:table-cell">Famille</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Niveau</TableHead>
-                <TableHead className="hidden md:table-cell">PMP (DA)</TableHead>
-                <TableHead className="hidden lg:table-cell">Appro.</TableHead>
+                {activeCols.map((c) => (
+                  <TableHead key={c.key}>{c.label}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={activeCols.length + 1} className="text-center py-8 text-muted-foreground">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     Aucune pièce trouvée
                   </TableCell>
@@ -194,26 +336,9 @@ export default function PdrList() {
                       <TableCell className="w-10 pr-0">
                         <EntityThumbnail imageUrl={img?.image_url} alt={p.designation} size="sm" rounded="md" />
                       </TableCell>
-                      <TableCell className="font-mono font-medium">{p.reference}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{p.designation}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        {(p as any).pdr_families?.name || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={(p as any).statut_pdr === "strategique" ? "destructive" : "secondary"} className="text-xs">
-                          {(p as any).statut_pdr === "strategique" ? "Stratégique" : "Commune"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="tabular-nums font-medium">{p.stock_actuel}</TableCell>
-                      <TableCell>{stockBadge(p)}</TableCell>
-                      <TableCell className="hidden md:table-cell tabular-nums">
-                        {(p as any).pmp ? `${Number((p as any).pmp).toLocaleString("fr-FR")}` : "—"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <Badge variant="outline" className="text-xs">
-                          {(p as any).approvisionnement === "importation" ? "Import" : (p as any).approvisionnement === "mixte" ? "Mixte" : "Local"}
-                        </Badge>
-                      </TableCell>
+                      {activeCols.map((c) => (
+                        <TableCell key={c.key} className={c.className}>{c.render(p, colCtx)}</TableCell>
+                      ))}
                     </TableRow>
                   );
                 })
