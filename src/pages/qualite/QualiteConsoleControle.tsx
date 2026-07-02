@@ -64,7 +64,7 @@ export default function QualiteConsoleControle() {
     const byUser = new Map<string, ControllerRow>();
     checks.forEach((c) => {
       if (!c.controlled_by) return;
-      const row = byUser.get(c.controlled_by) ?? { userId: c.controlled_by, name: nameById.get(c.controlled_by) || "—", total: 0, nonConform: 0 };
+      const row = byUser.get(c.controlled_by) ?? { userId: c.controlled_by, name: (nameById.get(c.controlled_by) as string) || "—", total: 0, nonConform: 0 };
       row.total += 1;
       if (c.is_conform === false) row.nonConform += 1;
       byUser.set(c.controlled_by, row);
