@@ -6445,6 +6445,7 @@ export type Database = {
           category: string
           code: string
           description: string
+          effective_frequency_minutes: number
           effective_frequency_type: string
           effective_is_blocking: boolean
           effective_is_required: boolean
