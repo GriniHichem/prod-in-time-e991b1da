@@ -44,6 +44,9 @@ export const FREQUENCIES = [
 ] as const;
 
 export const CATEGORIES = [
+  { value: "physico_chimique", label: "Physico-chimique" },
+  { value: "conditionnement", label: "Conditionnement" },
+  { value: "organoleptique", label: "Organoleptique" },
   { value: "produit_fini", label: "Produit fini" },
   { value: "emballage", label: "Emballage" },
   { value: "process", label: "Process" },
