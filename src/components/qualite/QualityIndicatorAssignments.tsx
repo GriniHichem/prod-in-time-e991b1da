@@ -107,6 +107,7 @@ interface Assignment {
   is_required: boolean;
   is_blocking: boolean;
   frequency_type: string | null;
+  frequency_minutes: number | null;
   notes: string;
   updated_at: string;
 }
