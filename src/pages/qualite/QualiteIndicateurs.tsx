@@ -553,6 +553,19 @@ export default function QualiteIndicateurs() {
             </div>
           </div>
 
+          <div>
+            <Label>Fréquence (minutes)</Label>
+            <Input
+              inputMode="numeric"
+              value={form.frequency_minutes ?? ""}
+              onChange={(e) => setForm({ ...form, frequency_minutes: e.target.value })}
+              placeholder="ex : 30, 60 — cadence de contrôle en ligne"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Intervalle par défaut entre deux contrôles sur un OF. Surchargé par l'affectation produit.
+            </p>
+          </div>
+
           {isNum && (
             <div className="space-y-3 rounded-md border p-3">
               <div className="grid gap-3 sm:grid-cols-2">
