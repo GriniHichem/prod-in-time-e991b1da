@@ -159,6 +159,7 @@ interface Indicator {
   indicator_type: string;
   category: string;
   frequency_type: string;
+  frequency_minutes: number | null;
   unit: string | null;
   target_value: number | null;
   min_value: number | null;
