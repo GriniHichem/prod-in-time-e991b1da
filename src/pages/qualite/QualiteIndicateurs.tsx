@@ -247,6 +247,7 @@ export default function QualiteIndicateurs() {
       indicator_type: r.indicator_type as any,
       category: r.category,
       frequency_type: r.frequency_type,
+      frequency_minutes: r.frequency_minutes != null ? String(r.frequency_minutes) : "",
       unit: r.unit ?? "",
       target_value: r.target_value?.toString() ?? "",
       min_value: r.min_value?.toString() ?? "",
