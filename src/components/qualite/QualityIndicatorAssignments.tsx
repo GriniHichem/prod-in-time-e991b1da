@@ -33,6 +33,7 @@ export interface AssignmentFormState {
   is_required: boolean;
   is_blocking: boolean;
   frequency_type: string; // "" = inherit
+  frequency_minutes: string; // "" = inherit
   notes: string;
 }
 
