@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,8 @@ const levelBadgeClass = (level?: string | null) => {
 export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+  const backState = { from: location.pathname + location.search };
   const [rows, setRows] = useState<MaintCtxRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [riskFlags, setRiskFlags] = useState<Record<string, { risk: boolean; level: string | null }>>({});
@@ -368,7 +370,7 @@ export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }:
                       {t.priorite && <Badge variant="outline" className="text-[10px]">{t.priorite}</Badge>}
                       <Badge variant="secondary" className="text-[10px]">{t.statut}</Badge>
                       <Button asChild size="sm" variant="ghost" className="h-7 px-2">
-                        <Link to={`/tickets/${t.id}`}><ExternalLink className="h-3.5 w-3.5" /></Link>
+                        <Link to={`/tickets/${t.id}`} state={backState}><ExternalLink className="h-3.5 w-3.5" /></Link>
                       </Button>
                     </div>
                   </div>
@@ -388,7 +390,7 @@ export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }:
             <div className="flex flex-wrap gap-1.5">
               {preventifs.map((p) => (
                 <Badge key={p.id} variant="outline" className="py-1">
-                  <Link to={`/preventif/${p.id}`} className="hover:underline">{p.numero || ""} {p.label}</Link>
+                  <Link to={`/preventif/${p.id}`} state={backState} className="hover:underline">{p.numero || ""} {p.label}</Link>
                 </Badge>
               ))}
             </div>

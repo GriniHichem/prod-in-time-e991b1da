@@ -165,7 +165,7 @@ export default function MaintenancierShiftView() {
                               ? "border-destructive/20 bg-destructive/[0.02]"
                               : "border-primary/10 bg-primary/[0.02]"
                           }`}
-                          onClick={() => navigate(`/preventif/${item.id}`)}
+                          onClick={() => navigate(`/preventif/${item.id}`, { state: { from: "/maintenance/shift" } })}
                         >
                           <CalendarCheck className={`h-4 w-4 shrink-0 mt-0.5 ${
                             item.prochaine_echeance && new Date(item.prochaine_echeance) < new Date() ? "text-destructive" : "text-primary"
