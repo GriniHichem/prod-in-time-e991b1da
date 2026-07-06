@@ -15,6 +15,8 @@ export interface MaintenanceWorkloadTicket {
   ligne_id: string | null;
   machines?: { id: string; code: string; designation: string } | null;
   production_lines?: { id: string; code: string; designation: string } | null;
+  quality_risk?: boolean | null;
+  quality_risk_level?: string | null;
 }
 
 export interface MaintenanceWorkloadPlan {
