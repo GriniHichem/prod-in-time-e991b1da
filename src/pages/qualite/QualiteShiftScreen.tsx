@@ -326,11 +326,16 @@ export default function QualiteShiftScreen() {
                 <>
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <ListChecks className="h-5 w-5 text-primary" />
-                        {selectedOf.numero}
-                        <span className="text-sm font-normal text-muted-foreground">· {selectedOf.productLabel} · {selectedOf.lineLabel}</span>
-                      </CardTitle>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <ListChecks className="h-5 w-5 text-primary" />
+                          {selectedOf.numero}
+                          <span className="text-sm font-normal text-muted-foreground">· {selectedOf.productLabel} · {selectedOf.lineLabel}</span>
+                        </CardTitle>
+                        <Button variant="outline" size="sm" onClick={() => setOpenHistory(true)}>
+                          <History className="h-4 w-4 mr-2" /> Historique
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <OfControlsPanel
@@ -346,7 +351,6 @@ export default function QualiteShiftScreen() {
 
                   <MaintenanceRiskPanel ofId={selectedOf.id} ofNumero={selectedOf.numero} lineId={selectedOf.line_id} />
 
-                  <ShiftHistoryPanel qualityShiftId={shift.id} filterOfId={selectedOf.id} />
                 </>
               )}
             </div>
