@@ -598,6 +598,15 @@ export default function TicketDetail() {
                 <Factory className="h-3 w-3 mr-0.5" /> GPAO
               </Badge>
             )}
+            {ticket.quality_risk && (
+              <Badge
+                variant="outline"
+                className={`text-xs ${ticket.quality_risk_level === "critique" ? "border-destructive/40 text-destructive" : "border-amber-400 text-amber-600 dark:text-amber-400"}`}
+              >
+                <ShieldAlert className="h-3 w-3 mr-0.5" /> Risque qualité{ticket.quality_risk_level ? ` — ${ticket.quality_risk_level}` : ""}
+              </Badge>
+            )}
+
           </div>
         </div>
       </div>
