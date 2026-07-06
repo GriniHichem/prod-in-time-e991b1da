@@ -305,7 +305,10 @@ export default function TicketsList() {
               ) : filtered.map((t) => (
                 <div key={t.id} className="p-3 active:bg-muted/50 cursor-pointer" onClick={() => navigate(`/tickets/${t.id}`)}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono font-bold text-sm">{t.numero}</span>
+                    <span className="font-mono font-bold text-sm flex items-center gap-1">
+                      {t.quality_risk && <ShieldAlert className={`h-4 w-4 ${t.quality_risk_level === "critique" ? "text-destructive" : "text-amber-600"}`} />}
+                      {t.numero}
+                    </span>
                     <StatusBadge type="priority" value={t.priorite} />
                   </div>
                   <p className="text-sm truncate">{t.machines?.designation || "—"}</p>
