@@ -72,6 +72,8 @@ const levelBadgeClass = (level?: string | null) => {
 export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
+  const backState = { from: location.pathname + location.search };
   const [rows, setRows] = useState<MaintCtxRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [riskFlags, setRiskFlags] = useState<Record<string, { risk: boolean; level: string | null }>>({});
