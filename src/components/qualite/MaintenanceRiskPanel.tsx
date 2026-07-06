@@ -390,7 +390,7 @@ export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }:
             <div className="flex flex-wrap gap-1.5">
               {preventifs.map((p) => (
                 <Badge key={p.id} variant="outline" className="py-1">
-                  <Link to={`/preventif/${p.id}`} className="hover:underline">{p.numero || ""} {p.label}</Link>
+                  <Link to={`/preventif/${p.id}`} state={backState} className="hover:underline">{p.numero || ""} {p.label}</Link>
                 </Badge>
               ))}
             </div>
