@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
-import { ClipboardCheck, Play, Square, AlertTriangle, RefreshCw, Factory, ListChecks } from "lucide-react";
+import { ClipboardCheck, Play, Square, AlertTriangle, RefreshCw, Factory, ListChecks, History } from "lucide-react";
 import { useActiveQualityShift, deriveShiftTypeFromHour } from "@/hooks/useActiveQualityShift";
 import { OfControlsPanel } from "@/components/qualite/OfControlsPanel";
 import { MaintenanceRiskPanel } from "@/components/qualite/MaintenanceRiskPanel";
