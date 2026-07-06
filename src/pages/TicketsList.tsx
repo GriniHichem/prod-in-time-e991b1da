@@ -343,7 +343,12 @@ export default function TicketsList() {
                   </TableRow>
                 ) : filtered.map((t) => (
                   <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/tickets/${t.id}`)}>
-                    <TableCell className="font-mono font-medium">{t.numero}</TableCell>
+                    <TableCell className="font-mono font-medium">
+                      <span className="flex items-center gap-1">
+                        {t.quality_risk && <ShieldAlert className={`h-4 w-4 ${t.quality_risk_level === "critique" ? "text-destructive" : "text-amber-600"}`} />}
+                        {t.numero}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div>
                         <p className="text-sm">{t.machines?.designation || "—"}</p>
