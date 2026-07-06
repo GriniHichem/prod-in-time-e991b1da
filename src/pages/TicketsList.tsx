@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
-import { Plus, Search, AlertTriangle, Download, RotateCcw } from "lucide-react";
+import { Plus, Search, AlertTriangle, Download, RotateCcw, ShieldAlert } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -305,7 +305,10 @@ export default function TicketsList() {
               ) : filtered.map((t) => (
                 <div key={t.id} className="p-3 active:bg-muted/50 cursor-pointer" onClick={() => navigate(`/tickets/${t.id}`)}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono font-bold text-sm">{t.numero}</span>
+                    <span className="font-mono font-bold text-sm flex items-center gap-1">
+                      {t.quality_risk && <ShieldAlert className={`h-4 w-4 ${t.quality_risk_level === "critique" ? "text-destructive" : "text-amber-600"}`} />}
+                      {t.numero}
+                    </span>
                     <StatusBadge type="priority" value={t.priorite} />
                   </div>
                   <p className="text-sm truncate">{t.machines?.designation || "—"}</p>
@@ -340,7 +343,12 @@ export default function TicketsList() {
                   </TableRow>
                 ) : filtered.map((t) => (
                   <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/tickets/${t.id}`)}>
-                    <TableCell className="font-mono font-medium">{t.numero}</TableCell>
+                    <TableCell className="font-mono font-medium">
+                      <span className="flex items-center gap-1">
+                        {t.quality_risk && <ShieldAlert className={`h-4 w-4 ${t.quality_risk_level === "critique" ? "text-destructive" : "text-amber-600"}`} />}
+                        {t.numero}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div>
                         <p className="text-sm">{t.machines?.designation || "—"}</p>

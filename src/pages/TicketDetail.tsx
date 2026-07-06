@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/gmao/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, User, Wrench, Factory, Package, Users, X, ArrowRightLeft, UserMinus } from "lucide-react";
+import { ArrowLeft, Clock, User, Wrench, Factory, Package, Users, X, ArrowRightLeft, UserMinus, ShieldAlert, OctagonAlert, PlayCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -51,6 +51,7 @@ export default function TicketDetail() {
   const [newCollabRole, setNewCollabRole] = useState<"aide" | "co_intervenant">("aide");
   const [assigneeName, setAssigneeName] = useState<string>("");
   const [declarantName, setDeclarantName] = useState<string>("");
+  const [qualityRiskByName, setQualityRiskByName] = useState<string>("");
 
   // Handover (transfer / release)
   const [transferTargetId, setTransferTargetId] = useState("");
@@ -83,6 +84,14 @@ export default function TicketDetail() {
         setDeclarantName(dprof ? `${dprof.first_name ?? ""} ${dprof.last_name ?? ""}`.trim() : "");
       } else {
         setDeclarantName("");
+      }
+      // Resolve quality risk declarant name
+      if (data.quality_risk && data.quality_risk_declared_by) {
+        const { data: qprof } = await supabase
+          .from("profiles").select("first_name,last_name").eq("user_id", data.quality_risk_declared_by).maybeSingle();
+        setQualityRiskByName(qprof ? `${qprof.first_name ?? ""} ${qprof.last_name ?? ""}`.trim() : "");
+      } else {
+        setQualityRiskByName("");
       }
     }
 
@@ -598,6 +607,15 @@ export default function TicketDetail() {
                 <Factory className="h-3 w-3 mr-0.5" /> GPAO
               </Badge>
             )}
+            {ticket.quality_risk && (
+              <Badge
+                variant="outline"
+                className={`text-xs ${ticket.quality_risk_level === "critique" ? "border-destructive/40 text-destructive" : "border-amber-400 text-amber-600 dark:text-amber-400"}`}
+              >
+                <ShieldAlert className="h-3 w-3 mr-0.5" /> Risque qualité{ticket.quality_risk_level ? ` — ${ticket.quality_risk_level}` : ""}
+              </Badge>
+            )}
+
           </div>
         </div>
       </div>
@@ -646,6 +664,54 @@ export default function TicketDetail() {
           {ticket.solution && <InfoItem label="Solution" value={ticket.solution} full />}
         </CardContent>
       </Card>
+
+      {/* Quality risk card */}
+      {ticket.quality_risk && (
+        <Card className={ticket.quality_production_decision === "arret" ? "border-destructive/40" : "border-amber-400/40"}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <ShieldAlert className={`h-4 w-4 ${ticket.quality_risk_level === "critique" ? "text-destructive" : "text-amber-600"}`} />
+              Risque qualité
+              {ticket.quality_risk_level && (
+                <Badge variant="outline" className="text-[10px] capitalize">{ticket.quality_risk_level}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {ticket.quality_production_decision && (
+              <div
+                className={`flex items-center gap-2 rounded-md border p-2.5 text-sm font-medium ${
+                  ticket.quality_production_decision === "arret"
+                    ? "border-destructive/40 bg-destructive/10 text-destructive"
+                    : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                }`}
+              >
+                {ticket.quality_production_decision === "arret" ? (
+                  <><OctagonAlert className="h-4 w-4" /> Décision qualité : arrêter la production</>
+                ) : (
+                  <><PlayCircle className="h-4 w-4" /> Décision qualité : maintenir la production</>
+                )}
+              </div>
+            )}
+            {ticket.quality_risk_note && (
+              <div>
+                <p className="text-xs text-muted-foreground">Note qualité</p>
+                <p className="text-sm whitespace-pre-wrap">{ticket.quality_risk_note}</p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+              {qualityRiskByName && (
+                <span className="flex items-center gap-1"><User className="h-3 w-3" /> Signalé par {qualityRiskByName}</span>
+              )}
+              {ticket.quality_risk_declared_at && (
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDate(ticket.quality_risk_declared_at)}</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
 
       {/* Actions — sticky on mobile */}
       {canTakeCharge && canEdit("tickets") && (
