@@ -370,7 +370,7 @@ export function MaintenanceRiskPanel({ ofId, ofNumero, lineId, qualityShiftId }:
                       {t.priorite && <Badge variant="outline" className="text-[10px]">{t.priorite}</Badge>}
                       <Badge variant="secondary" className="text-[10px]">{t.statut}</Badge>
                       <Button asChild size="sm" variant="ghost" className="h-7 px-2">
-                        <Link to={`/tickets/${t.id}`}><ExternalLink className="h-3.5 w-3.5" /></Link>
+                        <Link to={`/tickets/${t.id}`} state={backState}><ExternalLink className="h-3.5 w-3.5" /></Link>
                       </Button>
                     </div>
                   </div>
