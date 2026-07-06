@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, History, Search } from "lucide-react";
 
 interface Row {
   id: string;
