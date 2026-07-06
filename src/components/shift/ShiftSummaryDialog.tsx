@@ -172,9 +172,57 @@ export function ShiftSummaryDialog({ kind, session, open, onOpenChange }: Props)
       ? `${session?.profiles?.first_name ?? ""} ${session?.profiles?.last_name ?? ""}`.trim() || "—"
       : `${session?.profile?.first_name ?? ""} ${session?.profile?.last_name ?? ""}`.trim() || "—";
 
+  const escapeHtml = (v: unknown) =>
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const buildPrintableHtml = () => {
+    if (!data) return "";
+    const metaRows = [
+      ["Opérateur", operatorName],
+      ["Date", session?.date_shift ?? "—"],
+      ["Créneau", String(session?.shift_type ?? "").replace("_", " ") || "—"],
+      ["Équipe", session?.shift_teams?.code ?? "—"],
+      ["Début", session?.heure_debut ? new Date(session.heure_debut).toLocaleString("fr-FR") : "—"],
+      ["Fin", session?.heure_fin ? new Date(session.heure_fin).toLocaleString("fr-FR") : "En cours"],
+    ]
+      .map(([k, v]) => `<span><strong>${escapeHtml(k)} :</strong> ${escapeHtml(v)}</span>`)
+      .join("");
+
+    const totalsHtml = data.totals
+      .map(
+        (t) =>
+          `<div class="total-card"><div class="total-label">${escapeHtml(t.label)}</div><div class="total-value">${escapeHtml(t.value)}</div></div>`,
+      )
+      .join("");
+
+    const eventsHtml =
+      data.events.length === 0
+        ? `<p>Aucun événement enregistré.</p>`
+        : `<table><thead><tr><th>Heure</th><th>Type</th><th>Libellé</th><th>Détail</th></tr></thead><tbody>${data.events
+            .map(
+              (e) =>
+                `<tr><td>${escapeHtml(new Date(e.time).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }))}</td><td>${escapeHtml(e.type)}</td><td>${escapeHtml(e.label)}</td><td>${escapeHtml(e.detail ?? "")}</td></tr>`,
+            )
+            .join("")}</tbody></table>`;
+
+    const obsHtml = session?.observations
+      ? `<h2>Observations de fin de shift</h2><p>${escapeHtml(session.observations)}</p>`
+      : "";
+
+    return `<h1>${escapeHtml(TITLES[kind])}</h1>
+      <div class="meta">${metaRows}</div>
+      <h2>Indicateurs</h2>
+      <div class="totals">${totalsHtml}</div>
+      <h2>Journal (${data.events.length})</h2>
+      ${eventsHtml}
+      ${obsHtml}`;
+  };
+
   const handlePrint = () => {
-    const node = document.getElementById("shift-summary-printable");
-    if (!node) return;
+    if (!data) return;
     const w = window.open("", "_blank", "width=900,height=1000");
     if (!w) return;
     w.document.write(`<html><head><title>${TITLES[kind]}</title>
@@ -190,11 +238,12 @@ export function ShiftSummaryDialog({ kind, session, open, onOpenChange }: Props)
         .total-card{border:1px solid #ddd;padding:8px 10px;border-radius:6px;}
         .total-label{font-size:10px;text-transform:uppercase;color:#666;letter-spacing:.5px;}
         .total-value{font-size:18px;font-weight:700;}
-      </style></head><body>${node.innerHTML}</body></html>`);
+      </style></head><body>${buildPrintableHtml()}</body></html>`);
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
