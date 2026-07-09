@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
+
 import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
 import { Plus, Square, Clock, Loader2, RefreshCw, Users, FileText } from "lucide-react";
@@ -74,7 +74,6 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
   const [lineId, setLineId] = useState("");
   const [ofId, setOfId] = useState("__none__");
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([]);
-  const [selfMode, setSelfMode] = useState(false);
   const [interventionReason, setInterventionReason] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
@@ -179,12 +178,15 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
     setLineId("");
     setOfId("__none__");
     setSelectedLineIds([]);
-    setSelfMode(false);
+    
     setInterventionReason("");
     setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
   }
 
-  const isQualitySelf = kind === "quality" && selfMode;
+  // La qualité est toujours en intervention personnelle : le responsable ne peut
+  // ouvrir une session que pour lui-même. Les sessions des contrôleurs sont
+  // créées automatiquement au démarrage de leur shift.
+  const isQualitySelf = kind === "quality";
 
   async function handleOpenSession() {
     if (!isQualitySelf && !operatorId) {
@@ -375,7 +377,7 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
           </Button>
           <Button onClick={() => setOpenDialog(true)}>
             <Plus className="h-4 w-4 mr-1.5" />
-            Ouvrir une session
+            {kind === "quality" ? "Intervenir moi-même" : "Ouvrir une session"}
           </Button>
         </div>
       </div>
@@ -499,33 +501,29 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
           setOpenDialog(o);
           if (!o) resetForm();
         }}
-        title="Ouvrir une session de shift"
-        description="Sélectionnez l'opérateur et le contexte de la session."
+        title={kind === "quality" ? "Intervention personnelle du responsable qualité" : "Ouvrir une session de shift"}
+        description={kind === "quality" ? "Vous devenez le contrôleur pour ce créneau. Indiquez le motif." : "Sélectionnez l'opérateur et le contexte de la session."}
       >
         <div className="space-y-4">
           {kind === "quality" && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label className="text-sm">Intervenir moi-même</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Le responsable devient le contrôleur (absence, intervention sensible).
-                  </p>
-                </div>
-                <Switch checked={selfMode} onCheckedChange={setSelfMode} />
+              <div>
+                <Label className="text-sm">Intervention personnelle</Label>
+                <p className="text-xs text-muted-foreground">
+                  Vous ouvrez une session en tant que contrôleur (absence, intervention sensible).
+                  Les sessions des contrôleurs sont créées automatiquement au démarrage de leur shift.
+                </p>
               </div>
-              {selfMode && (
-                <div>
-                  <Label>Motif de l'intervention personnelle *</Label>
-                  <Textarea
-                    value={interventionReason}
-                    onChange={(e) => setInterventionReason(e.target.value)}
-                    placeholder="ex. absence du contrôleur, intervention sensible…"
-                    rows={2}
-                    className="mt-1"
-                  />
-                </div>
-              )}
+              <div>
+                <Label>Motif de l'intervention personnelle *</Label>
+                <Textarea
+                  value={interventionReason}
+                  onChange={(e) => setInterventionReason(e.target.value)}
+                  placeholder="ex. absence du contrôleur, intervention sensible…"
+                  rows={2}
+                  className="mt-1"
+                />
+              </div>
             </div>
           )}
 
