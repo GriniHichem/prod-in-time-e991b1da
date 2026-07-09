@@ -110,12 +110,17 @@ export function SelfOpenShiftDialog({ kind }: Props) {
           setTeamId(r.team_id ?? "__none__");
           setSelectedLineIds(planLines);
           setShiftType(shiftTypeFromTemplate(r.template_code));
-          return;
+          // Qualité : les lignes restent déduites automatiquement des OF actifs.
+          if (kind !== "quality") return;
+        } else {
+          // Aucun planning : repli manuel (anti-blocage).
+          setPlan(null);
+          setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
         }
+      } else {
+        setPlan(null);
+        setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
       }
-      // Aucun planning : repli manuel (anti-blocage).
-      setPlan(null);
-      setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
 
       // Qualité : les lignes ciblées sont automatiquement déduites des OF actifs.
       if (kind === "quality") {
