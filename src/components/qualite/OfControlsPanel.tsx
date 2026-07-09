@@ -343,6 +343,7 @@ export function OfControlsPanel({ ofId, ofNumero, productId, lineId, activeQuali
         </CardContent></Card>
       )}
 
+      {viewMode === "cards" && (
       <div className="grid gap-3 md:grid-cols-2">
         {sorted.map((ind) => {
           const draft = drafts[ind.indicator_id] ?? emptyDraft();
