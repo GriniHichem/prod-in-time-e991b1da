@@ -1,48 +1,31 @@
-## Objectif
+# Tableau shift de contrôle — vue tableau + correction épingle
 
-Dans la Console Responsable Qualité, le responsable ne peut aujourd'hui ouvrir une session que **pour un contrôleur** (rôle `controleur_qualite`). On ajoute un mode « intervention personnelle » : le responsable peut **jouer lui-même le rôle de contrôleur** (cas d'absence, intervention sensible) — uniquement avec un **motif obligatoire**, tracé et visible.
+## 1. Réparer l'épingle (cause racine)
 
-## Comportement cible (`RespShiftConsole.tsx`, `kind === "quality"` uniquement)
+L'épingle ne fonctionne pas parce que la table `quality_shift_pins` **n'existe pas** dans la base de données. Le code (`useQualityShiftPins.ts`) tente d'insérer/supprimer dans cette table, mais l'appel échoue silencieusement (erreur ignorée).
 
-Dans la boîte de dialogue « Ouvrir une session de shift » :
+**Action :** créer la table via migration avec :
+- colonnes : `quality_shift_id`, `of_id`, `indicator_id`, `pinned_by`, `created_at`
+- contrainte d'unicité `(quality_shift_id, of_id, indicator_id)`
+- `GRANT` pour `authenticated` + `service_role`
+- RLS activée : lecture/écriture pour les utilisateurs authentifiés (partagé entre contrôleurs de l'équipe, conformément au comportement voulu du hook)
 
-1. Ajout d'un interrupteur **« Intervenir moi-même (le responsable devient contrôleur) »**.
-2. Quand il est activé :
-   - Le sélecteur « Opérateur » est masqué/désactivé ; le contrôleur devient le responsable connecté (`controller_id = user.id`).
-   - Un champ **« Motif de l'intervention personnelle » (obligatoire)** apparaît (Textarea) avec une aide : « ex. absence du contrôleur, intervention sensible ». L'ouverture est bloquée tant que le motif est vide.
-   - Les lignes contrôlées restent sélectionnables comme aujourd'hui.
-3. Quand il est désactivé : comportement inchangé (ouverture pour un contrôleur).
+## 2. Ajouter un mode d'affichage « Tableau »
 
-## Enregistrement
+Dans `src/components/qualite/OfControlsPanel.tsx`, ajouter un sélecteur de vue (Cartes / Tableau) à côté des filtres existants.
 
-- `controller_id` = `user.id`, `opened_by` = `user.id`.
-- Le motif est stocké dans `observations` sous un préfixe repérable : `[Intervention responsable] <motif>`.
-- Un marqueur booléen `is_self_intervention` + `intervention_reason` sont ajoutés à `quality_shifts` (migration) pour un affichage fiable et un filtrage futur.
-- Audit : `logAudit` avec action `quality_shift_self_intervention`, description incluant le motif, metadata `{ reason }`.
+**Vue Tableau** (nouvelle) :
+- Un tableau (`ScrollTable` + `Table`) listant les contrôles avec colonnes : Épingle, Code, Nom, Norme/Unité, Statut/échéance, Saisie (champ compact selon le type numérique/booléen/select/texte), Conformité live, Commentaire, Action Enregistrer.
+- Ligne compacte, saisie inline, même logique `handleSave`, `previewFor`, `dueInfo`, épinglage et tri prioritaire réutilisés tels quels.
+- Les lignes non conformes / hors tolérance surlignées (rouge/vert), lignes épinglées mises en avant.
 
-## Affichage
+**Vue Cartes** : comportement actuel conservé.
 
-- Dans la liste des sessions du jour, une session en intervention personnelle affiche un **badge spécifique** (ex. « Intervention responsable ») à côté du badge LIVE, avec le motif en info.
-- Le nom d'opérateur affiché est celui du responsable.
+Le choix de vue est un simple état local (`viewMode: "cards" | "table"`), défaut = cartes.
 
 ## Détails techniques
 
-### Migration (`quality_shifts`)
-```sql
-ALTER TABLE public.quality_shifts
-  ADD COLUMN IF NOT EXISTS is_self_intervention boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS intervention_reason text;
-```
-(pas de nouvelle table → RLS/GRANT existants conservés)
-
-### `RespShiftConsole.tsx`
-- Nouveaux états : `selfMode: boolean`, `interventionReason: string` ; réinitialisés dans `resetForm()`.
-- `handleOpenSession()` branche `quality` :
-  - si `selfMode` : ignorer la validation « opérateur requis », exiger `interventionReason.trim()`, insérer avec `controller_id: user.id`, `is_self_intervention: true`, `intervention_reason: reason`, `observations: "[Intervention responsable] " + reason`.
-  - sinon : logique actuelle inchangée.
-- UI dialog : ajout du `Switch` + `Textarea` conditionnels (composants shadcn déjà présents), masquage du select opérateur en mode self.
-- Liste des sessions : lire `s.is_self_intervention` pour afficher le badge et le motif.
-- La requête `loadSessions` (quality) sélectionne déjà `*` → les nouvelles colonnes sont incluses automatiquement.
-
-### Portée
-Modification limitée au `kind === "quality"`. Production et maintenance restent inchangés.
+- Migration SQL unique pour `public.quality_shift_pins` (structure CREATE → GRANT → ENABLE RLS → POLICY).
+- Aucun changement de logique métier : la vue tableau réutilise les mêmes fonctions et le même état (`drafts`, `lastByIndicator`, `sorted`, `savingId`).
+- Réutilisation des composants `Table`/`ScrollTable` déjà présents.
+- Aucune modification des autres systèmes shift (uniquement le tableau shift de contrôle qualité).
