@@ -116,6 +116,18 @@ export function SelfOpenShiftDialog({ kind }: Props) {
       // Aucun planning : repli manuel (anti-blocage).
       setPlan(null);
       setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
+
+      // Qualité : les lignes ciblées sont automatiquement déduites des OF actifs.
+      if (kind === "quality") {
+        const { data: ofRows } = await supabase
+          .from("ordres_fabrication")
+          .select("line_id")
+          .eq("statut", "en_cours" as any);
+        const derived = Array.from(
+          new Set((ofRows ?? []).map((o: any) => o.line_id).filter(Boolean)),
+        ) as string[];
+        setSelectedLineIds(derived);
+      }
     })();
   }, [open, kind, user]);
 
@@ -174,7 +186,7 @@ export function SelfOpenShiftDialog({ kind }: Props) {
           entity_type: "maintenance_shifts", description: "Démarrage shift maintenance par l'opérateur",
         });
       } else {
-        if (selectedLineIds.length === 0) { toast({ title: "Sélectionnez au moins une ligne", variant: "destructive" }); setSubmitting(false); return; }
+        // Qualité : les lignes sont déduites automatiquement (planning ou OF actifs), pas de blocage.
         const { data: qs, error } = await supabase.from("quality_shifts" as any).insert({
           shift_type: shiftType,
           shift_team_id: teamId === "__none__" ? null : teamId,
@@ -271,6 +283,26 @@ export function SelfOpenShiftDialog({ kind }: Props) {
                 </Select>
               </div>
             </>
+          ) : kind === "quality" && !hasPlan ? (
+            <div className="space-y-1.5">
+              <Label>Lignes ciblées</Label>
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                Les lignes sont déterminées automatiquement à partir des OF actifs — aucune sélection nécessaire.
+              </div>
+              {selectedLineIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {lines
+                    .filter((l) => selectedLineIds.includes(l.id))
+                    .map((l) => (
+                      <span key={l.id} className="inline-flex items-center rounded-md bg-accent px-2 py-1 text-xs">
+                        <span className="font-medium">{l.code}</span>&nbsp;— {l.designation}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 px-1">Aucun OF actif pour le moment — vous pourrez saisir des contrôles dès qu'un OF démarre.</p>
+              )}
+            </div>
           ) : (
             <div className="space-y-1.5">
               <Label>Lignes couvertes * {hasPlan && <span className="text-xs text-muted-foreground">(définies par le planning)</span>}</Label>
