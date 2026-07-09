@@ -116,6 +116,18 @@ export function SelfOpenShiftDialog({ kind }: Props) {
       // Aucun planning : repli manuel (anti-blocage).
       setPlan(null);
       setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
+
+      // Qualité : les lignes ciblées sont automatiquement déduites des OF actifs.
+      if (kind === "quality") {
+        const { data: ofRows } = await supabase
+          .from("ordres_fabrication")
+          .select("line_id")
+          .eq("statut", "en_cours" as any);
+        const derived = Array.from(
+          new Set((ofRows ?? []).map((o: any) => o.line_id).filter(Boolean)),
+        ) as string[];
+        setSelectedLineIds(derived);
+      }
     })();
   }, [open, kind, user]);
 
