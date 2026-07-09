@@ -85,6 +85,7 @@ export function OfControlsPanel({ ofId, ofNumero, productId, lineId, activeQuali
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   const { isPinned, togglePin } = useQualityShiftPins(activeQualityShift?.id ?? null);
 
