@@ -5038,6 +5038,41 @@ export type Database = {
           },
         ]
       }
+      quality_shift_pins: {
+        Row: {
+          created_at: string
+          id: string
+          indicator_id: string
+          of_id: string
+          pinned_by: string | null
+          quality_shift_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          indicator_id: string
+          of_id: string
+          pinned_by?: string | null
+          quality_shift_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          indicator_id?: string
+          of_id?: string
+          pinned_by?: string | null
+          quality_shift_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_shift_pins_quality_shift_id_fkey"
+            columns: ["quality_shift_id"]
+            isOneToOne: false
+            referencedRelation: "quality_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quality_shift_production_links: {
         Row: {
           linked_at: string
