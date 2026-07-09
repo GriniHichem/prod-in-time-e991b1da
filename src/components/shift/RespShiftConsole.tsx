@@ -508,27 +508,23 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
         <div className="space-y-4">
           {kind === "quality" && (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label className="text-sm">Intervenir moi-même</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Le responsable devient le contrôleur (absence, intervention sensible).
-                  </p>
-                </div>
-                <Switch checked={selfMode} onCheckedChange={setSelfMode} />
+              <div>
+                <Label className="text-sm">Intervention personnelle</Label>
+                <p className="text-xs text-muted-foreground">
+                  Vous ouvrez une session en tant que contrôleur (absence, intervention sensible).
+                  Les sessions des contrôleurs sont créées automatiquement au démarrage de leur shift.
+                </p>
               </div>
-              {selfMode && (
-                <div>
-                  <Label>Motif de l'intervention personnelle *</Label>
-                  <Textarea
-                    value={interventionReason}
-                    onChange={(e) => setInterventionReason(e.target.value)}
-                    placeholder="ex. absence du contrôleur, intervention sensible…"
-                    rows={2}
-                    className="mt-1"
-                  />
-                </div>
-              )}
+              <div>
+                <Label>Motif de l'intervention personnelle *</Label>
+                <Textarea
+                  value={interventionReason}
+                  onChange={(e) => setInterventionReason(e.target.value)}
+                  placeholder="ex. absence du contrôleur, intervention sensible…"
+                  rows={2}
+                  className="mt-1"
+                />
+              </div>
             </div>
           )}
 
