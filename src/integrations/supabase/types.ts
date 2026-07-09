@@ -5079,7 +5079,9 @@ export type Database = {
           heure_debut: string
           heure_fin: string | null
           id: string
+          intervention_reason: string | null
           is_active: boolean
+          is_self_intervention: boolean
           observations: string | null
           opened_by: string | null
           shift_team_id: string | null
@@ -5093,7 +5095,9 @@ export type Database = {
           heure_debut?: string
           heure_fin?: string | null
           id?: string
+          intervention_reason?: string | null
           is_active?: boolean
+          is_self_intervention?: boolean
           observations?: string | null
           opened_by?: string | null
           shift_team_id?: string | null
@@ -5107,7 +5111,9 @@ export type Database = {
           heure_debut?: string
           heure_fin?: string | null
           id?: string
+          intervention_reason?: string | null
           is_active?: boolean
+          is_self_intervention?: boolean
           observations?: string | null
           opened_by?: string | null
           shift_team_id?: string | null

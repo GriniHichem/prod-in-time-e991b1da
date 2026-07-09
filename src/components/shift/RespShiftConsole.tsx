@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialog } from "@/components/responsive/ResponsiveDialog";
 import { Plus, Square, Clock, Loader2, RefreshCw, Users, FileText } from "lucide-react";
 import { logAudit } from "@/lib/audit";
@@ -72,6 +74,8 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
   const [lineId, setLineId] = useState("");
   const [ofId, setOfId] = useState("__none__");
   const [selectedLineIds, setSelectedLineIds] = useState<string[]>([]);
+  const [selfMode, setSelfMode] = useState(false);
+  const [interventionReason, setInterventionReason] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -175,12 +179,20 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
     setLineId("");
     setOfId("__none__");
     setSelectedLineIds([]);
+    setSelfMode(false);
+    setInterventionReason("");
     setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
   }
 
+  const isQualitySelf = kind === "quality" && selfMode;
+
   async function handleOpenSession() {
-    if (!operatorId) {
+    if (!isQualitySelf && !operatorId) {
       toast({ title: "Sélectionnez un opérateur", variant: "destructive" });
+      return;
+    }
+    if (isQualitySelf && !interventionReason.trim()) {
+      toast({ title: "Motif obligatoire", description: "Indiquez le motif de l'intervention personnelle.", variant: "destructive" });
       return;
     }
     if (kind === "production" && !lineId) {
@@ -263,16 +275,20 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
           description: `Ouverture session shift maintenance pour maintenancier (par responsable)`,
         });
       } else {
+        const reason = interventionReason.trim();
         const { data, error } = await supabase
           .from("quality_shifts" as any)
           .insert({
             date_shift: today,
             shift_type: shiftType,
             shift_team_id: teamId || null,
-            controller_id: operatorId,
+            controller_id: isQualitySelf ? user?.id : operatorId,
             heure_debut: new Date().toISOString(),
             is_active: true,
             opened_by: user?.id,
+            is_self_intervention: isQualitySelf,
+            intervention_reason: isQualitySelf ? reason : null,
+            observations: isQualitySelf ? `[Intervention responsable] ${reason}` : null,
           })
           .select()
           .single();
@@ -289,10 +305,13 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
         await logAudit({
           action_type: "create",
           module: "system",
-          action: "quality_shift_open",
+          action: isQualitySelf ? "quality_shift_self_intervention" : "quality_shift_open",
           entity_type: "quality_shifts",
           entity_id: qsId,
-          description: `Ouverture session shift contrôle qualité (par responsable)`,
+          description: isQualitySelf
+            ? `Intervention personnelle du responsable qualité — motif: ${reason}`
+            : `Ouverture session shift contrôle qualité (par responsable)`,
+          metadata: isQualitySelf ? { reason } : undefined,
         });
       }
 
@@ -420,6 +439,15 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
                           <Badge variant="secondary" className="text-xs">Clôturée</Badge>
                         )}
                         <div className="font-semibold text-sm">{operatorName}</div>
+                        {kind === "quality" && s.is_self_intervention && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs border-amber-500/50 text-amber-600 dark:text-amber-400"
+                            title={s.intervention_reason || undefined}
+                          >
+                            Intervention responsable
+                          </Badge>
+                        )}
                         {s.shift_teams && (
                           <Badge variant="outline" className="text-xs">Équipe {s.shift_teams.code}</Badge>
                         )}
@@ -475,22 +503,50 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
         description="Sélectionnez l'opérateur et le contexte de la session."
       >
         <div className="space-y-4">
-          <div>
-            <Label>Opérateur *</Label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
-              <SelectContent>
-                {operators.map((o) => (
-                  <SelectItem key={o.user_id} value={o.user_id}>
-                    {o.first_name} {o.last_name}
-                  </SelectItem>
-                ))}
-                {operators.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Aucun opérateur disponible</div>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          {kind === "quality" && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm">Intervenir moi-même</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Le responsable devient le contrôleur (absence, intervention sensible).
+                  </p>
+                </div>
+                <Switch checked={selfMode} onCheckedChange={setSelfMode} />
+              </div>
+              {selfMode && (
+                <div>
+                  <Label>Motif de l'intervention personnelle *</Label>
+                  <Textarea
+                    value={interventionReason}
+                    onChange={(e) => setInterventionReason(e.target.value)}
+                    placeholder="ex. absence du contrôleur, intervention sensible…"
+                    rows={2}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isQualitySelf && (
+            <div>
+              <Label>Opérateur *</Label>
+              <Select value={operatorId} onValueChange={setOperatorId}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                <SelectContent>
+                  {operators.map((o) => (
+                    <SelectItem key={o.user_id} value={o.user_id}>
+                      {o.first_name} {o.last_name}
+                    </SelectItem>
+                  ))}
+                  {operators.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Aucun opérateur disponible</div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
