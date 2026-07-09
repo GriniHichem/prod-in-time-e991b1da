@@ -502,8 +502,8 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
           setOpenDialog(o);
           if (!o) resetForm();
         }}
-        title="Ouvrir une session de shift"
-        description="Sélectionnez l'opérateur et le contexte de la session."
+        title={kind === "quality" ? "Intervention personnelle du responsable qualité" : "Ouvrir une session de shift"}
+        description={kind === "quality" ? "Vous devenez le contrôleur pour ce créneau. Indiquez le motif." : "Sélectionnez l'opérateur et le contexte de la session."}
       >
         <div className="space-y-4">
           {kind === "quality" && (
