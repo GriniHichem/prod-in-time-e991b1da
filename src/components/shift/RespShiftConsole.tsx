@@ -494,22 +494,50 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
         description="Sélectionnez l'opérateur et le contexte de la session."
       >
         <div className="space-y-4">
-          <div>
-            <Label>Opérateur *</Label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
-              <SelectContent>
-                {operators.map((o) => (
-                  <SelectItem key={o.user_id} value={o.user_id}>
-                    {o.first_name} {o.last_name}
-                  </SelectItem>
-                ))}
-                {operators.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Aucun opérateur disponible</div>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          {kind === "quality" && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm">Intervenir moi-même</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Le responsable devient le contrôleur (absence, intervention sensible).
+                  </p>
+                </div>
+                <Switch checked={selfMode} onCheckedChange={setSelfMode} />
+              </div>
+              {selfMode && (
+                <div>
+                  <Label>Motif de l'intervention personnelle *</Label>
+                  <Textarea
+                    value={interventionReason}
+                    onChange={(e) => setInterventionReason(e.target.value)}
+                    placeholder="ex. absence du contrôleur, intervention sensible…"
+                    rows={2}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isQualitySelf && (
+            <div>
+              <Label>Opérateur *</Label>
+              <Select value={operatorId} onValueChange={setOperatorId}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                <SelectContent>
+                  {operators.map((o) => (
+                    <SelectItem key={o.user_id} value={o.user_id}>
+                      {o.first_name} {o.last_name}
+                    </SelectItem>
+                  ))}
+                  {operators.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">Aucun opérateur disponible</div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
