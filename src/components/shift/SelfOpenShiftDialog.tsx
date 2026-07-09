@@ -283,6 +283,26 @@ export function SelfOpenShiftDialog({ kind }: Props) {
                 </Select>
               </div>
             </>
+          ) : kind === "quality" && !hasPlan ? (
+            <div className="space-y-1.5">
+              <Label>Lignes ciblées</Label>
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                Les lignes sont déterminées automatiquement à partir des OF actifs — aucune sélection nécessaire.
+              </div>
+              {selectedLineIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {lines
+                    .filter((l) => selectedLineIds.includes(l.id))
+                    .map((l) => (
+                      <span key={l.id} className="inline-flex items-center rounded-md bg-accent px-2 py-1 text-xs">
+                        <span className="font-medium">{l.code}</span>&nbsp;— {l.designation}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-600 px-1">Aucun OF actif pour le moment — vous pourrez saisir des contrôles dès qu'un OF démarre.</p>
+              )}
+            </div>
           ) : (
             <div className="space-y-1.5">
               <Label>Lignes couvertes * {hasPlan && <span className="text-xs text-muted-foreground">(définies par le planning)</span>}</Label>
