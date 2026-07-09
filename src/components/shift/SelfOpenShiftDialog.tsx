@@ -283,7 +283,7 @@ export function SelfOpenShiftDialog({ kind }: Props) {
                 </Select>
               </div>
             </>
-          ) : kind === "quality" && !hasPlan ? (
+          ) : kind === "quality" ? (
             <div className="space-y-1.5">
               <Label>Lignes ciblées</Label>
               <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
