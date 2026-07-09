@@ -178,7 +178,7 @@ export function RespShiftConsole({ kind }: RespShiftConsoleProps) {
     setLineId("");
     setOfId("__none__");
     setSelectedLineIds([]);
-    setSelfMode(false);
+    
     setInterventionReason("");
     setShiftType(deriveShiftTypeFromHour(new Date().getHours()));
   }
