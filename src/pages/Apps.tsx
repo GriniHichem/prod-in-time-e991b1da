@@ -126,7 +126,7 @@ function getTheme(m: AppModule) {
   if (m.title === "Shift Maintenance") return CARD_THEME["indigo"];
   if (m.title === "Shift Production") return CARD_THEME["emerald"];
   if (m.title === "Shift contrôle") return CARD_THEME["amber"];
-  if (m.title === "Tableau de bord") return CARD_THEME["blue"];
+  if (m.title === "Dashboard maintenance") return CARD_THEME["blue"];
   if (m.title === "Dashboard Production") return CARD_THEME["emerald"];
   if (m.title === "Dashboard Qualité") return CARD_THEME["orange"];
   if (m.title === "Dashboard Inventaire") return CARD_THEME["gray"];
